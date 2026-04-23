@@ -25,7 +25,7 @@ export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
   try {
-    const { items, payment, payMethod } = await req.json()
+    const { items, payment, payMethod, payLater } = await req.json()
     if (!items?.length) return NextResponse.json({ message: 'Items tidak boleh kosong' }, { status: 400 })
     if (!payMethod) return NextResponse.json({ message: 'payMethod wajib diisi' }, { status: 400 })
     const products = await prisma.product.findMany({ where: { id: { in: items.filter(i => i.productId).map(i => i.productId) } } })
@@ -35,7 +35,7 @@ export async function POST(req) {
       return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty }
     })
     const total = orderItems.reduce((s, i) => s + i.subtotal, 0)
-    const actualPayment = payment || 0
+    const actualPayment = payLater ? 0 : (payment || 0)
     const transaction = await prisma.$transaction(async (tx) => {
       for (const item of items) {
         if (item.productId) await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.qty } } })
@@ -45,6 +45,7 @@ export async function POST(req) {
           invoiceNo: `BK-${Date.now()}`, total, payment: actualPayment,
           change: actualPayment > 0 ? actualPayment - total : 0,
           payMethod, cashierId: user.id,
+          status: payLater ? 'PENDING' : 'COMPLETED',
           items: { create: orderItems.filter(i => i.productId) },
         },
         include: { items: { include: { product: true } }, cashier: true },

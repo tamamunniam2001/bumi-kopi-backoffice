@@ -275,10 +275,16 @@ export default function KasirPage() {
               <span style={{ fontSize: '16px', fontWeight: '700' }}>Total</span>
               <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(total)}</span>
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}
-              disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
-              Lanjutkan →
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '0' }}>
+              <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '12px', fontSize: '14px' }}
+                disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
+                Bayar Sekarang
+              </button>
+              <button className="btn" style={{ flex: 1, justifyContent: 'center', padding: '12px', fontSize: '14px', background: '#FFFBEB', color: 'var(--orange)', border: '1px solid #FDE68A', fontWeight: '700' }}
+                disabled={cart.length === 0} onClick={() => setCheckoutOpen('later')}>
+                Bayar Nanti
+              </button>
+            </div>
           </div>
         </div>
 
@@ -298,6 +304,7 @@ export default function KasirPage() {
         <CheckoutModal
           cart={cart}
           total={total}
+          payLater={checkoutOpen === 'later'}
           onClose={() => setCheckoutOpen(false)}
           onSuccess={() => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); loadOrders() }}
         />
@@ -351,8 +358,8 @@ function ManualItemButton({ onAdd }) {
 }
 
 // ── Checkout Modal ──
-function CheckoutModal({ cart, total, onClose, onSuccess }) {
-  const [payMethod, setPayMethod] = useState('CASH')
+function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
+  const [payMethod, setPayMethod] = useState(payLater ? 'NONTUNAI' : 'CASH')
   const [payment, setPayment] = useState('')
   const [loading, setLoading] = useState(false)
   const [tx, setTx] = useState(null)
@@ -364,7 +371,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
   const quickAmounts = [50000, 100000, 150000, 200000]
 
   async function checkout() {
-    if (payMethod === 'CASH' && paid < total) return alert('Uang bayar kurang')
+    if (payMethod === 'CASH' && !payLater && paid < total) return alert('Uang bayar kurang')
     setLoading(true)
     try {
       const items = cart.map((i) => {
@@ -373,7 +380,12 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
         else o.productId = i.product.id
         return o
       })
-      const res = await api.post('/transactions', { items, payment: payMethod === 'CASH' ? paid : total, payMethod })
+      const res = await api.post('/transactions', {
+        items,
+        payment: payLater ? 0 : (payMethod === 'CASH' ? paid : total),
+        payMethod,
+        payLater,
+      })
       setTx(res.data)
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan transaksi')
@@ -421,10 +433,19 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="card fade-in" style={{ width: '460px', maxHeight: '90vh', overflow: 'auto' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '16px', fontWeight: '800' }}>Checkout</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '16px', fontWeight: '800' }}>{payLater ? 'Bayar Nanti' : 'Checkout'}</span>
+            {payLater && <span style={{ fontSize: '11px', fontWeight: '700', background: '#FFFBEB', color: 'var(--orange)', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: '20px' }}>Bon / Hutang</span>}
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--muted)', lineHeight: 1 }}>×</button>
         </div>
         <div style={{ padding: '20px 24px' }}>
+          {payLater && (
+            <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A', fontSize: '13px', color: '#92400E', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '16px' }}>⚠️</span>
+              <span>Order akan dicatat sebagai <b>belum dibayar</b>. Pembayaran bisa dilakukan nanti.</span>
+            </div>
+          )}
           <div style={{ marginBottom: '16px' }}>
             <div className="section-label">Pesanan</div>
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>
@@ -447,7 +468,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
               ))}
             </div>
           </div>
-          {payMethod === 'CASH' && (
+          {!payLater && payMethod === 'CASH' && (
             <div style={{ marginBottom: '16px' }}>
               <label className="label">Uang Bayar</label>
               <input className="input" type="number" placeholder="0" value={payment} onChange={(e) => setPayment(e.target.value)} style={{ marginBottom: '8px' }} />
@@ -466,7 +487,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
               <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
               <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(total)}</span>
             </div>
-            {payMethod === 'CASH' && paid > 0 && <>
+            {!payLater && payMethod === 'CASH' && paid > 0 && <>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text2)' }}>
                 <span>Bayar</span><span>Rp {fmt(paid)}</span>
               </div>
@@ -476,8 +497,8 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
             </>}
           </div>
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '15px' }}
-            disabled={loading || (payMethod === 'CASH' && paid < total)} onClick={checkout}>
-            {loading ? 'Memproses...' : 'Bayar Sekarang'}
+            disabled={loading || (!payLater && payMethod === 'CASH' && paid < total)} onClick={checkout}>
+            {loading ? 'Memproses...' : payLater ? 'Simpan Bon' : 'Bayar Sekarang'}
           </button>
         </div>
       </div>
