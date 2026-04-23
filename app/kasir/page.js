@@ -576,21 +576,87 @@ function ClosingModal({ orders, onClose }) {
       <div className="card fade-in" style={{ width: '780px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #0F172A, #1E293B)', flexShrink: 0 }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #1A2235, #243048)', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#F1F5F9' }}>🔒 Closing Kasir</div>
-            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#C8D8EE' }}>Closing Kasir</div>
+            <div style={{ fontSize: '11px', color: '#4A6080', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: '#94A3B8', fontSize: '18px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={onClose} style={{ background: 'rgba(200,216,238,0.08)', border: '1px solid #2A3A52', borderRadius: '8px', cursor: 'pointer', color: '#6B7FA8', fontSize: '18px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {saved ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '6px' }}>Laporan Tersimpan!</div>
-              <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '24px' }}>Closing hari ini berhasil dicatat</div>
-              <button className="btn btn-primary" style={{ justifyContent: 'center' }} onClick={onClose}>Tutup</button>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+              {/* Success badge */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '52px', height: '52px', background: 'var(--green-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', border: '2px solid #A7F3D0' }}>✓</div>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)' }}>Laporan Tersimpan!</div>
+                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
+              </div>
+
+              {/* Ringkasan dalam satu kotak */}
+              <div style={{ width: '100%', maxWidth: '560px', background: 'var(--surface2)', borderRadius: '14px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                {/* Penjualan */}
+                <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: '#FAFBFF' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Ringkasan Penjualan</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {[
+                      { label: 'Total', value: totalPenjualan, color: '#3B6FD4', bg: '#EEF3FC', border: '#C7D4F0' },
+                      { label: 'Cash', value: totalCash, color: '#0EA472', bg: '#EDFAF4', border: '#A7F3D0' },
+                      { label: 'QRIS', value: totalQris, color: '#7C5CBF', bg: '#F4F1FB', border: '#DDD6FE' },
+                      { label: 'Transfer', value: totalTransfer, color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+                    ].map(({ label, value, color, bg, border }) => (
+                      <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '9px', padding: '9px 10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '3px' }}>{label}</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color }}>{fmt(value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--muted)', textAlign: 'center' }}>
+                    {completed.length} transaksi selesai · {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                  </div>
+                </div>
+
+                {/* Kas */}
+                <div style={{ padding: '14px 18px', borderBottom: pengeluaran.filter(p => p.barang).length > 0 || catatan ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
+                  {[
+                    ['Kas Awal', fmt(Number(kasAwal) || 0), 'var(--text2)'],
+                    ['+ Penjualan Cash', `+${fmt(totalCash)}`, 'var(--green)'],
+                    ...(totalPengeluaran > 0 ? [['- Pengeluaran', `-${fmt(totalPengeluaran)}`, 'var(--red)']] : []),
+                  ].map(([label, val, color]) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                      <span style={{ color: 'var(--text2)' }}>{label}</span>
+                      <span style={{ fontWeight: '600', color }}>{val}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Total Kas Akhir</span>
+                    <span style={{ fontSize: '18px', fontWeight: '800', color: kasAkhir >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(kasAkhir)}</span>
+                  </div>
+                </div>
+
+                {/* Pengeluaran & Catatan */}
+                {pengeluaran.filter(p => p.barang).length > 0 && (
+                  <div style={{ padding: '14px 18px', borderBottom: catatan ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Pengeluaran</div>
+                    {pengeluaran.filter(p => p.barang).map((p, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                        <span style={{ color: 'var(--text2)' }}>{p.barang} ×{p.qty}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--red)' }}>-{fmt(Number(p.harga) * Number(p.qty || 1))}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {catatan && (
+                  <div style={{ padding: '12px 18px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Catatan</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{catatan}</div>
+                  </div>
+                )}
+              </div>
+
+              <button className="btn btn-primary" style={{ justifyContent: 'center', minWidth: '160px' }} onClick={onClose}>Tutup</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -616,17 +682,17 @@ function ClosingModal({ orders, onClose }) {
                 </div>
 
                 {/* Kas Akhir */}
-                <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: '12px', padding: '14px 16px', marginTop: 'auto' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#475569', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
-                  {[['Kas Awal', fmt(Number(kasAwal) || 0), '#94A3B8'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#10B981'], ...(totalPengeluaran > 0 ? [[`- Pengeluaran`, `-${fmt(totalPengeluaran)}`, '#EF4444']] : [])].map(([label, val, color]) => (
+                <div style={{ background: 'linear-gradient(135deg, #1A2235, #243048)', borderRadius: '12px', padding: '14px 16px', marginTop: 'auto' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#4A6080', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
+                  {[['Kas Awal', fmt(Number(kasAwal) || 0), '#7EAAEE'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#4DB896'], ...(totalPengeluaran > 0 ? [[`- Pengeluaran`, `-${fmt(totalPengeluaran)}`, '#E08080']] : [])].map(([label, val, color]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', color: '#64748B' }}>{label}</span>
+                      <span style={{ fontSize: '11px', color: '#4A6080' }}>{label}</span>
                       <span style={{ fontSize: '12px', color }}>{val}</span>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #334155', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#F1F5F9' }}>Total Kas Akhir</span>
-                    <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#10B981' : '#EF4444' }}>{fmt(kasAkhir)}</span>
+                  <div style={{ borderTop: '1px solid #2A3A52', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#C8D8EE' }}>Total Kas Akhir</span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#4DB896' : '#E08080' }}>{fmt(kasAkhir)}</span>
                   </div>
                 </div>
               </div>
