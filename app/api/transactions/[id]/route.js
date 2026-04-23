@@ -28,7 +28,12 @@ export async function PATCH(req, { params }) {
   const transaction = await prisma.transaction.update({
     where: { id: params.id },
     data,
-    include: { cashier: { select: { name: true } }, items: { include: { product: true } } },
+    select: {
+      id: true, servedAt: true, status: true, payment: true, change: true, payMethod: true,
+      invoiceNo: true, total: true, createdAt: true, customerName: true, note: true,
+      cashier: { select: { name: true } },
+      items: { include: { product: { select: { name: true, imageUrl: true } } } },
+    },
   })
   return NextResponse.json(transaction)
 }

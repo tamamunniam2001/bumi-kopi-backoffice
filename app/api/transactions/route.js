@@ -28,18 +28,27 @@ export async function POST(req) {
     const { items, payment, payMethod, payLater, customerName, note } = await req.json()
     if (!items?.length) return NextResponse.json({ message: 'Items tidak boleh kosong' }, { status: 400 })
     if (!payMethod) return NextResponse.json({ message: 'payMethod wajib diisi' }, { status: 400 })
-    const products = await prisma.product.findMany({ where: { id: { in: items.filter(i => i.productId).map(i => i.productId) } } })
+
+    const productIds = items.filter(i => i.productId).map(i => i.productId)
+    const products = productIds.length
+      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, price: true } })
+      : []
+
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.productId)
       const price = product ? product.price : (item.price || 0)
-      return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty }
+      return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty, name: item.name }
     })
     const total = orderItems.reduce((s, i) => s + i.subtotal, 0)
     const actualPayment = payLater ? 0 : (payment || 0)
+
     const transaction = await prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        if (item.productId) await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.qty } } })
-      }
+      // Batch update stok sekaligus
+      await Promise.all(
+        items.filter(i => i.productId).map(i =>
+          tx.product.update({ where: { id: i.productId }, data: { stock: { decrement: i.qty } } })
+        )
+      )
       return tx.transaction.create({
         data: {
           invoiceNo: `BK-${Date.now()}`, total, payment: actualPayment,
@@ -48,9 +57,9 @@ export async function POST(req) {
           status: payLater ? 'PENDING' : 'COMPLETED',
           customerName: customerName || '',
           note: note || '',
-          items: { create: orderItems.filter(i => i.productId) },
+          items: { create: orderItems.filter(i => i.productId).map(({ name: _n, ...i }) => i) },
         },
-        include: { items: { include: { product: true } }, cashier: true },
+        include: { items: { include: { product: { select: { name: true, imageUrl: true } } } }, cashier: { select: { name: true } } },
       })
     })
     return NextResponse.json(transaction, { status: 201 })

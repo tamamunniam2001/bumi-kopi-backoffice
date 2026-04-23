@@ -38,7 +38,8 @@ export default function KasirPage() {
   const loadOrders = useCallback(async () => {
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
-      const res = await api.get(`/transactions?from=${today.toISOString()}&to=${new Date().toISOString()}&page=1`)
+      const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
+      const res = await api.get(`/transactions?from=${today.toISOString()}&to=${endOfDay.toISOString()}&page=1`)
       setOrders(res.data.transactions || [])
     } catch { }
   }, [])
@@ -52,13 +53,15 @@ export default function KasirPage() {
 
   function toggleServed(order) {
     const newServedAt = order.servedAt ? null : new Date().toISOString()
-    // Update lokal langsung
     setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: newServedAt } : o))
-    if (selectedOrder?.id === order.id) setSelectedOrder((prev) => ({ ...prev, servedAt: newServedAt }))
-    // Sync ke server
-    api.patch(`/transactions/${order.id}`, { servedAt: newServedAt }).catch(() => {
-      // Rollback jika gagal
+    setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: newServedAt } : prev)
+    api.patch(`/transactions/${order.id}`, { servedAt: newServedAt }).then((res) => {
+      // Update dari server (source of truth)
+      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: res.data.servedAt } : o))
+      setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: res.data.servedAt } : prev)
+    }).catch(() => {
       setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: order.servedAt } : o))
+      setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: order.servedAt } : prev)
     })
   }
 
