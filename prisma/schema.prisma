@@ -38,6 +38,9 @@ model Product {
   orderItems  OrderItem[]
   ingredients ProductIngredient[]
   createdAt   DateTime            @default(now())
+
+  @@index([isActive])
+  @@index([categoryId])
 }
 
 model Ingredient {
@@ -74,6 +77,10 @@ model Transaction {
   cashier      User        @relation(fields: [cashierId], references: [id])
   items        OrderItem[]
   createdAt    DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([cashierId])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
@@ -85,6 +92,9 @@ model OrderItem {
   product       Product     @relation(fields: [productId], references: [id])
   transactionId String
   transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+  @@index([productId])
 }
 
 enum Role {
@@ -120,4 +130,7 @@ model DailyReport {
   cashier       User     @relation(fields: [cashierId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([cashierId])
+  @@index([date])
 }
