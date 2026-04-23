@@ -576,12 +576,12 @@ function ClosingModal({ orders, onClose }) {
       <div className="card fade-in" style={{ width: '780px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #1A2235, #243048)', flexShrink: 0 }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#C8D8EE' }}>Closing Kasir</div>
-            <div style={{ fontSize: '11px', color: '#4A6080', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E2A3B' }}>Closing Kasir</div>
+            <div style={{ fontSize: '11px', color: '#7A8FAF', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(200,216,238,0.08)', border: '1px solid #2A3A52', borderRadius: '8px', cursor: 'pointer', color: '#6B7FA8', fontSize: '18px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', fontSize: '18px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -682,17 +682,17 @@ function ClosingModal({ orders, onClose }) {
                 </div>
 
                 {/* Kas Akhir */}
-                <div style={{ background: 'linear-gradient(135deg, #1A2235, #243048)', borderRadius: '12px', padding: '14px 16px', marginTop: 'auto' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#4A6080', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
-                  {[['Kas Awal', fmt(Number(kasAwal) || 0), '#7EAAEE'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#4DB896'], ...(totalPengeluaran > 0 ? [[`- Pengeluaran`, `-${fmt(totalPengeluaran)}`, '#E08080']] : [])].map(([label, val, color]) => (
+                <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', padding: '14px 16px', marginTop: 'auto', border: '1px solid #C0D0E8' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
+                  {[['Kas Awal', fmt(Number(kasAwal) || 0), '#4A5878'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'], ...(totalPengeluaran > 0 ? [[`- Pengeluaran`, `-${fmt(totalPengeluaran)}`, '#C95555']] : [])].map(([label, val, color]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', color: '#4A6080' }}>{label}</span>
+                      <span style={{ fontSize: '11px', color: '#7A8FAF' }}>{label}</span>
                       <span style={{ fontSize: '12px', color }}>{val}</span>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #2A3A52', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#C8D8EE' }}>Total Kas Akhir</span>
-                    <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#4DB896' : '#E08080' }}>{fmt(kasAkhir)}</span>
+                  <div style={{ borderTop: '1px solid #C0D0E8', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E2A3B' }}>Total Kas Akhir</span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
                   </div>
                 </div>
               </div>
