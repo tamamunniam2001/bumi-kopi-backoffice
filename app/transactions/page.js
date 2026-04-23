@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
-import { printThermal } from '@/lib/thermal'
+import { printThermal, disconnectPrinter } from '@/lib/thermal'
 
 const methodBadge = {
   CASH: 'badge-green',
@@ -16,16 +16,23 @@ export default function TransactionsPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [printingId, setPrintingId] = useState(null)
+  const [printerName, setPrinterName] = useState(null)
 
   async function handlePrint(tx) {
     setPrintingId(tx.id)
     try {
-      await printThermal(tx)
+      const name = await printThermal(tx)
+      if (name) setPrinterName(name)
     } catch (e) {
       alert('Gagal cetak: ' + e.message)
     } finally {
       setPrintingId(null)
     }
+  }
+
+  function handleDisconnect() {
+    disconnectPrinter()
+    setPrinterName(null)
   }
 
   async function load() {
@@ -46,6 +53,19 @@ export default function TransactionsPage() {
           <div>
             <div className="topbar-title">Transaksi</div>
             <div className="topbar-sub">{data.total} total transaksi</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {printerName && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '8px', padding: '6px 12px' }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981' }} />
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#10B981' }}>{printerName}</span>
+              </div>
+            )}
+            {printerName && (
+              <button className="btn btn-ghost" style={{ fontSize: '12px', padding: '6px 12px' }} onClick={handleDisconnect}>
+                Ganti Printer
+              </button>
+            )}
           </div>
         </div>
 
