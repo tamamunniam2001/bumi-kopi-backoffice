@@ -6,6 +6,7 @@ import { printThermal } from '@/lib/thermal'
 import Cookies from 'js-cookie'
 
 const fmt = (n) => Number(n).toLocaleString('id-ID')
+const fmtTime = (d) => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
 export default function KasirPage() {
   const [products, setProducts] = useState([])
@@ -16,6 +17,8 @@ export default function KasirPage() {
   const [cart, setCart] = useState([])
   const [cartOpen, setCartOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [orders, setOrders] = useState([])
+  const [ordersExpanded, setOrdersExpanded] = useState(true)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
   const load = useCallback(async () => {
@@ -29,6 +32,31 @@ export default function KasirPage() {
     } catch { }
     setLoading(false)
   }, [])
+
+  const loadOrders = useCallback(async () => {
+    try {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const res = await api.get(`/transactions?from=${today.toISOString()}&to=${new Date().toISOString()}&page=1`)
+      setOrders(res.data.transactions || [])
+    } catch { setOrders([]) }
+  }, [])
+
+  useEffect(() => { load(); loadOrders() }, [load, loadOrders])
+
+  // Auto-refresh orders setiap 30 detik
+  useEffect(() => {
+    const t = setInterval(loadOrders, 30000)
+    return () => clearInterval(t)
+  }, [loadOrders])
+
+  async function toggleServed(order) {
+    try {
+      await api.patch(`/transactions/${order.id}`, {
+        servedAt: order.servedAt ? null : new Date().toISOString()
+      })
+      loadOrders()
+    } catch { }
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -60,6 +88,11 @@ export default function KasirPage() {
   const qtyOf = (id) => cart.find((i) => i.product.id === id)?.qty || 0
   const totalQty = cart.reduce((s, i) => s + i.qty, 0)
 
+  // hitung summary orders
+  const ordersToday = orders.length
+  const ordersServed = orders.filter((o) => o.servedAt).length
+  const ordersPending = ordersToday - ordersServed
+
   return (
     <div className="page">
       <Sidebar />
@@ -83,6 +116,73 @@ export default function KasirPage() {
 
         {/* Produk area — full width */}
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+
+          {/* ── Order List ── */}
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            {/* Header */}
+            <div onClick={() => setOrdersExpanded(!ordersExpanded)}
+              style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Order Hari Ini</span>
+              <span style={{ fontSize: '11px', fontWeight: '700', background: '#EFF4FF', color: 'var(--accent)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #C7D4F0' }}>{ordersToday} order</span>
+              {ordersPending > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--orange-light)', color: 'var(--orange)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FDE68A' }}>{ordersPending} belum disajikan</span>}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button onClick={(e) => { e.stopPropagation(); loadOrders() }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: '2px' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </button>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: '#94A3B8', transition: 'transform 0.2s', transform: ordersExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* Cards */}
+            {ordersExpanded && (
+              <div style={{ overflowX: 'auto', padding: '0 20px 12px', display: 'flex', gap: '10px' }}>
+                {orders.length === 0 ? (
+                  <div style={{ padding: '12px 0', color: '#94A3B8', fontSize: '13px' }}>Belum ada order hari ini</div>
+                ) : orders.map((order) => {
+                  const served = !!order.servedAt
+                  const paid = order.status === 'COMPLETED'
+                  const statusBg = served ? '#ECFDF5' : '#FFFBEB'
+                  const statusColor = served ? 'var(--green)' : 'var(--orange)'
+                  const statusBorder = served ? '#A7F3D0' : '#FDE68A'
+                  const statusLabel = served ? '✓ Disajikan' : '⏳ Belum Disajikan'
+                  return (
+                    <div key={order.id} style={{ flexShrink: 0, width: '180px', background: '#FAFBFF', borderRadius: '12px', border: `1px solid ${served ? '#A7F3D0' : 'var(--border)'}`, padding: '12px', transition: 'border-color 0.2s' }}>
+                      {/* Invoice + waktu */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#94A3B8' }}>{order.invoiceNo.slice(-8)}</span>
+                        <span style={{ fontSize: '10px', color: '#94A3B8' }}>{fmtTime(order.createdAt)}</span>
+                      </div>
+                      {/* Items */}
+                      <div style={{ marginBottom: '8px' }}>
+                        {order.items.slice(0, 2).map((item, i) => (
+                          <div key={i} style={{ fontSize: '12px', color: 'var(--text)', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.qty}× {item.product?.name || 'Item'}
+                          </div>
+                        ))}
+                        {order.items.length > 2 && <div style={{ fontSize: '11px', color: '#94A3B8' }}>+{order.items.length - 2} lainnya</div>}
+                      </div>
+                      {/* Total */}
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)', marginBottom: '8px' }}>Rp {fmt(order.total)}</div>
+                      {/* Status badges */}
+                      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>{statusLabel}</span>
+                        <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', background: paid ? '#ECFDF5' : '#EFF4FF', color: paid ? 'var(--green)' : 'var(--accent)', border: `1px solid ${paid ? '#A7F3D0' : '#C7D4F0'}` }}>{paid ? '✓ Dibayar' : order.payMethod}</span>
+                      </div>
+                      {/* Tombol sajikan */}
+                      <button onClick={() => toggleServed(order)}
+                        style={{ width: '100%', padding: '6px', borderRadius: '8px', border: `1px solid ${served ? '#A7F3D0' : 'var(--border)'}`, background: served ? '#ECFDF5' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                        {served ? 'Batalkan Sajian' : 'Tandai Disajikan'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Category bar */}
           <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', gap: '8px', overflowX: 'auto', flexShrink: 0 }}>
             {[{ label: 'Semua', value: null }, ...categories.map((c) => ({ label: c, value: c }))].map(({ label, value }) => (
@@ -199,7 +299,7 @@ export default function KasirPage() {
           cart={cart}
           total={total}
           onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load() }}
+          onSuccess={() => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); loadOrders() }}
         />
       )}
     </div>

@@ -67,6 +67,7 @@ model Transaction {
   change     Int
   payMethod  PayMethod   @default(CASH)
   status     TxStatus    @default(COMPLETED)
+  servedAt   DateTime?
   cashierId  String
   cashier    User        @relation(fields: [cashierId], references: [id])
   items      OrderItem[]
