@@ -142,6 +142,7 @@ export default function KasirPage() {
               <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Order Hari Ini</span>
               <span style={{ fontSize: '11px', fontWeight: '700', background: '#EFF4FF', color: 'var(--accent)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #C7D4F0' }}>{ordersToday} order</span>
               {ordersPending > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--orange-light)', color: 'var(--orange)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FDE68A' }}>{ordersPending} belum disajikan</span>}
+              {orders.filter(o => o.status !== 'COMPLETED').length > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FECACA' }}>{orders.filter(o => o.status !== 'COMPLETED').length} belum bayar</span>}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button onClick={(e) => { e.stopPropagation(); loadOrders() }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: '2px' }}>
@@ -539,7 +540,6 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
         })
         setTx({ invoiceNo: existingOrderId, total, change: payMethod === 'CASH' ? paid - total : 0 })
       } else {
-      } else {
         const items = cart.map((i) => {
           const o = { qty: i.qty, price: i.product.price }
           if (i.product.id.startsWith('manual_')) o.name = i.product.name
@@ -654,7 +654,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
           </div>
 
           {/* Kanan: Metode + Numpad + Tombol */}
-          <div style={{ width: '300px', flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ width: '300px', flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
             {/* Metode */}
             <div>
               <div className="section-label">Metode Pembayaran</div>
@@ -695,7 +695,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
             </div>
 
             {/* Tombol aksi */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 onClick={() => checkout(false)}
                 disabled={loading || (payMethod === 'CASH' && !payLater && paid < total) || payLater}
