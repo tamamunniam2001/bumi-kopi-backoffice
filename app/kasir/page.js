@@ -279,13 +279,9 @@ export default function KasirPage() {
               <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(total)}</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '0' }}>
-              <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '12px', fontSize: '14px' }}
+              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}
                 disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
-                Bayar Sekarang
-              </button>
-              <button className="btn" style={{ flex: 1, justifyContent: 'center', padding: '12px', fontSize: '14px', background: '#FFFBEB', color: 'var(--orange)', border: '1px solid #FDE68A', fontWeight: '700' }}
-                disabled={cart.length === 0} onClick={() => setCheckoutOpen('later')}>
-                Bayar Nanti
+                Lanjutkan →
               </button>
             </div>
           </div>
@@ -307,7 +303,6 @@ export default function KasirPage() {
         <CheckoutModal
           cart={cart}
           total={total}
-          payLater={checkoutOpen === 'later'}
           onClose={() => setCheckoutOpen(false)}
           onSuccess={() => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); loadOrders() }}
         />
@@ -540,9 +535,10 @@ function ManualItemButton({ onAdd }) {
 }
 
 // ── Checkout Modal ──
-function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
-  const [payMethod, setPayMethod] = useState(payLater ? 'NONTUNAI' : 'CASH')
+function CheckoutModal({ cart, total, onClose, onSuccess }) {
+  const [payMethod, setPayMethod] = useState('CASH')
   const [payment, setPayment] = useState('')
+  const [payLater, setPayLater] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
@@ -550,12 +546,19 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
   const [printing, setPrinting] = useState(false)
 
   const paid = Number(payment) || 0
-  const change = payMethod === 'CASH' ? paid - total : 0
-  const methods = ['CASH', 'QRIS', 'TRANSFER', 'NONTUNAI']
-  const quickAmounts = [50000, 100000, 150000, 200000]
+  const change = payMethod === 'CASH' && !payLater ? paid - total : 0
+  const methods = ['CASH', 'QRIS', 'TRANSFER']
 
-  async function checkout() {
-    if (payMethod === 'CASH' && !payLater && paid < total) return alert('Uang bayar kurang')
+  function numpadPress(val) {
+    if (payLater) return
+    if (val === 'C') { setPayment(''); return }
+    if (val === '⌫') { setPayment((p) => p.slice(0, -1)); return }
+    if (val === '000') { setPayment((p) => (p === '' ? '' : p + '000')); return }
+    setPayment((p) => (p.length >= 10 ? p : p + val))
+  }
+
+  async function checkout(later = false) {
+    if (!later && payMethod === 'CASH' && paid < total) return alert('Uang bayar kurang')
     setLoading(true)
     try {
       const items = cart.map((i) => {
@@ -566,18 +569,16 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
       })
       const res = await api.post('/transactions', {
         items,
-        payment: payLater ? 0 : (payMethod === 'CASH' ? paid : total),
+        payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
         payMethod,
-        payLater,
+        payLater: later,
         customerName,
         note,
       })
       setTx(res.data)
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan transaksi')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function handlePrint() {
@@ -586,6 +587,8 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
     try { await printThermal(tx) } catch (e) { alert('Gagal cetak: ' + e.message) }
     finally { setPrinting(false) }
   }
+
+  const numKeys = ['7','8','9','4','5','6','1','2','3','000','0','⌫']
 
   if (tx) return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
@@ -603,7 +606,7 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
           <div style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '15px' }}>
             <span>Total</span><span style={{ color: 'var(--accent)' }}>Rp {fmt(tx.total)}</span>
           </div>
-          {payMethod === 'CASH' && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px', color: 'var(--green)' }}><span>Kembalian</span><span style={{ fontWeight: '700' }}>Rp {fmt(tx.change)}</span></div>}
+          {payMethod === 'CASH' && tx.change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px', color: 'var(--green)' }}><span>Kembalian</span><span style={{ fontWeight: '700' }}>Rp {fmt(tx.change)}</span></div>}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSuccess(tx)}>Selesai</button>
@@ -616,87 +619,117 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
   )
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="card fade-in" style={{ width: '460px', maxHeight: '90vh', overflow: 'auto' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px', fontWeight: '800' }}>{payLater ? 'Bayar Nanti' : 'Checkout'}</span>
-            {payLater && <span style={{ fontSize: '11px', fontWeight: '700', background: '#FFFBEB', color: 'var(--orange)', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: '20px' }}>Bon / Hutang</span>}
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--muted)', lineHeight: 1 }}>×</button>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="card fade-in" style={{ width: '820px', maxWidth: '96vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{ fontSize: '16px', fontWeight: '800' }}>Checkout</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', color: 'var(--muted)', lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: '20px 24px' }}>
-          {payLater && (
-            <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A', fontSize: '13px', color: '#92400E', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '16px' }}>⚠️</span>
-              <span>Order akan dicatat sebagai <b>belum dibayar</b>. Pembayaran bisa dilakukan nanti.</span>
+
+        {/* Body 2 kolom */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+          {/* Kiri: Info + Items */}
+          <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', borderRight: '1px solid var(--border)' }}>
+            {/* Nama + Catatan */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+              <div>
+                <label className="label">Nama Pembeli</label>
+                <input className="input" placeholder="Nama pelanggan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Catatan</label>
+                <input className="input" placeholder="Tanpa es, extra shot..." value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
             </div>
-          )}
-          {/* Nama pembeli + catatan */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-            <div>
-              <label className="label">Nama Pembeli</label>
-              <input className="input" placeholder="Nama pelanggan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Catatan <span style={{ color: '#94A3B8', fontWeight: 400 }}>(opsional)</span></label>
-              <input className="input" placeholder="Tanpa es, extra shot..." value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-          </div>
-          <div style={{ marginBottom: '16px' }}>
+
+            {/* Items */}
             <div className="section-label">Pesanan</div>
-            <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>
-              {cart.map((item) => (
-                <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '13px' }}>
+            <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '14px', overflow: 'hidden' }}>
+              {cart.map((item, i) => (
+                <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i < cart.length - 1 ? '1px solid var(--border)' : 'none', fontSize: '13px' }}>
                   <span style={{ color: 'var(--text2)' }}>{item.product.name} <span style={{ color: 'var(--muted)' }}>×{item.qty}</span></span>
                   <span style={{ fontWeight: '700' }}>Rp {fmt(item.product.price * item.qty)}</span>
                 </div>
               ))}
             </div>
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <div className="section-label">Metode Pembayaran</div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {methods.map((m) => (
-                <button key={m} onClick={() => { setPayMethod(m); setPayment('') }}
-                  style={{ padding: '8px 16px', borderRadius: '10px', border: `1px solid ${payMethod === m ? 'var(--accent)' : 'var(--border)'}`, background: payMethod === m ? 'var(--accent)' : '#fff', color: payMethod === m ? '#fff' : 'var(--text2)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {m}
-                </button>
-              ))}
+
+            {/* Total */}
+            <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
+                <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(total)}</span>
+              </div>
+              {payMethod === 'CASH' && !payLater && paid > 0 && <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text2)', marginTop: '6px' }}>
+                  <span>Bayar</span><span>Rp {fmt(paid)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700', color: change >= 0 ? 'var(--green)' : 'var(--red)', marginTop: '4px' }}>
+                  <span>Kembalian</span><span>Rp {fmt(Math.max(0, change))}</span>
+                </div>
+              </>}
             </div>
           </div>
-          {!payLater && payMethod === 'CASH' && (
-            <div style={{ marginBottom: '16px' }}>
-              <label className="label">Uang Bayar</label>
-              <input className="input" type="number" placeholder="0" value={payment} onChange={(e) => setPayment(e.target.value)} style={{ marginBottom: '8px' }} />
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {quickAmounts.map((v) => (
-                  <button key={v} onClick={() => setPayment(String(v))}
-                    style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--accent-light)', color: 'var(--accent)', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Rp {fmt(v)}
+
+          {/* Kanan: Metode + Numpad + Tombol */}
+          <div style={{ width: '300px', flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Metode */}
+            <div>
+              <div className="section-label">Metode Pembayaran</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {methods.map((m) => (
+                  <button key={m} onClick={() => { setPayMethod(m); setPayment(''); setPayLater(false) }}
+                    style={{ flex: 1, padding: '8px 4px', borderRadius: '9px', border: `1.5px solid ${payMethod === m && !payLater ? 'var(--accent)' : 'var(--border)'}`, background: payMethod === m && !payLater ? 'var(--accent)' : '#fff', color: payMethod === m && !payLater ? '#fff' : 'var(--text2)', fontWeight: '700', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {m}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-          <div style={{ background: 'var(--surface2)', borderRadius: '12px', padding: '14px', border: '1px solid var(--border)', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
-              <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(total)}</span>
+
+            {/* Display nominal */}
+            <div style={{ background: '#0F172A', borderRadius: '12px', padding: '14px 16px' }}>
+              <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>{payLater ? 'BAYAR NANTI' : 'NOMINAL BAYAR'}</div>
+              <div style={{ fontSize: '26px', fontWeight: '800', color: payLater ? '#F59E0B' : '#F1F5F9', letterSpacing: '1px', minHeight: '36px', textAlign: 'right' }}>
+                {payLater ? 'Bon / Hutang' : (payment ? `Rp ${Number(payment).toLocaleString('id-ID')}` : 'Rp 0')}
+              </div>
+              {payMethod === 'CASH' && !payLater && paid > 0 && (
+                <div style={{ fontSize: '13px', fontWeight: '700', color: change >= 0 ? '#10B981' : '#EF4444', textAlign: 'right', marginTop: '4px' }}>
+                  Kembali: Rp {fmt(Math.max(0, change))}
+                </div>
+              )}
             </div>
-            {!payLater && payMethod === 'CASH' && paid > 0 && <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text2)' }}>
-                <span>Bayar</span><span>Rp {fmt(paid)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700', color: change >= 0 ? 'var(--green)' : 'var(--red)', marginTop: '4px' }}>
-                <span>Kembalian</span><span>Rp {fmt(Math.max(0, change))}</span>
-              </div>
-            </>}
+
+            {/* Numpad */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+              {numKeys.map((k) => (
+                <button key={k} onClick={() => numpadPress(k)}
+                  style={{ padding: '14px 0', borderRadius: '10px', border: '1px solid var(--border)', background: k === '⌫' ? '#FEF2F2' : k === 'C' ? '#FEF2F2' : '#fff', color: k === '⌫' || k === 'C' ? 'var(--red)' : 'var(--text)', fontSize: k === '⌫' ? '18px' : '16px', fontWeight: '700', cursor: payLater ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: payLater ? 0.4 : 1, transition: 'background 0.1s' }}
+                  onMouseEnter={e => { if (!payLater) e.currentTarget.style.background = '#F1F5F9' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = k === '⌫' || k === 'C' ? '#FEF2F2' : '#fff' }}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+
+            {/* Tombol aksi */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+              <button
+                onClick={() => checkout(false)}
+                disabled={loading || (payMethod === 'CASH' && !payLater && paid < total) || payLater}
+                style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', opacity: (loading || (payMethod === 'CASH' && paid < total) || payLater) ? 0.5 : 1 }}>
+                {loading ? 'Memproses...' : `Bayar Rp ${fmt(total)}`}
+              </button>
+              <button
+                onClick={() => checkout(true)}
+                disabled={loading}
+                style={{ width: '100%', padding: '11px', borderRadius: '10px', border: '1.5px solid #FDE68A', background: '#FFFBEB', color: '#92400E', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                ⏳ Bayar Nanti (Bon)
+              </button>
+            </div>
           </div>
-          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '15px' }}
-            disabled={loading || (!payLater && payMethod === 'CASH' && paid < total)} onClick={checkout}>
-            {loading ? 'Memproses...' : payLater ? 'Simpan Bon' : 'Bayar Sekarang'}
-          </button>
         </div>
       </div>
     </div>
