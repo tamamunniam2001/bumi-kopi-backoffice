@@ -544,147 +544,137 @@ function ClosingModal({ orders, onClose }) {
   const totalPengeluaran = pengeluaran.reduce((s, p) => s + (Number(p.harga) * Number(p.qty || 1)), 0)
   const kasAkhir = Number(kasAwal || 0) + totalCash - totalPengeluaran
 
-  function addPengeluaran() {
-    setPengeluaran(prev => [...prev, { barang: '', qty: 1, harga: 0 }])
-  }
-
-  function updatePengeluaran(i, field, val) {
-    setPengeluaran(prev => prev.map((p, n) => n === i ? { ...p, [field]: val } : p))
-  }
+  function addPengeluaran() { setPengeluaran(prev => [...prev, { barang: '', qty: 1, harga: 0 }]) }
+  function updatePengeluaran(i, field, val) { setPengeluaran(prev => prev.map((p, n) => n === i ? { ...p, [field]: val } : p)) }
 
   async function handleSave() {
     setSaving(true)
     try {
       await api.post('/daily-reports', {
-        kasAwal: Number(kasAwal) || 0,
-        penjualan: totalPenjualan,
-        uangDisetor: totalCash,
-        qris: totalQris,
-        transfer: totalTransfer,
+        kasAwal: Number(kasAwal) || 0, penjualan: totalPenjualan, uangDisetor: totalCash,
+        qris: totalQris, transfer: totalTransfer,
         pengeluaran: pengeluaran.filter(p => p.barang).map(p => ({ ...p, qty: Number(p.qty) || 1, harga: Number(p.harga) || 0 })),
-        piutang: [],
-        catatan,
+        piutang: [], catatan,
       })
       setSaved(true)
-    } catch (e) {
-      alert(e.response?.data?.message || 'Gagal menyimpan laporan')
-    } finally { setSaving(false) }
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan laporan') }
+    finally { setSaving(false) }
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="card fade-in" style={{ width: '780px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="card fade-in" style={{ width: '820px', maxWidth: '96vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', flexShrink: 0 }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E2A3B' }}>Closing Kasir</div>
+            <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E2A3B' }}>Closing Kasir</div>
             <div style={{ fontSize: '11px', color: '#7A8FAF', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', fontSize: '18px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Ã—</button>
+          <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {saved ? (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '14px 18px', gap: '10px' }}>
               {/* Success header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ width: '40px', height: '40px', background: 'var(--green-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', border: '2px solid #A7F3D0', flexShrink: 0, color: 'var(--green)', fontWeight: '800' }}>âœ“</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <div style={{ width: '32px', height: '32px', background: 'var(--green-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #A7DFC8', flexShrink: 0, color: 'var(--green)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>Laporan Closing Tersimpan</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Laporan Closing Tersimpan</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
                 </div>
+                <button className="btn btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center', padding: '7px 18px', fontSize: '12px' }} onClick={onClose}>Tutup</button>
               </div>
-              <div style={{ display: 'flex', gap: '16px' }}>
+
+              {/* Body 2 kolom */}
+              <div style={{ display: 'flex', gap: '12px', flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 {/* Kolom kiri */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Ringkasan Penjualan</div>
-                    </div>
-                    <div style={{ padding: '12px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      {[
-                        { label: 'Total Penjualan', value: totalPenjualan, color: '#4A7CC7', bg: '#EBF1FB', border: '#C0D0E8' },
-                        { label: 'Cash', value: totalCash, color: '#2A9D6E', bg: '#E8F7F1', border: '#A7DFC8' },
-                        { label: 'QRIS', value: totalQris, color: '#6B5BAF', bg: '#EEEAF8', border: '#C8C0E8' },
-                        { label: 'Transfer / Non-Tunai', value: totalTransfer, color: '#C47D1A', bg: '#FDF4E3', border: '#F0D090' },
-                      ].map(({ label, value, color, bg, border }) => (
-                        <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '9px', padding: '10px 12px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '3px' }}>{label}</div>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color }}>{fmt(value)}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)', background: '#F5F8FE' }}>
-                      {completed.length} transaksi selesai Â· {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
-                    </div>
-                  </div>
-                  <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', border: '1px solid #C0D0E8', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #C0D0E8' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Kalkulasi Kas</div>
-                    </div>
-                    <div style={{ padding: '12px 14px' }}>
-                      {[
-                        ['Kas Awal', fmt(Number(kasAwal) || 0), 'var(--text2)'],
-                        ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'],
-                        ...(totalPengeluaran > 0 ? [['- Total Pengeluaran', `-${fmt(totalPengeluaran)}`, '#C95555']] : []),
-                      ].map(([label, val, color]) => (
-                        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '8px' }}>
-                          <span style={{ color: '#7A8FAF' }}>{label}</span>
-                          <span style={{ fontWeight: '600', color }}>{val}</span>
-                        </div>
-                      ))}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #C0D0E8', paddingTop: '10px', marginTop: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E2A3B' }}>Total Kas Akhir</span>
-                        <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+                  {/* 4 kartu penjualan */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { label: 'Total Penjualan', value: totalPenjualan, color: '#4A7CC7', bg: '#EBF1FB', border: '#C0D0E8' },
+                      { label: 'Cash', value: totalCash, color: '#2A9D6E', bg: '#E8F7F1', border: '#A7DFC8' },
+                      { label: 'QRIS', value: totalQris, color: '#6B5BAF', bg: '#EEEAF8', border: '#C8C0E8' },
+                      { label: 'Transfer', value: totalTransfer, color: '#C47D1A', bg: '#FDF4E3', border: '#F0D090' },
+                    ].map(({ label, value, color, bg, border }) => (
+                      <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '8px', padding: '8px 10px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>{label}</div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color }}>{fmt(value)}</div>
                       </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '4px 2px' }}>
+                    {completed.length} transaksi selesai &nbsp;Â·&nbsp; {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                  </div>
+                  {/* Kalkulasi kas */}
+                  <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '10px', border: '1px solid #C0D0E8', padding: '10px 12px', flex: 1 }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Kalkulasi Kas</div>
+                    {[
+                      ['Kas Awal', fmt(Number(kasAwal) || 0), 'var(--text2)'],
+                      ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'],
+                      ...(totalPengeluaran > 0 ? [['- Pengeluaran', `-${fmt(totalPengeluaran)}`, '#C95555']] : []),
+                    ].map(([label, val, color]) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '5px' }}>
+                        <span style={{ color: '#7A8FAF' }}>{label}</span>
+                        <span style={{ fontWeight: '600', color }}>{val}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #C0D0E8', paddingTop: '8px', marginTop: '4px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E2A3B' }}>Total Kas Akhir</span>
+                      <span style={{ fontSize: '18px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
                     </div>
                   </div>
                 </div>
+
                 {/* Kolom kanan */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+                  {/* Pengeluaran */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden', flex: pengeluaran.filter(p => p.barang).length > 3 ? 1 : 'none' }}>
+                    <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pengeluaran</div>
-                      {totalPengeluaran > 0 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#C95555' }}>-{fmt(totalPengeluaran)}</span>}
+                      {totalPengeluaran > 0 && <span style={{ fontSize: '11px', fontWeight: '700', color: '#C95555' }}>-{fmt(totalPengeluaran)}</span>}
                     </div>
-                    <div style={{ padding: '12px 14px' }}>
+                    <div style={{ padding: '8px 12px', overflowY: 'auto', maxHeight: '120px' }}>
                       {pengeluaran.filter(p => p.barang).length === 0 ? (
-                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada pengeluaran</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada pengeluaran</div>
                       ) : pengeluaran.filter(p => p.barang).map((p, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < pengeluaran.filter(x => x.barang).length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i < pengeluaran.filter(x => x.barang).length - 1 ? '1px solid var(--border)' : 'none' }}>
                           <div>
                             <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)' }}>{p.barang}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{p.qty} x {fmt(Number(p.harga))}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{p.qty} x {fmt(Number(p.harga))}</div>
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#C95555' }}>-{fmt(Number(p.harga) * Number(p.qty || 1))}</span>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#C95555' }}>-{fmt(Number(p.harga) * Number(p.qty || 1))}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
+                  {/* Catatan */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
                       <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</div>
                     </div>
-                    <div style={{ padding: '12px 14px' }}>
+                    <div style={{ padding: '8px 12px' }}>
                       {catatan ? (
-                        <div style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: '1.6' }}>{catatan}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: '1.5' }}>{catatan}</div>
                       ) : (
-                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
-                <button className="btn btn-primary" style={{ justifyContent: 'center', minWidth: '160px' }} onClick={onClose}>Tutup</button>
-              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
               {/* Kolom Kiri: Ringkasan + Kas Akhir */}
-              <div style={{ flex: 1, padding: '16px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+              <div style={{ flex: 1, padding: '14px 16px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Ringkasan Penjualan</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {[
@@ -699,64 +689,55 @@ function ClosingModal({ orders, onClose }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ padding: '7px 12px', background: '#F5F8FE', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)' }}>
-                  {completed.length} transaksi selesai Â· {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                <div style={{ padding: '6px 10px', background: '#F5F8FE', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)' }}>
+                  {completed.length} transaksi selesai &nbsp;Â·&nbsp; {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
                 </div>
                 {/* Kas Akhir */}
-                <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', padding: '14px 16px', marginTop: 'auto', border: '1px solid #C0D0E8' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
+                <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', padding: '12px 14px', marginTop: 'auto', border: '1px solid #C0D0E8' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Kalkulasi Kas</div>
                   {[['Kas Awal', fmt(Number(kasAwal) || 0), '#4A5878'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'], ...(totalPengeluaran > 0 ? [['- Pengeluaran', `-${fmt(totalPengeluaran)}`, '#C95555']] : [])].map(([label, val, color]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <span style={{ fontSize: '11px', color: '#7A8FAF' }}>{label}</span>
                       <span style={{ fontSize: '12px', color }}>{val}</span>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #C0D0E8', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ borderTop: '1px solid #C0D0E8', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E2A3B' }}>Total Kas Akhir</span>
-                    <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
+                    <span style={{ fontSize: '18px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
                   </div>
                 </div>
               </div>
               {/* Kolom Kanan: Laporan Kas */}
-              <div style={{ width: '320px', flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
+              <div style={{ width: '310px', flexShrink: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Laporan Kas</div>
                 <div>
                   <label className="label" style={{ fontSize: '11px' }}>Kas Awal</label>
                   <input className="input" type="number" placeholder="0" value={kasAwal} onChange={(e) => setKasAwal(e.target.value)} style={{ fontSize: '13px' }} />
                 </div>
-                {/* Pengeluaran */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <label className="label" style={{ margin: 0, fontSize: '11px' }}>Pengeluaran</label>
                     <button type="button" onClick={addPengeluaran}
                       style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
                   </div>
-                  {pengeluaran.length === 0 && (
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '6px 0' }}>Belum ada pengeluaran</div>
-                  )}
-                  <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {pengeluaran.length === 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '4px 0' }}>Belum ada pengeluaran</div>}
+                  <div style={{ maxHeight: '130px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     {pengeluaran.map((p, i) => (
                       <div key={i} style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                        <input className="input" placeholder="Nama barang" value={p.barang}
-                          onChange={(e) => updatePengeluaran(i, 'barang', e.target.value)}
-                          style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
-                        <input className="input" type="number" placeholder="Qty" value={p.qty}
-                          onChange={(e) => updatePengeluaran(i, 'qty', e.target.value)}
-                          style={{ flex: '0 0 44px', fontSize: '11px', padding: '6px 6px' }} />
-                        <input className="input" type="number" placeholder="Harga" value={p.harga}
-                          onChange={(e) => updatePengeluaran(i, 'harga', e.target.value)}
-                          style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
+                        <input className="input" placeholder="Nama barang" value={p.barang} onChange={(e) => updatePengeluaran(i, 'barang', e.target.value)} style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
+                        <input className="input" type="number" placeholder="Qty" value={p.qty} onChange={(e) => updatePengeluaran(i, 'qty', e.target.value)} style={{ flex: '0 0 44px', fontSize: '11px', padding: '6px 6px' }} />
+                        <input className="input" type="number" placeholder="Harga" value={p.harga} onChange={(e) => updatePengeluaran(i, 'harga', e.target.value)} style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
                         <button onClick={() => setPengeluaran(prev => prev.filter((_, n) => n !== i))}
-                          style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '6px 7px', fontSize: '12px', flexShrink: 0 }}>Ã—</button>
+                          style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '6px 7px', fontSize: '12px', flexShrink: 0 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
-                {/* Catatan */}
                 <div>
                   <label className="label" style={{ fontSize: '11px' }}>Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <textarea className="input" rows={2} placeholder="Catatan tambahan..." value={catatan}
-                    onChange={(e) => setCatatan(e.target.value)} style={{ resize: 'none', fontSize: '12px' }} />
+                  <textarea className="input" rows={2} placeholder="Catatan tambahan..." value={catatan} onChange={(e) => setCatatan(e.target.value)} style={{ resize: 'none', fontSize: '12px' }} />
                 </div>
               </div>
             </div>
@@ -765,7 +746,7 @@ function ClosingModal({ orders, onClose }) {
 
         {/* Footer */}
         {!saved && (
-          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ padding: '11px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
             <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Batal</button>
             <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleSave} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Simpan Laporan Closing'}
@@ -776,7 +757,6 @@ function ClosingModal({ orders, onClose }) {
     </div>
   )
 }
-
 // ── Checkout Modal ──
 function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
   const [payMethod, setPayMethod] = useState('CASH')
