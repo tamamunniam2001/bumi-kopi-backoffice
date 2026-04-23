@@ -81,6 +81,14 @@ export default function KasirPage() {
     })
   }
 
+  async function deleteOrder(orderId) {
+    if (!confirm('Hapus transaksi ini? Tindakan ini tidak bisa dibatalkan.')) return
+    try {
+      await api.delete(`/transactions/${orderId}`)
+      setOrders((prev) => prev.filter((o) => o.id !== orderId))
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+  }
+
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.code || '').toLowerCase().includes(search.toLowerCase())
     const matchCat = !selectedCat || p.category?.name === selectedCat
@@ -198,11 +206,18 @@ export default function KasirPage() {
                         </div>
                       </div>
                       {/* Tombol sajikan */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleServed(order.id, order.servedAt) }}
-                        style={{ width: '100%', padding: '7px', border: 'none', borderTop: '1px solid var(--border)', background: served ? '#F0FDF4' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                        {served ? '↺ Batalkan Sajian' : '✓ Tandai Disajikan'}
-                      </button>
+                      <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleServed(order.id, order.servedAt) }}
+                          style={{ flex: 1, padding: '7px', border: 'none', background: served ? '#F0FDF4' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '10px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                          {served ? 'â†º Batal' : 'âœ“ Sajikan'}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteOrder(order.id) }}
+                          style={{ width: '32px', padding: '7px', border: 'none', borderLeft: '1px solid var(--border)', background: '#FEF2F2', color: 'var(--red)', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
