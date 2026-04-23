@@ -347,7 +347,7 @@ export default function KasirPage() {
           cart={cart}
           total={total}
           onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); loadOrders() }}
+          onSuccess={(newTx) => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); if (newTx?.id) setOrders((prev) => [newTx, ...prev.filter(o => o.id !== newTx.id)]); loadOrders() }}
         />
       )}
 
@@ -862,7 +862,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
           {payMethod === 'CASH' && tx.change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px', color: 'var(--green)' }}><span>Kembalian</span><span style={{ fontWeight: '700' }}>Rp {fmt(tx.change)}</span></div>}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSuccess(tx)}>Selesai</button>
+          <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSuccess({ ...tx, items: cart.map(i => ({ product: { name: i.product.name }, qty: i.qty, price: i.product.price, subtotal: i.product.price * i.qty })) })}>Selesai</button>
           <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={printing} onClick={handlePrint}>
             {printing ? '⏳ Mencetak...' : '🖨️ Print Struk'}
           </button>
