@@ -7,9 +7,10 @@ export async function PUT(req, { params }) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
+  const { id } = await params
   try {
     const { code, name, price, stock, imageUrl, categoryId } = await req.json()
-    const product = await prisma.product.update({ where: { id: params.id }, data: { code: code || null, name, price, stock, imageUrl: imageUrl || null, categoryId } })
+    const product = await prisma.product.update({ where: { id }, data: { code: code || null, name, price, stock, imageUrl: imageUrl || null, categoryId } })
     return NextResponse.json(product)
   } catch (e) {
     if (e.code === 'P2002') return NextResponse.json({ message: 'Kode produk sudah digunakan' }, { status: 400 })
@@ -22,6 +23,7 @@ export async function DELETE(req, { params }) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
-  await prisma.product.update({ where: { id: params.id }, data: { isActive: false } })
+  const { id } = await params
+  await prisma.product.update({ where: { id }, data: { isActive: false } })
   return NextResponse.json({ message: 'Produk dihapus' })
 }

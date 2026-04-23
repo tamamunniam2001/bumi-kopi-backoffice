@@ -7,8 +7,9 @@ export async function PUT(req, { params }) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
+  const { id } = await params
   const { name, unit, code } = await req.json()
-  return NextResponse.json(await prisma.ingredient.update({ where: { id: params.id }, data: { name, unit, code: code || null } }))
+  return NextResponse.json(await prisma.ingredient.update({ where: { id }, data: { name, unit, code: code || null } }))
 }
 
 export async function DELETE(req, { params }) {
@@ -16,6 +17,7 @@ export async function DELETE(req, { params }) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
-  await prisma.ingredient.delete({ where: { id: params.id } })
+  const { id } = await params
+  await prisma.ingredient.delete({ where: { id } })
   return NextResponse.json({ message: 'Bahan baku dihapus' })
 }

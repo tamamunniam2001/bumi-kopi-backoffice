@@ -8,8 +8,9 @@ export async function PUT(req, { params }) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
+  const { id } = await params
   const { name, email, role, isActive, password } = await req.json()
   const data = { name, email, role, isActive }
   if (password) data.password = await bcrypt.hash(password, 10)
-  return NextResponse.json(await prisma.user.update({ where: { id: params.id }, data, select: { id: true, name: true, email: true, role: true, isActive: true } }))
+  return NextResponse.json(await prisma.user.update({ where: { id }, data, select: { id: true, name: true, email: true, role: true, isActive: true } }))
 }
