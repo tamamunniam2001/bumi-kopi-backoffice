@@ -52,26 +52,33 @@ export async function POST(req) {
     })
     const total = orderItems.reduce((s, i) => s + i.subtotal, 0)
     const actualPayment = payLater ? 0 : (payment || 0)
+    const invoiceNo = `BK-${Date.now()}`
 
-    const transaction = await prisma.$transaction(async (tx) => {
-      // Batch update stok sekaligus
-      await Promise.all(
-        items.filter(i => i.productId).map(i =>
-          tx.product.update({ where: { id: i.productId }, data: { stock: { decrement: i.qty } } })
-        )
-      )
-      return tx.transaction.create({
-        data: {
-          invoiceNo: `BK-${Date.now()}`, total, payment: actualPayment,
-          change: actualPayment > 0 ? actualPayment - total : 0,
-          payMethod, cashierId: user.id,
-          status: payLater ? 'PENDING' : 'COMPLETED',
-          customerName: customerName || '',
-          note: note || '',
-          items: { create: orderItems.filter(i => i.productId).map(({ name: _n, ...i }) => i) },
-        },
-        include: { items: { include: { product: { select: { name: true, imageUrl: true } } } }, cashier: { select: { name: true } } },
+    // Jalankan update stok dan create transaksi secara paralel-ish lewat Promise.all
+    // Update stok dulu, lalu create transaksi
+    await Promise.all(
+      productIds.map(id => {
+        const item = items.find(i => i.productId === id)
+        return prisma.product.update({ where: { id }, data: { stock: { decrement: item.qty } } })
       })
+    )
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        invoiceNo, total, payment: actualPayment,
+        change: actualPayment > 0 ? actualPayment - total : 0,
+        payMethod, cashierId: user.id,
+        status: payLater ? 'PENDING' : 'COMPLETED',
+        customerName: customerName || '',
+        note: note || '',
+        items: { create: orderItems.filter(i => i.productId).map(({ name: _n, ...i }) => i) },
+      },
+      select: {
+        id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true,
+        status: true, createdAt: true, customerName: true, note: true,
+        cashier: { select: { name: true } },
+        items: { select: { id: true, qty: true, price: true, subtotal: true, productId: true, product: { select: { name: true, imageUrl: true } } } },
+      },
     })
     return NextResponse.json(transaction, { status: 201 })
   } catch (err) {

@@ -29,11 +29,12 @@ export default function KasirPage() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await api.get('/products?slim=1')
-      const prods = res.data
-      const cats = [...new Set(prods.map((p) => p.category?.name).filter(Boolean))].sort()
-      setProducts(prods)
-      setCategories(cats)
+      const [prodsRes, catsRes] = await Promise.all([
+        api.get('/products?slim=1'),
+        api.get('/admin/categories'),
+      ])
+      setProducts(prodsRes.data)
+      setCategories(catsRes.data.map((c) => c.name).sort())
     } catch { }
     if (!silent) setLoading(false)
   }, [])
