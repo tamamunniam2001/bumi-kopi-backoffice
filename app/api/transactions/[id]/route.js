@@ -16,10 +16,18 @@ export async function GET(req, { params }) {
 export async function PATCH(req, { params }) {
   const { error } = verifyAuth(req)
   if (error) return error
-  const { servedAt } = await req.json()
+  const body = await req.json()
+  const data = {}
+  if ('servedAt' in body) data.servedAt = body.servedAt ? new Date(body.servedAt) : null
+  if ('payment' in body) {
+    data.payment = body.payment
+    data.change = body.payment - body.total
+    data.payMethod = body.payMethod
+    data.status = 'COMPLETED'
+  }
   const transaction = await prisma.transaction.update({
     where: { id: params.id },
-    data: { servedAt: servedAt ? new Date(servedAt) : null },
+    data,
     include: { cashier: { select: { name: true } }, items: { include: { product: true } } },
   })
   return NextResponse.json(transaction)

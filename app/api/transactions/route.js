@@ -25,7 +25,7 @@ export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
   try {
-    const { items, payment, payMethod, payLater } = await req.json()
+    const { items, payment, payMethod, payLater, customerName, note } = await req.json()
     if (!items?.length) return NextResponse.json({ message: 'Items tidak boleh kosong' }, { status: 400 })
     if (!payMethod) return NextResponse.json({ message: 'payMethod wajib diisi' }, { status: 400 })
     const products = await prisma.product.findMany({ where: { id: { in: items.filter(i => i.productId).map(i => i.productId) } } })
@@ -46,6 +46,8 @@ export async function POST(req) {
           change: actualPayment > 0 ? actualPayment - total : 0,
           payMethod, cashierId: user.id,
           status: payLater ? 'PENDING' : 'COMPLETED',
+          customerName: customerName || '',
+          note: note || '',
           items: { create: orderItems.filter(i => i.productId) },
         },
         include: { items: { include: { product: true } }, cashier: true },

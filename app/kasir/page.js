@@ -146,30 +146,39 @@ export default function KasirPage() {
                   const served = !!order.servedAt
                   const paid = order.status === 'COMPLETED'
                   return (
-                    <div key={order.id}
-                      onClick={() => setSelectedOrder(order)}
-                      style={{ flexShrink: 0, width: '160px', background: '#fff', borderRadius: '12px', border: `1.5px solid ${served && paid ? '#A7F3D0' : served ? '#C7D4F0' : 'var(--border)'}`, padding: '12px', cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(13,21,38,0.06)' }}
-                      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(13,21,38,0.1)'}
+                    <div key={order.id} style={{ flexShrink: 0, width: '170px', background: '#fff', borderRadius: '14px', border: `1.5px solid ${!paid ? '#FECACA' : served ? '#A7F3D0' : 'var(--border)'}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(13,21,38,0.06)', transition: 'box-shadow 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 14px rgba(13,21,38,0.12)'}
                       onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(13,21,38,0.06)'}
                     >
-                      {/* Waktu + invoice */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>{fmtTime(order.createdAt)}</span>
-                        <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'monospace' }}>#{order.invoiceNo.slice(-5)}</span>
+                      {/* Klik area untuk detail */}
+                      <div onClick={() => setSelectedOrder(order)} style={{ padding: '12px 12px 8px', cursor: 'pointer' }}>
+                        {/* Waktu + invoice */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--accent)' }}>{fmtTime(order.createdAt)}</span>
+                          <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'monospace' }}>#{order.invoiceNo.slice(-5)}</span>
+                        </div>
+                        {/* Nama pembeli */}
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {order.customerName || '(Tanpa Nama)'}
+                        </div>
+                        {/* Total */}
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--accent)', marginBottom: '8px' }}>Rp {fmt(order.total)}</div>
+                        {/* Status badges */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', textAlign: 'center', background: served ? '#ECFDF5' : '#FFFBEB', color: served ? 'var(--green)' : 'var(--orange)', border: `1px solid ${served ? '#A7F3D0' : '#FDE68A'}` }}>
+                            {served ? '✓ Disajikan' : '⏳ Belum Disajikan'}
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', textAlign: 'center', background: paid ? '#ECFDF5' : '#FEF2F2', color: paid ? 'var(--green)' : 'var(--red)', border: `1px solid ${paid ? '#A7F3D0' : '#FECACA'}` }}>
+                            {paid ? '✓ Lunas' : '✗ Belum Bayar'}
+                          </span>
+                        </div>
                       </div>
-                      {/* Kasir */}
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.cashier?.name || '-'}</div>
-                      {/* Total */}
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent)', marginBottom: '8px' }}>Rp {fmt(order.total)}</div>
-                      {/* Status badges */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', textAlign: 'center', background: served ? '#ECFDF5' : '#FFFBEB', color: served ? 'var(--green)' : 'var(--orange)', border: `1px solid ${served ? '#A7F3D0' : '#FDE68A'}` }}>
-                          {served ? '✓ Disajikan' : '⏳ Belum Disajikan'}
-                        </span>
-                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', textAlign: 'center', background: paid ? '#ECFDF5' : '#FEF2F2', color: paid ? 'var(--green)' : 'var(--red)', border: `1px solid ${paid ? '#A7F3D0' : '#FECACA'}` }}>
-                          {paid ? '✓ Lunas' : '✗ Belum Bayar'}
-                        </span>
-                      </div>
+                      {/* Tombol sajikan */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleServed(order) }}
+                        style={{ width: '100%', padding: '7px', border: 'none', borderTop: '1px solid var(--border)', background: served ? '#F0FDF4' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                        {served ? '↺ Batalkan Sajian' : '✓ Tandai Disajikan'}
+                      </button>
                     </div>
                   )
                 })}
@@ -313,6 +322,7 @@ export default function KasirPage() {
             await loadOrders()
             setSelectedOrder((prev) => ({ ...prev, servedAt: prev.servedAt ? null : new Date().toISOString() }))
           }}
+          onRefresh={() => { loadOrders(); setSelectedOrder(null) }}
         />
       )}
     </div>
@@ -323,8 +333,15 @@ export default function KasirPage() {
 function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
   const [printing, setPrinting] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [payMethod, setPayMethod] = useState('CASH')
+  const [payment, setPayment] = useState('')
   const served = !!order.servedAt
   const paid = order.status === 'COMPLETED'
+  const methods = ['CASH', 'QRIS', 'TRANSFER', 'NONTUNAI']
+  const quickAmounts = [50000, 100000, 150000, 200000]
+  const paid2 = Number(payment) || 0
+  const change = payMethod === 'CASH' ? paid2 - order.total : 0
 
   async function handlePrint() {
     setPrinting(true)
@@ -338,31 +355,40 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
     finally { setToggling(false) }
   }
 
+  async function handlePay() {
+    if (payMethod === 'CASH' && paid2 < order.total) return alert('Uang bayar kurang')
+    setPaying(true)
+    try {
+      await api.patch(`/transactions/${order.id}`, {
+        payment: payMethod === 'CASH' ? paid2 : order.total,
+        payMethod,
+        total: order.total,
+      })
+      onRefresh()
+      onClose()
+    } catch (e) {
+      alert(e.response?.data?.message || 'Gagal memproses pembayaran')
+    } finally { setPaying(false) }
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="card fade-in" style={{ width: '420px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="card fade-in" style={{ width: '440px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>Detail Order</div>
-            <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace', marginTop: '2px' }}>{order.invoiceNo}</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>
+              {order.customerName || '(Tanpa Nama)'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace', marginTop: '2px' }}>{order.invoiceNo} · {fmtTime(order.createdAt)}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-          {/* Info */}
+          {/* Status row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '4px' }}>KASIR</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>{order.cashier?.name || '-'}</div>
-            </div>
-            <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '4px' }}>WAKTU</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>{new Date(order.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
             <div style={{ background: served ? '#ECFDF5' : '#FFFBEB', borderRadius: '10px', padding: '12px', border: `1px solid ${served ? '#A7F3D0' : '#FDE68A'}` }}>
               <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '4px' }}>STATUS SAJIAN</div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: served ? 'var(--green)' : 'var(--orange)' }}>{served ? '✓ Sudah Disajikan' : '⏳ Belum Disajikan'}</div>
@@ -373,8 +399,16 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
             </div>
           </div>
 
+          {/* Catatan */}
+          {order.note && (
+            <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400E', marginBottom: '3px' }}>CATATAN</div>
+              <div style={{ fontSize: '13px', color: '#78350F' }}>{order.note}</div>
+            </div>
+          )}
+
           {/* Items */}
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '14px' }}>
             <div className="section-label">Item Pesanan</div>
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               {order.items.map((item, i) => (
@@ -383,15 +417,15 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
                     <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{item.product?.name || 'Item Manual'}</div>
                     <div style={{ fontSize: '11px', color: '#94A3B8' }}>{item.qty} × Rp {fmt(item.price)}</div>
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Rp {fmt(item.subtotal)}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700' }}>Rp {fmt(item.subtotal)}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Total */}
-          <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: paid ? '6px' : '0' }}>
+          <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border)', marginBottom: paid ? '0' : '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: paid && order.payment > 0 ? '6px' : '0' }}>
               <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
               <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(order.total)}</span>
             </div>
@@ -404,9 +438,48 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
               </div>}
             </>}
           </div>
+
+          {/* Form bayar jika PENDING */}
+          {!paid && (
+            <div style={{ marginTop: '16px', padding: '16px', background: '#FEF2F2', borderRadius: '12px', border: '1px solid #FECACA' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)', marginBottom: '12px' }}>Proses Pembayaran</div>
+              <div style={{ marginBottom: '10px' }}>
+                <div className="section-label">Metode</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {methods.map((m) => (
+                    <button key={m} onClick={() => { setPayMethod(m); setPayment('') }}
+                      style={{ padding: '6px 12px', borderRadius: '8px', border: `1px solid ${payMethod === m ? 'var(--accent)' : 'var(--border)'}`, background: payMethod === m ? 'var(--accent)' : '#fff', color: payMethod === m ? '#fff' : 'var(--text2)', fontWeight: '600', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {payMethod === 'CASH' && (
+                <div style={{ marginBottom: '10px' }}>
+                  <label className="label">Uang Bayar</label>
+                  <input className="input" type="number" placeholder="0" value={payment} onChange={(e) => setPayment(e.target.value)} style={{ marginBottom: '6px' }} />
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                    {quickAmounts.map((v) => (
+                      <button key={v} onClick={() => setPayment(String(v))}
+                        style={{ padding: '4px 10px', borderRadius: '7px', border: '1px solid var(--border)', background: 'var(--accent-light)', color: 'var(--accent)', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {fmt(v)}
+                      </button>
+                    ))}
+                  </div>
+                  {paid2 > 0 && <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: '700', color: change >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    Kembalian: Rp {fmt(Math.max(0, change))}
+                  </div>}
+                </div>
+              )}
+              <button onClick={handlePay} disabled={paying || (payMethod === 'CASH' && paid2 < order.total)}
+                style={{ width: '100%', padding: '10px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: (paying || (payMethod === 'CASH' && paid2 < order.total)) ? 0.6 : 1 }}>
+                {paying ? 'Memproses...' : 'Konfirmasi Bayar'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Footer actions */}
+        {/* Footer */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
           <button onClick={handleToggle} disabled={toggling}
             style={{ flex: 1, padding: '10px', borderRadius: '9px', border: `1px solid ${served ? '#FDE68A' : '#A7F3D0'}`, background: served ? '#FFFBEB' : '#ECFDF5', color: served ? 'var(--orange)' : 'var(--green)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -470,6 +543,8 @@ function ManualItemButton({ onAdd }) {
 function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
   const [payMethod, setPayMethod] = useState(payLater ? 'NONTUNAI' : 'CASH')
   const [payment, setPayment] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
   const [tx, setTx] = useState(null)
   const [printing, setPrinting] = useState(false)
@@ -494,6 +569,8 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
         payment: payLater ? 0 : (payMethod === 'CASH' ? paid : total),
         payMethod,
         payLater,
+        customerName,
+        note,
       })
       setTx(res.data)
     } catch (e) {
@@ -555,6 +632,17 @@ function CheckoutModal({ cart, total, payLater = false, onClose, onSuccess }) {
               <span>Order akan dicatat sebagai <b>belum dibayar</b>. Pembayaran bisa dilakukan nanti.</span>
             </div>
           )}
+          {/* Nama pembeli + catatan */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+            <div>
+              <label className="label">Nama Pembeli</label>
+              <input className="input" placeholder="Nama pelanggan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Catatan <span style={{ color: '#94A3B8', fontWeight: 400 }}>(opsional)</span></label>
+              <input className="input" placeholder="Tanpa es, extra shot..." value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
           <div style={{ marginBottom: '16px' }}>
             <div className="section-label">Pesanan</div>
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>

@@ -60,18 +60,20 @@ model ProductIngredient {
 }
 
 model Transaction {
-  id         String      @id @default(cuid())
-  invoiceNo  String      @unique
-  total      Int
-  payment    Int
-  change     Int
-  payMethod  PayMethod   @default(CASH)
-  status     TxStatus    @default(COMPLETED)
-  servedAt   DateTime?
-  cashierId  String
-  cashier    User        @relation(fields: [cashierId], references: [id])
-  items      OrderItem[]
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(cuid())
+  invoiceNo    String      @unique
+  customerName String?     @default("")
+  note         String?     @default("")
+  total        Int
+  payment      Int
+  change       Int
+  payMethod    PayMethod   @default(CASH)
+  status       TxStatus    @default(COMPLETED)
+  servedAt     DateTime?
+  cashierId    String
+  cashier      User        @relation(fields: [cashierId], references: [id])
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
 }
 
 model OrderItem {
