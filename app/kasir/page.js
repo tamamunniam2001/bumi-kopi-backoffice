@@ -26,6 +26,9 @@ export default function KasirPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
+  const todayKey = new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD'
+  const isClosed = () => localStorage.getItem('closing_date') === todayKey
+
   // Set untuk track order yang sedang in-flight PATCH servedAt
   const pendingServed = useState(() => new Set())[0]
 
@@ -43,12 +46,12 @@ export default function KasirPage() {
   }, [])
 
   const loadOrders = useCallback(async () => {
+    if (isClosed()) return
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
       const res = await api.get(`/transactions?slim=1&from=${today.toISOString()}&to=${endOfDay.toISOString()}&page=1`)
       const incoming = res.data.transactions || []
-      // Merge: jangan overwrite order yang sedang in-flight
       setOrders((prev) => {
         const prevMap = Object.fromEntries(prev.map((o) => [o.id, o]))
         return incoming.map((o) => pendingServed.has(o.id) ? { ...o, servedAt: prevMap[o.id]?.servedAt } : o)
@@ -368,7 +371,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { setOrders([]); setClosingOpen(false) }} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false) }} />
       )}
     </div>
   )
