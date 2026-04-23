@@ -57,44 +57,41 @@ export async function POST(req) {
     if (!payMethod) return NextResponse.json({ message: 'payMethod wajib diisi' }, { status: 400 })
 
     const productIds = items.filter(i => i.productId).map(i => i.productId)
-    const products = productIds.length
-      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, price: true } })
-      : []
 
     const orderItems = items.map((item) => {
-      const product = products.find((p) => p.id === item.productId)
-      const price = product ? product.price : (item.price || 0)
-      return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty, name: item.name }
+      const price = item.price || 0
+      return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty }
     })
     const total = orderItems.reduce((s, i) => s + i.subtotal, 0)
     const actualPayment = payLater ? 0 : (payment || 0)
     const invoiceNo = `BK-${Date.now()}`
 
-    const txSelect = {
-      id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true,
-      status: true, servedAt: true, createdAt: true, customerName: true, note: true,
-      cashier: { select: { name: true } },
-      items: { select: { id: true, qty: true, price: true, subtotal: true, productId: true, product: { select: { name: true, imageUrl: true } } } },
-    }
+    const transaction = await prisma.transaction.create({
+      data: {
+        invoiceNo, total, payment: actualPayment,
+        change: actualPayment > 0 ? actualPayment - total : 0,
+        payMethod, cashierId: user.id,
+        status: payLater ? 'PENDING' : 'COMPLETED',
+        customerName: customerName || '',
+        note: note || '',
+        items: { create: orderItems.filter(i => i.productId) },
+      },
+      select: {
+        id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true,
+        status: true, servedAt: true, createdAt: true, customerName: true, note: true,
+        cashier: { select: { name: true } },
+        items: { select: { id: true, qty: true, price: true, subtotal: true, productId: true, product: { select: { name: true, imageUrl: true } } } },
+      },
+    })
 
-    const [transaction] = await prisma.$transaction([
-      prisma.transaction.create({
-        data: {
-          invoiceNo, total, payment: actualPayment,
-          change: actualPayment > 0 ? actualPayment - total : 0,
-          payMethod, cashierId: user.id,
-          status: payLater ? 'PENDING' : 'COMPLETED',
-          customerName: customerName || '',
-          note: note || '',
-          items: { create: orderItems.filter(i => i.productId).map(({ name: _n, ...i }) => i) },
-        },
-        select: txSelect,
-      }),
-      ...productIds.map(id => {
+    // Decrement stock secara paralel, tidak blocking response
+    if (productIds.length) {
+      Promise.all(productIds.map(id => {
         const item = items.find(i => i.productId === id)
         return prisma.product.update({ where: { id }, data: { stock: { decrement: item.qty } } })
-      }),
-    ])
+      })).catch(console.error)
+    }
+
     return NextResponse.json(transaction, { status: 201 })
   } catch (err) {
     return NextResponse.json({ message: err.message || 'Gagal menyimpan transaksi' }, { status: 500 })

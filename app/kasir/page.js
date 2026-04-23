@@ -39,7 +39,7 @@ export default function KasirPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
-  const todayKey = new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD'
+  const todayKey = new Date().toLocaleDateString('en-CA') // 'YYYY-MM-DD' local time
   const isClosed = () => localStorage.getItem('closing_date') === todayKey
 
   // Set untuk track order yang sedang in-flight PATCH servedAt
@@ -59,8 +59,6 @@ export default function KasirPage() {
   }, [])
 
   const loadOrders = useCallback(async () => {
-    const todayKey = new Date().toISOString().slice(0, 10)
-    if (localStorage.getItem('closing_date') === todayKey) return
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
@@ -78,8 +76,8 @@ export default function KasirPage() {
   }, [load, loadOrders])
 
   useEffect(() => {
-    // loadOrders setiap 15 detik, reload produk setiap 5 menit
-    const tOrders = setInterval(() => loadOrders(), 15000)
+    // loadOrders setiap 30 detik, reload produk setiap 5 menit
+    const tOrders = setInterval(() => loadOrders(), 30000)
     const tProducts = setInterval(() => load(true), 300000)
     return () => { clearInterval(tOrders); clearInterval(tProducts) }
   }, [load, loadOrders])
@@ -365,6 +363,7 @@ export default function KasirPage() {
           onSuccess={(newTx) => {
             clearCart(); setCheckoutOpen(false); setCartOpen(false)
             if (newTx?.id) setOrders((prev) => [newTx, ...prev.filter(o => o.id !== newTx.id)])
+            load(true)
           }}
         />
       )}
