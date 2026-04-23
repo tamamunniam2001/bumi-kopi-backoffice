@@ -368,7 +368,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => setOrders([])} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { setOrders([]); setClosingOpen(false) }} />
       )}
     </div>
   )
@@ -544,11 +544,18 @@ function ManualItemButton({ onAdd, categories }) {
 function ClosingModal({ orders, onClose, onSaved }) {
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
 
-  const completed = orders.filter(o => o.status === 'COMPLETED')
-  const totalPenjualan = completed.reduce((s, o) => s + o.total, 0)
-  const totalCash = completed.filter(o => o.payMethod === 'CASH').reduce((s, o) => s + o.total, 0)
-  const totalQris = completed.filter(o => o.payMethod === 'QRIS').reduce((s, o) => s + o.total, 0)
-  const totalTransfer = completed.filter(o => o.payMethod === 'TRANSFER' || o.payMethod === 'NONTUNAI').reduce((s, o) => s + o.total, 0)
+  const [snapshot] = useState(() => {
+    const completed = orders.filter(o => o.status === 'COMPLETED')
+    return {
+      completed,
+      totalPenjualan: completed.reduce((s, o) => s + o.total, 0),
+      totalCash: completed.filter(o => o.payMethod === 'CASH').reduce((s, o) => s + o.total, 0),
+      totalQris: completed.filter(o => o.payMethod === 'QRIS').reduce((s, o) => s + o.total, 0),
+      totalTransfer: completed.filter(o => o.payMethod === 'TRANSFER' || o.payMethod === 'NONTUNAI').reduce((s, o) => s + o.total, 0),
+      pendingCount: orders.filter(o => o.status !== 'COMPLETED').length,
+    }
+  })
+  const { completed, totalPenjualan, totalCash, totalQris, totalTransfer, pendingCount } = snapshot
 
   const [kasAwal, setKasAwal] = useState('')
   const [pengeluaran, setPengeluaran] = useState([])
@@ -572,11 +579,9 @@ function ClosingModal({ orders, onClose, onSaved }) {
         piutang: [], catatan,
       })
       setSaved(true)
-      onSaved()
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan laporan')
-    }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   return (
@@ -607,14 +612,13 @@ function ClosingModal({ orders, onClose, onSaved }) {
                   <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Laporan Closing Tersimpan</div>
                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
                 </div>
-                <button className="btn btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center', padding: '7px 18px', fontSize: '12px' }} onClick={onClose}>Tutup</button>
+                <button className="btn btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center', padding: '7px 18px', fontSize: '12px' }} onClick={onSaved}>Tutup</button>
               </div>
 
               {/* Body 2 kolom */}
               <div style={{ display: 'flex', gap: '12px', flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 {/* Kolom kiri */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-                  {/* 4 kartu penjualan */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                     {[
                       { label: 'Total Penjualan', value: totalPenjualan, color: '#4A7CC7', bg: '#EBF1FB', border: '#C0D0E8' },
@@ -628,10 +632,9 @@ function ClosingModal({ orders, onClose, onSaved }) {
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '4px 2px' }}>
-                    {completed.length} transaksi selesai &nbsp;Â·&nbsp; {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '2px' }}>
+                    {completed.length} transaksi selesai &nbsp;&middot;&nbsp; {pendingCount} belum bayar
                   </div>
-                  {/* Kalkulasi kas */}
                   <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '10px', border: '1px solid #C0D0E8', padding: '10px 12px', flex: 1 }}>
                     <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Kalkulasi Kas</div>
                     {[
@@ -653,8 +656,7 @@ function ClosingModal({ orders, onClose, onSaved }) {
 
                 {/* Kolom kanan */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
-                  {/* Pengeluaran */}
-                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden', flex: pengeluaran.filter(p => p.barang).length > 3 ? 1 : 'none' }}>
+                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                     <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pengeluaran</div>
                       {totalPengeluaran > 0 && <span style={{ fontSize: '11px', fontWeight: '700', color: '#C95555' }}>-{fmt(totalPengeluaran)}</span>}
@@ -673,7 +675,6 @@ function ClosingModal({ orders, onClose, onSaved }) {
                       ))}
                     </div>
                   </div>
-                  {/* Catatan */}
                   <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                     <div style={{ padding: '7px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
                       <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</div>
@@ -708,9 +709,8 @@ function ClosingModal({ orders, onClose, onSaved }) {
                   ))}
                 </div>
                 <div style={{ padding: '6px 10px', background: '#F5F8FE', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)' }}>
-                  {completed.length} transaksi selesai &nbsp;Â·&nbsp; {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                  {completed.length} transaksi selesai &nbsp;&middot;&nbsp; {pendingCount} belum bayar
                 </div>
-                {/* Kas Akhir */}
                 <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', padding: '12px 14px', marginTop: 'auto', border: '1px solid #C0D0E8' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Kalkulasi Kas</div>
                   {[['Kas Awal', fmt(Number(kasAwal) || 0), '#4A5878'], ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'], ...(totalPengeluaran > 0 ? [['- Pengeluaran', `-${fmt(totalPengeluaran)}`, '#C95555']] : [])].map(([label, val, color]) => (
@@ -735,8 +735,7 @@ function ClosingModal({ orders, onClose, onSaved }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <label className="label" style={{ margin: 0, fontSize: '11px' }}>Pengeluaran</label>
-                    <button type="button" onClick={addPengeluaran}
-                      style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
+                    <button type="button" onClick={addPengeluaran} style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
                   </div>
                   {pengeluaran.length === 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '4px 0' }}>Belum ada pengeluaran</div>}
                   <div style={{ maxHeight: '130px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -745,8 +744,7 @@ function ClosingModal({ orders, onClose, onSaved }) {
                         <input className="input" placeholder="Nama barang" value={p.barang} onChange={(e) => updatePengeluaran(i, 'barang', e.target.value)} style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
                         <input className="input" type="number" placeholder="Qty" value={p.qty} onChange={(e) => updatePengeluaran(i, 'qty', e.target.value)} style={{ flex: '0 0 44px', fontSize: '11px', padding: '6px 6px' }} />
                         <input className="input" type="number" placeholder="Harga" value={p.harga} onChange={(e) => updatePengeluaran(i, 'harga', e.target.value)} style={{ flex: 2, fontSize: '11px', padding: '6px 8px' }} />
-                        <button onClick={() => setPengeluaran(prev => prev.filter((_, n) => n !== i))}
-                          style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '6px 7px', fontSize: '12px', flexShrink: 0 }}>
+                        <button onClick={() => setPengeluaran(prev => prev.filter((_, n) => n !== i))} style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '6px 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                       </div>
@@ -775,6 +773,7 @@ function ClosingModal({ orders, onClose, onSaved }) {
     </div>
   )
 }
+
 // ── Checkout Modal ──
 function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
   const [payMethod, setPayMethod] = useState('CASH')
