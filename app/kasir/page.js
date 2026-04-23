@@ -17,13 +17,14 @@ export default function KasirPage() {
   const [cart, setCart] = useState([])
   const [cartOpen, setCartOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [pendingOrder, setPendingOrder] = useState(null)
   const [orders, setOrders] = useState([])
   const [ordersExpanded, setOrdersExpanded] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await api.get('/products')
       const prods = res.data
@@ -31,7 +32,7 @@ export default function KasirPage() {
       setProducts(prods)
       setCategories(cats)
     } catch { }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [])
 
   const loadOrders = useCallback(async () => {
@@ -39,27 +40,27 @@ export default function KasirPage() {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const res = await api.get(`/transactions?from=${today.toISOString()}&to=${new Date().toISOString()}&page=1`)
       setOrders(res.data.transactions || [])
-    } catch { setOrders([]) }
+    } catch { }
   }, [])
 
   useEffect(() => { load(); loadOrders() }, [load, loadOrders])
 
-  // Auto-refresh orders setiap 30 detik
   useEffect(() => {
-    const t = setInterval(loadOrders, 30000)
+    const t = setInterval(() => { load(true); loadOrders() }, 30000)
     return () => clearInterval(t)
-  }, [loadOrders])
+  }, [load, loadOrders])
 
-  async function toggleServed(order) {
-    try {
-      await api.patch(`/transactions/${order.id}`, {
-        servedAt: order.servedAt ? null : new Date().toISOString()
-      })
-      loadOrders()
-    } catch { }
+  function toggleServed(order) {
+    const newServedAt = order.servedAt ? null : new Date().toISOString()
+    // Update lokal langsung
+    setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: newServedAt } : o))
+    if (selectedOrder?.id === order.id) setSelectedOrder((prev) => ({ ...prev, servedAt: newServedAt }))
+    // Sync ke server
+    api.patch(`/transactions/${order.id}`, { servedAt: newServedAt }).catch(() => {
+      // Rollback jika gagal
+      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: order.servedAt } : o))
+    })
   }
-
-  useEffect(() => { load() }, [load])
 
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || (p.code || '').toLowerCase().includes(search.toLowerCase())
@@ -312,12 +313,19 @@ export default function KasirPage() {
         <OrderDetailModal
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onToggleServed={async () => {
-            await api.patch(`/transactions/${selectedOrder.id}`, { servedAt: selectedOrder.servedAt ? null : new Date().toISOString() })
-            await loadOrders()
-            setSelectedOrder((prev) => ({ ...prev, servedAt: prev.servedAt ? null : new Date().toISOString() }))
-          }}
+          onToggleServed={() => toggleServed(selectedOrder)}
+          onPayNow={(order) => { setSelectedOrder(null); setPendingOrder(order) }}
           onRefresh={() => { loadOrders(); setSelectedOrder(null) }}
+        />
+      )}
+
+      {pendingOrder && (
+        <CheckoutModal
+          cart={pendingOrder.items.map((i) => ({ product: { id: i.productId || `manual_${i.id}`, name: i.product?.name || 'Item Manual', price: i.price, stock: 999, imageUrl: i.product?.imageUrl || null, category: null }, qty: i.qty }))}
+          total={pendingOrder.total}
+          existingOrderId={pendingOrder.id}
+          onClose={() => setPendingOrder(null)}
+          onSuccess={() => { setPendingOrder(null); loadOrders() }}
         />
       )}
     </div>
@@ -325,18 +333,11 @@ export default function KasirPage() {
 }
 
 // ── Order Detail Modal ──
-function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
+function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh }) {
   const [printing, setPrinting] = useState(false)
   const [toggling, setToggling] = useState(false)
-  const [paying, setPaying] = useState(false)
-  const [payMethod, setPayMethod] = useState('CASH')
-  const [payment, setPayment] = useState('')
   const served = !!order.servedAt
   const paid = order.status === 'COMPLETED'
-  const methods = ['CASH', 'QRIS', 'TRANSFER', 'NONTUNAI']
-  const quickAmounts = [50000, 100000, 150000, 200000]
-  const paid2 = Number(payment) || 0
-  const change = payMethod === 'CASH' ? paid2 - order.total : 0
 
   async function handlePrint() {
     setPrinting(true)
@@ -344,26 +345,10 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
     finally { setPrinting(false) }
   }
 
-  async function handleToggle() {
+  function handleToggle() {
     setToggling(true)
-    try { await onToggleServed() } catch { }
-    finally { setToggling(false) }
-  }
-
-  async function handlePay() {
-    if (payMethod === 'CASH' && paid2 < order.total) return alert('Uang bayar kurang')
-    setPaying(true)
-    try {
-      await api.patch(`/transactions/${order.id}`, {
-        payment: payMethod === 'CASH' ? paid2 : order.total,
-        payMethod,
-        total: order.total,
-      })
-      onRefresh()
-      onClose()
-    } catch (e) {
-      alert(e.response?.data?.message || 'Gagal memproses pembayaran')
-    } finally { setPaying(false) }
+    onToggleServed()
+    setTimeout(() => setToggling(false), 500)
   }
 
   return (
@@ -436,41 +421,11 @@ function OrderDetailModal({ order, onClose, onToggleServed, onRefresh }) {
 
           {/* Form bayar jika PENDING */}
           {!paid && (
-            <div style={{ marginTop: '16px', padding: '16px', background: '#FEF2F2', borderRadius: '12px', border: '1px solid #FECACA' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)', marginBottom: '12px' }}>Proses Pembayaran</div>
-              <div style={{ marginBottom: '10px' }}>
-                <div className="section-label">Metode</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {methods.map((m) => (
-                    <button key={m} onClick={() => { setPayMethod(m); setPayment('') }}
-                      style={{ padding: '6px 12px', borderRadius: '8px', border: `1px solid ${payMethod === m ? 'var(--accent)' : 'var(--border)'}`, background: payMethod === m ? 'var(--accent)' : '#fff', color: payMethod === m ? '#fff' : 'var(--text2)', fontWeight: '600', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {payMethod === 'CASH' && (
-                <div style={{ marginBottom: '10px' }}>
-                  <label className="label">Uang Bayar</label>
-                  <input className="input" type="number" placeholder="0" value={payment} onChange={(e) => setPayment(e.target.value)} style={{ marginBottom: '6px' }} />
-                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                    {quickAmounts.map((v) => (
-                      <button key={v} onClick={() => setPayment(String(v))}
-                        style={{ padding: '4px 10px', borderRadius: '7px', border: '1px solid var(--border)', background: 'var(--accent-light)', color: 'var(--accent)', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-                        {fmt(v)}
-                      </button>
-                    ))}
-                  </div>
-                  {paid2 > 0 && <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: '700', color: change >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    Kembalian: Rp {fmt(Math.max(0, change))}
-                  </div>}
-                </div>
-              )}
-              <button onClick={handlePay} disabled={paying || (payMethod === 'CASH' && paid2 < order.total)}
-                style={{ width: '100%', padding: '10px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: (paying || (payMethod === 'CASH' && paid2 < order.total)) ? 0.6 : 1 }}>
-                {paying ? 'Memproses...' : 'Konfirmasi Bayar'}
-              </button>
-            </div>
+            <button
+              onClick={() => { onClose(); onPayNow(order) }}
+              style={{ width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', marginTop: '4px' }}>
+              💳 Proses Pembayaran
+            </button>
           )}
         </div>
 
@@ -535,7 +490,7 @@ function ManualItemButton({ onAdd }) {
 }
 
 // ── Checkout Modal ──
-function CheckoutModal({ cart, total, onClose, onSuccess }) {
+function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
   const [payMethod, setPayMethod] = useState('CASH')
   const [payment, setPayment] = useState('')
   const [payLater, setPayLater] = useState(false)
@@ -561,6 +516,15 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
     if (!later && payMethod === 'CASH' && paid < total) return alert('Uang bayar kurang')
     setLoading(true)
     try {
+      if (existingOrderId) {
+        await api.patch(`/transactions/${existingOrderId}`, {
+          payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
+          payMethod,
+          total,
+        })
+        setTx({ invoiceNo: existingOrderId, total, change: payMethod === 'CASH' ? paid - total : 0 })
+        return
+      }
       const items = cart.map((i) => {
         const o = { qty: i.qty, price: i.product.price }
         if (i.product.id.startsWith('manual_')) o.name = i.product.name
