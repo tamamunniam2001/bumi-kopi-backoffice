@@ -44,7 +44,7 @@ export async function DELETE(req, { params }) {
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
-  await prisma.transactionItem.deleteMany({ where: { transactionId: id } })
+  await prisma.orderItem.deleteMany({ where: { transactionId: id } })
   await prisma.transaction.delete({ where: { id } })
   return NextResponse.json({ success: true })
 }
