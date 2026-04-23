@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
@@ -20,7 +20,6 @@ export default function ClosingPage() {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Load orders today
   useEffect(() => {
     async function load() {
       try {
@@ -34,7 +33,6 @@ export default function ClosingPage() {
     load()
   }, [])
 
-  // Computed values
   const completed = orders.filter(o => o.status === 'COMPLETED')
   const totalPenjualan = completed.reduce((s, o) => s + o.total, 0)
   const totalCash = completed.filter(o => o.payMethod === 'CASH').reduce((s, o) => s + o.total, 0)
@@ -95,33 +93,38 @@ export default function ClosingPage() {
 
         {/* ── Header ── */}
         <div style={{
-          flexShrink: 0, height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 28px', background: '#0F172A', borderBottom: '1px solid #1E293B'
+          flexShrink: 0, height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', background: '#fff', borderBottom: '1px solid #E8EDF8'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563EB, #60A5FA)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🔒</div>
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#F1F5F9', letterSpacing: '-0.3px' }}>Closing Kasir</div>
-              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>{todayLabel} · {timeLabel}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', color: '#94A3B8' }}>Kasir</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#F1F5F9' }}>{user.name || '-'}</div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Back button - modern pill style */}
             <button
               onClick={() => router.push('/kasir')}
               style={{
-                background: 'rgba(255,255,255,0.08)', border: '1px solid #334155', borderRadius: '9px',
-                color: '#94A3B8', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                padding: '8px 16px', fontFamily: 'inherit', transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', borderRadius: '20px', border: '1.5px solid #E8EDF8',
+                background: '#F8FAFF', color: '#4A5578', fontSize: '13px', fontWeight: '600',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s'
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              onMouseEnter={e => { e.currentTarget.style.background = '#EFF4FF'; e.currentTarget.style.borderColor = '#C7D4F0'; e.currentTarget.style.color = '#2563EB' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFF'; e.currentTarget.style.borderColor = '#E8EDF8'; e.currentTarget.style.color = '#4A5578' }}
             >
-              ✕ Tutup
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Kembali
             </button>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#0F1729', letterSpacing: '-0.3px' }}>Closing Kasir</div>
+              <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>{todayLabel} · {timeLabel}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>KASIR</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0F1729' }}>{user.name || '-'}</div>
+            </div>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563EB, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: '700' }}>
+              {(user.name || 'K').charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
 
@@ -129,28 +132,27 @@ export default function ClosingPage() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {saved ? (
-            /* Saved state */
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
               <div style={{
-                width: '80px', height: '80px', borderRadius: '50%',
+                width: '72px', height: '72px', borderRadius: '50%',
                 background: 'linear-gradient(135deg, #10B981, #34D399)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '36px', boxShadow: '0 8px 32px rgba(16,185,129,0.3)'
+                fontSize: '32px', boxShadow: '0 6px 24px rgba(16,185,129,0.3)'
               }}>✓</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#0F1729' }}>Laporan Tersimpan!</div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#0F1729' }}>Laporan Tersimpan!</div>
               <div style={{ fontSize: '13px', color: '#64748B' }}>Closing hari ini berhasil dicatat</div>
-              <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={() => router.push('/kasir')}>Kembali ke Kasir</button>
+              <button className="btn btn-primary" style={{ marginTop: '4px' }} onClick={() => router.push('/kasir')}>Kembali ke Kasir</button>
             </div>
           ) : (
             <>
               {/* Left: Ringkasan */}
               <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column', gap: '20px',
-                padding: '24px 28px', overflow: 'hidden'
+                flex: 1, display: 'flex', flexDirection: 'column', gap: '16px',
+                padding: '20px 24px', overflow: 'hidden'
               }}>
 
                 {/* Row 1: 4 Summary Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', flexShrink: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', flexShrink: 0 }}>
                   {[
                     { label: 'Total Penjualan', value: totalPenjualan, icon: '💰', color: '#2563EB', bg: '#EFF4FF', border: '#C7D4F0' },
                     { label: 'Cash', value: totalCash, icon: '💵', color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
@@ -158,50 +160,49 @@ export default function ClosingPage() {
                     { label: 'Transfer', value: totalTransfer, icon: '🏦', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
                   ].map(card => (
                     <div key={card.label} style={{
-                      background: '#fff', borderRadius: '14px', border: '1px solid #E8EDF8',
-                      padding: '16px', boxShadow: '0 1px 4px rgba(13,21,38,0.04)',
-                      display: 'flex', flexDirection: 'column', gap: '8px'
+                      background: '#fff', borderRadius: '12px', border: '1px solid #E8EDF8',
+                      padding: '14px', boxShadow: '0 1px 3px rgba(13,21,38,0.04)',
+                      display: 'flex', flexDirection: 'column', gap: '6px'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>{card.icon}</span>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{card.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '16px' }}>{card.icon}</span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{card.label}</span>
                       </div>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: card.color, letterSpacing: '-0.5px' }}>{fmt(card.value)}</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: card.color, letterSpacing: '-0.5px' }}>{fmt(card.value)}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Row 2: Kas Management + Catatan */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', flex: 1, minHeight: 0 }}>
 
                   {/* Kas Awal & Pengeluaran */}
                   <div style={{
-                    background: '#fff', borderRadius: '16px', border: '1px solid #E8EDF8',
-                    boxShadow: '0 1px 4px rgba(13,21,38,0.04)',
+                    background: '#fff', borderRadius: '14px', border: '1px solid #E8EDF8',
+                    boxShadow: '0 1px 3px rgba(13,21,38,0.04)',
                     display: 'flex', flexDirection: 'column', overflow: 'hidden'
                   }}>
-                    <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5FB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Laporan Kas</span>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5FB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Laporan Kas</span>
                       <span style={{ fontSize: '11px', color: '#94A3B8' }}>{completed.length} transaksi · {pendingCount} belum bayar</span>
                     </div>
 
-                    <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, overflow: 'hidden' }}>
+                    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
 
                       {/* Kas Awal */}
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4A5578', marginBottom: '5px', display: 'block' }}>KAS AWAL</label>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4A5578', marginBottom: '4px', display: 'block' }}>KAS AWAL</label>
                         <div style={{ position: 'relative' }}>
-                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', fontWeight: '700', color: '#94A3B8' }}>Rp</span>
+                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '13px', fontWeight: '700', color: '#94A3B8' }}>Rp</span>
                           <input
                             type="number"
                             placeholder="0"
                             value={kasAwal}
                             onChange={e => setKasAwal(e.target.value)}
                             style={{
-                              width: '100%', padding: '10px 12px 10px 38px', borderRadius: '10px',
-                              border: '1.5px solid #E8EDF8', fontSize: '15px', fontWeight: '700',
-                              color: '#0F1729', outline: 'none', background: '#F8FAFF', fontFamily: 'inherit',
-                              transition: 'border-color 0.15s, box-shadow 0.15s'
+                              width: '100%', padding: '9px 12px 9px 36px', borderRadius: '10px',
+                              border: '1.5px solid #E8EDF8', fontSize: '14px', fontWeight: '700',
+                              color: '#0F1729', outline: 'none', background: '#F8FAFF', fontFamily: 'inherit'
                             }}
                             onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)' }}
                             onBlur={e => { e.target.style.borderColor = '#E8EDF8'; e.target.style.boxShadow = 'none' }}
@@ -211,7 +212,7 @@ export default function ClosingPage() {
 
                       {/* Pengeluaran */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: '#4A5578' }}>PENGELUARAN</label>
                           <button onClick={addPengeluaran}
                             style={{
@@ -221,18 +222,18 @@ export default function ClosingPage() {
                             }}
                           >+ Tambah</button>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, overflowY: 'auto' }}>
                           {pengeluaran.length === 0 && (
-                            <div style={{ fontSize: '12px', color: '#CBD5E1', padding: '8px 0' }}>Belum ada pengeluaran</div>
+                            <div style={{ fontSize: '12px', color: '#CBD5E1', padding: '6px 0' }}>Belum ada pengeluaran</div>
                           )}
                           {pengeluaran.map((p, i) => (
-                            <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div key={i} style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
                               <input
                                 placeholder="Nama barang"
                                 value={p.barang}
                                 onChange={e => updatePengeluaran(i, 'barang', e.target.value)}
                                 style={{
-                                  flex: 2, padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
+                                  flex: 2, padding: '6px 10px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
                                   fontSize: '12px', color: '#0F1729', outline: 'none', background: '#F8FAFF', fontFamily: 'inherit'
                                 }}
                               />
@@ -240,7 +241,7 @@ export default function ClosingPage() {
                                 type="number" placeholder="Qty" value={p.qty}
                                 onChange={e => updatePengeluaran(i, 'qty', e.target.value)}
                                 style={{
-                                  flex: '0 0 48px', padding: '7px 8px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
+                                  flex: '0 0 44px', padding: '6px 8px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
                                   fontSize: '12px', color: '#0F1729', outline: 'none', background: '#F8FAFF', fontFamily: 'inherit', textAlign: 'center'
                                 }}
                               />
@@ -249,7 +250,7 @@ export default function ClosingPage() {
                                 value={p.harga}
                                 onChange={e => updatePengeluaran(i, 'harga', e.target.value)}
                                 style={{
-                                  flex: 2, padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
+                                  flex: 2, padding: '6px 10px', borderRadius: '8px', border: '1.5px solid #E8EDF8',
                                   fontSize: '12px', color: '#0F1729', outline: 'none', background: '#F8FAFF', fontFamily: 'inherit'
                                 }}
                               />
@@ -264,7 +265,7 @@ export default function ClosingPage() {
                           ))}
                         </div>
                         {totalPengeluaran > 0 && (
-                          <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#EF4444', marginTop: '6px' }}>
+                          <div style={{ textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#EF4444', marginTop: '4px' }}>
                             Total Pengeluaran: {fmt(totalPengeluaran)}
                           </div>
                         )}
@@ -273,13 +274,13 @@ export default function ClosingPage() {
                   </div>
 
                   {/* Right: Kas Akhir + Catatan */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
                     {/* Kas Akhir Card */}
                     <div style={{
-                      background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: '16px',
-                      padding: '22px', boxShadow: '0 8px 32px rgba(15,23,41,0.2)',
-                      display: 'flex', flexDirection: 'column', gap: '12px', flexShrink: 0
+                      background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: '14px',
+                      padding: '20px', boxShadow: '0 6px 24px rgba(15,23,41,0.18)',
+                      display: 'flex', flexDirection: 'column', gap: '10px', flexShrink: 0
                     }}>
                       <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Perhitungan Kas Akhir</div>
 
@@ -297,10 +298,10 @@ export default function ClosingPage() {
                           <span style={{ fontSize: '14px', fontWeight: '600', color: '#EF4444' }}>-{fmt(totalPengeluaran)}</span>
                         </div>
                       )}
-                      <div style={{ borderTop: '1px solid #334155', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <div style={{ borderTop: '1px solid #334155', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <span style={{ fontSize: '14px', fontWeight: '700', color: '#F1F5F9' }}>Total Kas Akhir</span>
                         <span style={{
-                          fontSize: '28px', fontWeight: '800',
+                          fontSize: '26px', fontWeight: '800',
                           color: kasAkhir >= 0 ? '#10B981' : '#EF4444',
                           letterSpacing: '-1px'
                         }}>{fmt(kasAkhir)}</span>
@@ -309,23 +310,22 @@ export default function ClosingPage() {
 
                     {/* Catatan */}
                     <div style={{
-                      background: '#fff', borderRadius: '16px', border: '1px solid #E8EDF8',
-                      boxShadow: '0 1px 4px rgba(13,21,38,0.04)',
+                      background: '#fff', borderRadius: '14px', border: '1px solid #E8EDF8',
+                      boxShadow: '0 1px 3px rgba(13,21,38,0.04)',
                       display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'
                     }}>
-                      <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5FB' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catatan</span>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #F1F5FB' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catatan</span>
                       </div>
-                      <div style={{ padding: '12px 18px', flex: 1 }}>
+                      <div style={{ padding: '12px 16px', flex: 1 }}>
                         <textarea
                           value={catatan}
                           onChange={e => setCatatan(e.target.value)}
                           placeholder="Catatan tambahan..."
                           style={{
-                            width: '100%', height: '100%', minHeight: '60px', border: '1.5px solid #E8EDF8',
+                            width: '100%', height: '100%', minHeight: '50px', border: '1.5px solid #E8EDF8',
                             borderRadius: '10px', padding: '10px 12px', fontSize: '13px', color: '#0F1729',
-                            outline: 'none', background: '#F8FAFF', fontFamily: 'inherit', resize: 'none',
-                            transition: 'border-color 0.15s, box-shadow 0.15s'
+                            outline: 'none', background: '#F8FAFF', fontFamily: 'inherit', resize: 'none'
                           }}
                           onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)' }}
                           onBlur={e => { e.target.style.borderColor = '#E8EDF8'; e.target.style.boxShadow = 'none' }}
@@ -342,7 +342,7 @@ export default function ClosingPage() {
         {/* ── Footer ── */}
         {!saved && (
           <div style={{
-            flexShrink: 0, height: '70px', padding: '0 28px',
+            flexShrink: 0, height: '64px', padding: '0 24px',
             background: '#fff', borderTop: '1px solid #E8EDF8',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
