@@ -1,0 +1,27 @@
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { verifyAuth, adminOnly } from '@/lib/auth'
+
+export async function GET(req) {
+  const { error, user } = verifyAuth(req)
+  if (error) return error
+  const denied = adminOnly(user)
+  if (denied) return denied
+  const { searchParams } = new URL(req.url)
+  const from = searchParams.get('from')
+  const to = searchParams.get('to')
+  const transactionWhere = { status: 'COMPLETED' }
+  if (from && to) transactionWhere.createdAt = { gte: new Date(from), lte: new Date(new Date(to).setHours(23, 59, 59, 999)) }
+  const orderItems = await prisma.orderItem.findMany({
+    where: { transaction: transactionWhere },
+    include: { product: { include: { ingredients: { include: { ingredient: true } } } } },
+  })
+  const usageMap = {}
+  for (const oi of orderItems) {
+    for (const pi of oi.product.ingredients) {
+      if (!usageMap[pi.ingredientId]) usageMap[pi.ingredientId] = { ingredientId: pi.ingredientId, name: pi.ingredient.name, unit: pi.ingredient.unit, totalQty: 0 }
+      usageMap[pi.ingredientId].totalQty += pi.qty * oi.qty
+    }
+  }
+  return NextResponse.json(Object.values(usageMap).sort((a, b) => b.totalQty - a.totalQty))
+}

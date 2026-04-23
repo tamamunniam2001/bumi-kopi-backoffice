@@ -1,51 +1,37 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: <IconGrid /> },
   { href: '/kasir', label: 'Kasir', icon: <IconCashier /> },
+  { href: '/kasir/laporan', label: 'Laporan Kasir', icon: <IconReport /> },
   { href: '/products', label: 'Produk', icon: <IconBox /> },
   { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask /> },
   { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart /> },
   { href: '/transactions', label: 'Transaksi', icon: <IconReceipt /> },
   { href: '/daily-reports', label: 'Laporan Harian', icon: <IconReport /> },
-  { href: '/kasir/laporan', label: 'Laporan Kasir', icon: <IconReport /> },
-  { href: '/users', label: 'Kasir', icon: <IconUsers /> },
+  { href: '/users', label: 'Pengguna', icon: <IconUsers /> },
 ]
-
-function IconCashier() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-}
-function IconReport() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-}
-function IconGrid() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-}
-function IconBox() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-}
-function IconFlask() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6m-5 0v6l-4 9a1 1 0 0 0 .9 1.45h10.2A1 1 0 0 0 18 18l-4-9V3"/></svg>
-}
-function IconChart() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-}
-function IconReceipt() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
-}
-function IconUsers() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-}
-function IconLogout() {
-  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_collapsed')
+    if (saved !== null) setCollapsed(saved === 'true')
+  }, [])
+
+  function toggleCollapse() {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem('sidebar_collapsed', String(next))
+  }
 
   function logout() {
     Cookies.remove('token')
@@ -54,75 +40,93 @@ export default function Sidebar() {
   }
 
   return (
-    <aside style={{
-      width: '240px', minHeight: '100vh', flexShrink: 0,
-      background: '#0F172A',
-      display: 'flex', flexDirection: 'column',
-      position: 'sticky', top: 0, height: '100vh',
-    }}>
-      {/* Logo */}
-      <div style={{ padding: '24px 20px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '38px', height: '38px',
-            background: 'linear-gradient(135deg, #2563EB, #60A5FA)',
-            borderRadius: '10px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '18px',
-            boxShadow: '0 4px 14px rgba(37,99,235,0.4)',
-          }}>☕</div>
-          <div>
-            <div style={{ fontWeight: '700', fontSize: '14px', color: '#F1F5F9', letterSpacing: '-0.2px' }}>Bumi Kopi</div>
-            <div style={{ fontSize: '11px', color: '#475569', marginTop: '1px' }}>Admin Panel</div>
+    <>
+      {/* Mobile overlay */}
+      <div className={`cart-overlay${mobileOpen ? ' open' : ''}`} onClick={() => setMobileOpen(false)} style={{ zIndex: 49 }} />
+
+      {/* Mobile toggle button */}
+      <button
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className="mobile-menu-btn"
+        style={{
+          display: 'none', position: 'fixed', top: '14px', left: '14px',
+          zIndex: 60, background: '#0F172A', border: 'none', borderRadius: '9px',
+          width: '36px', height: '36px', cursor: 'pointer',
+          alignItems: 'center', justifyContent: 'center', color: '#94A3B8',
+        }}
+      >
+        <IconMenu />
+      </button>
+
+      <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}>
+        {/* Logo + toggle */}
+        <div style={{ padding: '16px 14px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
+            <div style={{ width: '34px', height: '34px', flexShrink: 0, background: 'linear-gradient(135deg, #2563EB, #60A5FA)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', boxShadow: '0 4px 12px rgba(37,99,235,0.4)' }}>☕</div>
+            {!collapsed && (
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#F1F5F9', whiteSpace: 'nowrap' }}>Bumi Kopi</div>
+                <div style={{ fontSize: '11px', color: '#475569', marginTop: '1px' }}>Admin Panel</div>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={toggleCollapse}
+            style={{ flexShrink: 0, background: 'transparent', border: '1px solid #1E293B', borderRadius: '7px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', transition: 'all 0.15s', marginLeft: collapsed ? 'auto' : '0' }}
+            title={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+          >
+            {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
+          </button>
+        </div>
+
+        <div className="sidebar-divider" />
+
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          {!collapsed && <div className="sidebar-section-label">Menu</div>}
+          {navItems.map((item) => {
+            const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
+            return (
+              <div key={item.href} className="sidebar-tooltip-wrap">
+                <Link
+                  href={item.href}
+                  className={`sidebar-item${active ? ' active' : ''}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <span className="item-icon">{item.icon}</span>
+                  <span className="item-label">{item.label}</span>
+                  {active && <span className="item-dot" />}
+                </Link>
+                {collapsed && <span className="tooltip">{item.label}</span>}
+              </div>
+            )
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="sidebar-footer">
+          <div className="sidebar-tooltip-wrap">
+            <button className="sidebar-logout" onClick={logout}>
+              <IconLogout />
+              <span className="logout-label">Keluar</span>
+            </button>
+            {collapsed && <span className="tooltip">Keluar</span>}
           </div>
         </div>
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: '1px', background: '#1E293B', margin: '0 20px' }} />
-
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
-        <div style={{ fontSize: '10px', fontWeight: '700', color: '#334155', letterSpacing: '1px', padding: '0 8px', marginBottom: '8px', textTransform: 'uppercase' }}>Menu</div>
-        {navItems.map((item) => {
-          const active = pathname === item.href
-          return (
-            <Link key={item.href} href={item.href} style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '9px 10px', borderRadius: '9px',
-              textDecoration: 'none', marginBottom: '2px',
-              background: active ? 'rgba(37,99,235,0.15)' : 'transparent',
-              color: active ? '#60A5FA' : '#64748B',
-              fontWeight: active ? '600' : '500', fontSize: '13.5px',
-              border: active ? '1px solid rgba(37,99,235,0.2)' : '1px solid transparent',
-              transition: 'all 0.15s',
-            }}
-              onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#94A3B8' } }}
-              onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748B' } }}
-            >
-              <span style={{ opacity: active ? 1 : 0.7, flexShrink: 0 }}>{item.icon}</span>
-              {item.label}
-              {active && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#3B82F6' }} />}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div style={{ padding: '12px', borderTop: '1px solid #1E293B' }}>
-        <button onClick={logout} style={{
-          width: '100%', padding: '9px 10px',
-          background: 'transparent', border: '1px solid #1E293B',
-          borderRadius: '9px', color: '#475569',
-          fontSize: '13px', fontWeight: '500', cursor: 'pointer',
-          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '8px',
-          transition: 'all 0.15s',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#F87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#1E293B' }}
-        >
-          <IconLogout /> Keluar
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }
+
+function IconGrid() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> }
+function IconCashier() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> }
+function IconBox() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> }
+function IconFlask() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6m-5 0v6l-4 9a1 1 0 0 0 .9 1.45h10.2A1 1 0 0 0 18 18l-4-9V3"/></svg> }
+function IconChart() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> }
+function IconReceipt() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg> }
+function IconReport() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> }
+function IconUsers() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
+function IconLogout() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> }
+function IconChevronLeft() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg> }
+function IconChevronRight() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg> }
+function IconMenu() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg> }
