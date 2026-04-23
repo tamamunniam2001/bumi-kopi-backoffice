@@ -286,7 +286,7 @@ export default function KasirPage() {
 
           {/* Footer cart */}
           <div style={{ padding: '16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-            <ManualItemButton onAdd={(item) => setCart((prev) => {
+            <ManualItemButton categories={categories} onAdd={(item) => setCart((prev) => {
               const idx = prev.findIndex((i) => i.product.id === item.id)
               if (idx >= 0) return prev.map((i, n) => n === idx ? { ...i, qty: i.qty + 1 } : i)
               return [...prev, { product: item, qty: 1 }]
@@ -462,16 +462,17 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
 }
 
 // ── Tambah Item Manual ──
-function ManualItemButton({ onAdd }) {
+function ManualItemButton({ onAdd, categories }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [category, setCategory] = useState('')
 
   function submit(e) {
     e.preventDefault()
     if (!name || !price) return
-    onAdd({ id: `manual_${Date.now()}`, name, price: Number(price), stock: 999, imageUrl: null, category: null })
-    setName(''); setPrice(''); setOpen(false)
+    onAdd({ id: `manual_${Date.now()}`, name, price: Number(price), stock: 999, imageUrl: null, category: category ? { name: category } : null })
+    setName(''); setPrice(''); setCategory(''); setOpen(false)
   }
 
   return (
@@ -489,9 +490,16 @@ function ManualItemButton({ onAdd }) {
                 <label className="label">Nama Item</label>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama produk" required />
               </div>
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <label className="label">Harga</label>
                 <input className="input" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" required />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value="">Tanpa kategori</option>
+                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Tambah</button>
