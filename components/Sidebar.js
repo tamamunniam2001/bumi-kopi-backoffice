@@ -7,12 +7,11 @@ import Cookies from 'js-cookie'
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: <IconGrid /> },
   { href: '/kasir', label: 'Kasir', icon: <IconCashier /> },
-  { href: '/kasir/laporan', label: 'Laporan Kasir', icon: <IconReport /> },
+  { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport /> },
   { href: '/products', label: 'Produk', icon: <IconBox /> },
   { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask /> },
   { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart /> },
   { href: '/transactions', label: 'Transaksi', icon: <IconReceipt /> },
-  { href: '/daily-reports', label: 'Laporan Harian', icon: <IconReport /> },
   { href: '/users', label: 'Pengguna', icon: <IconUsers /> },
 ]
 

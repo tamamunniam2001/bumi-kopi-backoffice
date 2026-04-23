@@ -353,7 +353,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => setOrders([])} />
       )}
     </div>
   )
@@ -526,7 +526,7 @@ function ManualItemButton({ onAdd, categories }) {
 
 // ── Closing Modal ──
 // â”€â”€ Closing Modal â”€â”€
-function ClosingModal({ orders, onClose }) {
+function ClosingModal({ orders, onClose, onSaved }) {
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
 
   const completed = orders.filter(o => o.status === 'COMPLETED')
@@ -557,7 +557,10 @@ function ClosingModal({ orders, onClose }) {
         piutang: [], catatan,
       })
       setSaved(true)
-    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan laporan') }
+      onSaved()
+    } catch (e) {
+      alert(e.response?.data?.message || 'Gagal menyimpan laporan')
+    }
     finally { setSaving(false) }
   }
 
