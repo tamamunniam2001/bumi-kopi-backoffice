@@ -586,80 +586,100 @@ function ClosingModal({ orders, onClose }) {
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {saved ? (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-              {/* Success badge */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '52px', height: '52px', background: 'var(--green-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', border: '2px solid #A7F3D0' }}>✓</div>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)' }}>Laporan Tersimpan!</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
-              </div>
-
-              {/* Ringkasan dalam satu kotak */}
-              <div style={{ width: '100%', maxWidth: '560px', background: 'var(--surface2)', borderRadius: '14px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                {/* Penjualan */}
-                <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: '#FAFBFF' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Ringkasan Penjualan</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                    {[
-                      { label: 'Total', value: totalPenjualan, color: '#3B6FD4', bg: '#EEF3FC', border: '#C7D4F0' },
-                      { label: 'Cash', value: totalCash, color: '#0EA472', bg: '#EDFAF4', border: '#A7F3D0' },
-                      { label: 'QRIS', value: totalQris, color: '#7C5CBF', bg: '#F4F1FB', border: '#DDD6FE' },
-                      { label: 'Transfer', value: totalTransfer, color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
-                    ].map(({ label, value, color, bg, border }) => (
-                      <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '9px', padding: '9px 10px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '3px' }}>{label}</div>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color }}>{fmt(value)}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--muted)', textAlign: 'center' }}>
-                    {completed.length} transaksi selesai · {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
-                  </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              {/* Success header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ width: '40px', height: '40px', background: 'var(--green-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', border: '2px solid #A7F3D0', flexShrink: 0, color: 'var(--green)', fontWeight: '800' }}>&#10003;</div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>Laporan Closing Tersimpan</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
                 </div>
-
-                {/* Kas */}
-                <div style={{ padding: '14px 18px', borderBottom: pengeluaran.filter(p => p.barang).length > 0 || catatan ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Kalkulasi Kas</div>
-                  {[
-                    ['Kas Awal', fmt(Number(kasAwal) || 0), 'var(--text2)'],
-                    ['+ Penjualan Cash', `+${fmt(totalCash)}`, 'var(--green)'],
-                    ...(totalPengeluaran > 0 ? [['- Pengeluaran', `-${fmt(totalPengeluaran)}`, 'var(--red)']] : []),
-                  ].map(([label, val, color]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                      <span style={{ color: 'var(--text2)' }}>{label}</span>
-                      <span style={{ fontWeight: '600', color }}>{val}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                {/* Kolom kiri */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Ringkasan Penjualan</div>
                     </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '4px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Total Kas Akhir</span>
-                    <span style={{ fontSize: '18px', fontWeight: '800', color: kasAkhir >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(kasAkhir)}</span>
+                    <div style={{ padding: '12px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {[
+                        { label: 'Total Penjualan', value: totalPenjualan, color: '#4A7CC7', bg: '#EBF1FB', border: '#C0D0E8' },
+                        { label: 'Cash', value: totalCash, color: '#2A9D6E', bg: '#E8F7F1', border: '#A7DFC8' },
+                        { label: 'QRIS', value: totalQris, color: '#6B5BAF', bg: '#EEEAF8', border: '#C8C0E8' },
+                        { label: 'Transfer / Non-Tunai', value: totalTransfer, color: '#C47D1A', bg: '#FDF4E3', border: '#F0D090' },
+                      ].map(({ label, value, color, bg, border }) => (
+                        <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '9px', padding: '10px 12px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '3px' }}>{label}</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color }}>{fmt(value)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)', background: '#F5F8FE' }}>
+                      {completed.length} transaksi selesai Â· {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                    </div>
+                  </div>
+                  <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', border: '1px solid #C0D0E8', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid #C0D0E8' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Kalkulasi Kas</div>
+                    </div>
+                    <div style={{ padding: '12px 14px' }}>
+                      {[
+                        ['Kas Awal', fmt(Number(kasAwal) || 0), 'var(--text2)'],
+                        ['+ Penjualan Cash', `+${fmt(totalCash)}`, '#2A9D6E'],
+                        ...(totalPengeluaran > 0 ? [['- Total Pengeluaran', `-${fmt(totalPengeluaran)}`, '#C95555']] : []),
+                      ].map(([label, val, color]) => (
+                        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '8px' }}>
+                          <span style={{ color: '#7A8FAF' }}>{label}</span>
+                          <span style={{ fontWeight: '600', color }}>{val}</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #C0D0E8', paddingTop: '10px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E2A3B' }}>Total Kas Akhir</span>
+                        <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#2A9D6E' : '#C95555' }}>{fmt(kasAkhir)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* Pengeluaran & Catatan */}
-                {pengeluaran.filter(p => p.barang).length > 0 && (
-                  <div style={{ padding: '14px 18px', borderBottom: catatan ? '1px solid var(--border)' : 'none' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Pengeluaran</div>
-                    {pengeluaran.filter(p => p.barang).map((p, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                        <span style={{ color: 'var(--text2)' }}>{p.barang} ×{p.qty}</span>
-                        <span style={{ fontWeight: '600', color: 'var(--red)' }}>-{fmt(Number(p.harga) * Number(p.qty || 1))}</span>
-                      </div>
-                    ))}
+                {/* Kolom kanan */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pengeluaran</div>
+                      {totalPengeluaran > 0 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#C95555' }}>-{fmt(totalPengeluaran)}</span>}
+                    </div>
+                    <div style={{ padding: '12px 14px' }}>
+                      {pengeluaran.filter(p => p.barang).length === 0 ? (
+                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada pengeluaran</div>
+                      ) : pengeluaran.filter(p => p.barang).map((p, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < pengeluaran.filter(x => x.barang).length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text)' }}>{p.barang}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{p.qty} x {fmt(Number(p.harga))}</div>
+                          </div>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#C95555' }}>-{fmt(Number(p.harga) * Number(p.qty || 1))}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
-                {catatan && (
-                  <div style={{ padding: '12px 18px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Catatan</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{catatan}</div>
+                  <div style={{ background: 'var(--surface2)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</div>
+                    </div>
+                    <div style={{ padding: '12px 14px' }}>
+                      {catatan ? (
+                        <div style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: '1.6' }}>{catatan}</div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
-
-              <button className="btn btn-primary" style={{ justifyContent: 'center', minWidth: '160px' }} onClick={onClose}>Tutup</button>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                <button className="btn btn-primary" style={{ justifyContent: 'center', minWidth: '160px' }} onClick={onClose}>Tutup</button>
+              </div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
               {/* Kolom Kiri: Ringkasan + Kas Akhir */}
               <div style={{ flex: 1, padding: '16px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
