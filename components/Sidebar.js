@@ -62,17 +62,17 @@ export default function Sidebar() {
         {/* Logo + toggle */}
         <div style={{ padding: '16px 14px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
-            <div style={{ width: '34px', height: '34px', flexShrink: 0, background: 'linear-gradient(135deg, #2563EB, #60A5FA)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', boxShadow: '0 4px 12px rgba(37,99,235,0.4)' }}>☕</div>
+            <div style={{ width: '34px', height: '34px', flexShrink: 0, background: 'linear-gradient(135deg, #3B6FD4, #7EAAEE)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', boxShadow: '0 3px 10px rgba(59,111,212,0.3)' }}>☕</div>
             {!collapsed && (
               <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#F1F5F9', whiteSpace: 'nowrap' }}>Bumi Kopi</div>
-                <div style={{ fontSize: '11px', color: '#475569', marginTop: '1px' }}>Admin Panel</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#D8E4F5', whiteSpace: 'nowrap' }}>Bumi Kopi</div>
+                <div style={{ fontSize: '11px', color: '#4A6080', marginTop: '1px' }}>Admin Panel</div>
               </div>
             )}
           </div>
           <button
             onClick={toggleCollapse}
-            style={{ flexShrink: 0, background: 'transparent', border: '1px solid #1E293B', borderRadius: '7px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', transition: 'all 0.15s', marginLeft: collapsed ? 'auto' : '0' }}
+            style={{ flexShrink: 0, background: 'transparent', border: '1px solid #2A3A52', borderRadius: '7px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4A6080', transition: 'all 0.15s', marginLeft: collapsed ? 'auto' : '0' }}
             title={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
           >
             {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
