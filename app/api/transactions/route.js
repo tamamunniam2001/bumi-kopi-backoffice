@@ -54,8 +54,7 @@ export async function POST(req) {
     const actualPayment = payLater ? 0 : (payment || 0)
     const invoiceNo = `BK-${Date.now()}`
 
-    // Jalankan update stok dan create transaksi secara paralel-ish lewat Promise.all
-    // Update stok dulu, lalu create transaksi
+    // Update stok dulu
     await Promise.all(
       productIds.map(id => {
         const item = items.find(i => i.productId === id)
@@ -75,7 +74,7 @@ export async function POST(req) {
       },
       select: {
         id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true,
-        status: true, createdAt: true, customerName: true, note: true,
+        status: true, servedAt: true, createdAt: true, customerName: true, note: true,
         cashier: { select: { name: true } },
         items: { select: { id: true, qty: true, price: true, subtotal: true, productId: true, product: { select: { name: true, imageUrl: true } } } },
       },
