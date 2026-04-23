@@ -9,6 +9,19 @@ import Cookies from 'js-cookie'
 const fmt = (n) => Number(n).toLocaleString('id-ID')
 const fmtTime = (d) => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
+const translations = {
+  namaItem: 'Nama Item',
+  harga: 'Harga',
+  kategori: 'Kategori',
+  opsional: '(opsional)',
+  namaPembeli: 'Nama Pembeli',
+  catatan: 'Catatan',
+  kasAwal: 'Kas Awal',
+  pengeluaran: 'Pengeluaran',
+  tambahItemManual: 'Tambah Item Manual',
+}
+const t = (key) => translations[key]
+
 export default function KasirPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -65,8 +78,10 @@ export default function KasirPage() {
   }, [load, loadOrders])
 
   useEffect(() => {
-    const t = setInterval(() => { load(true); loadOrders() }, 30000)
-    return () => clearInterval(t)
+    // loadOrders setiap 15 detik, reload produk setiap 5 menit
+    const tOrders = setInterval(() => loadOrders(), 15000)
+    const tProducts = setInterval(() => load(true), 300000)
+    return () => { clearInterval(tOrders); clearInterval(tProducts) }
   }, [load, loadOrders])
 
   function toggleServed(orderId, currentServedAt) {
@@ -347,7 +362,10 @@ export default function KasirPage() {
           cart={cart}
           total={total}
           onClose={() => setCheckoutOpen(false)}
-          onSuccess={(newTx) => { clearCart(); setCheckoutOpen(false); setCartOpen(false); load(); if (newTx?.id) setOrders((prev) => [newTx, ...prev.filter(o => o.id !== newTx.id)]); loadOrders() }}
+          onSuccess={(newTx) => {
+            clearCart(); setCheckoutOpen(false); setCartOpen(false)
+            if (newTx?.id) setOrders((prev) => [newTx, ...prev.filter(o => o.id !== newTx.id)])
+          }}
         />
       )}
 
@@ -509,24 +527,21 @@ function ManualItemButton({ onAdd, categories }) {
     <>
       <button onClick={() => setOpen(true)} style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: '10px', background: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text2)', fontWeight: '600', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '10px' }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        Tambah Item Manual
+        {t('tambahItemManual')}
       </button>
       {open && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="card" style={{ width: '360px', padding: '24px' }}>
-            <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px' }}>Tambah Item Manual</div>
+            <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px' }}>{t('tambahItemManual')}</div>
             <form onSubmit={submit}>
               <div style={{ marginBottom: '12px' }}>
-                <label className="label">Nama Item</label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama produk" required />
+                <input className="input" aria-label={t('namaItem')} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('namaItem')} required />
               </div>
               <div style={{ marginBottom: '12px' }}>
-                <label className="label">Harga</label>
-                <input className="input" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" required />
+                <input className="input" type="number" aria-label={t('harga')} value={price} onChange={(e) => setPrice(e.target.value)} placeholder={t('harga')} required />
               </div>
               <div style={{ marginBottom: '16px' }}>
-                <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+                <select className="input" aria-label={t('kategori')} value={category} onChange={(e) => setCategory(e.target.value)}>
                   <option value="">Tanpa kategori</option>
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -733,12 +748,12 @@ function ClosingModal({ orders, onClose, onSaved }) {
               <div style={{ width: '310px', flexShrink: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Laporan Kas</div>
                 <div>
-                  <label className="label" style={{ fontSize: '11px' }}>Kas Awal</label>
+                  <label className="label" style={{ fontSize: '11px' }}>{t('kasAwal')}</label>
                   <input className="input" type="number" placeholder="0" value={kasAwal} onChange={(e) => setKasAwal(e.target.value)} style={{ fontSize: '13px' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label className="label" style={{ margin: 0, fontSize: '11px' }}>Pengeluaran</label>
+                    <label className="label" style={{ margin: 0, fontSize: '11px' }}>{t('pengeluaran')}</label>
                     <button type="button" onClick={addPengeluaran} style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
                   </div>
                   {pengeluaran.length === 0 && <div style={{ fontSize: '11px', color: 'var(--muted)', padding: '4px 0' }}>Belum ada pengeluaran</div>}
@@ -756,7 +771,7 @@ function ClosingModal({ orders, onClose, onSaved }) {
                   </div>
                 </div>
                 <div>
-                  <label className="label" style={{ fontSize: '11px' }}>Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <label className="label" style={{ fontSize: '11px' }}>{t('catatan')} <span style={{ color: 'var(--muted)', fontWeight: '400' }}>{t('opsional')}</span></label>
                   <textarea className="input" rows={2} placeholder="Catatan tambahan..." value={catatan} onChange={(e) => setCatatan(e.target.value)} style={{ resize: 'none', fontSize: '12px' }} />
                 </div>
               </div>
@@ -862,7 +877,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
           {payMethod === 'CASH' && tx.change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: '4px', color: 'var(--green)' }}><span>Kembalian</span><span style={{ fontWeight: '700' }}>Rp {fmt(tx.change)}</span></div>}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSuccess({ ...tx, items: cart.map(i => ({ product: { name: i.product.name }, qty: i.qty, price: i.product.price, subtotal: i.product.price * i.qty })) })}>Selesai</button>
+          <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onSuccess(tx)}>Selesai</button>
           <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={printing} onClick={handlePrint}>
             {printing ? '⏳ Mencetak...' : '🖨️ Print Struk'}
           </button>
@@ -889,11 +904,11 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
             {/* Nama + Catatan */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
               <div>
-                <label className="label">Nama Pembeli</label>
+                <label className="label">{t('namaPembeli')}</label>
                 <input className="input" placeholder="Nama pelanggan" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
               </div>
               <div>
-                <label className="label">Catatan</label>
+                <label className="label">{t('catatan')}</label>
                 <input className="input" placeholder="Tanpa es, extra shot..." value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
             </div>

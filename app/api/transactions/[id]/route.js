@@ -2,7 +2,25 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 
+function isCsrfSafe(req) {
+  // Must carry the custom header (browsers block cross-origin scripts from setting this)
+  if (req.headers.get('x-requested-with') !== 'XMLHttpRequest') return false
+  const host = req.headers.get('host')
+  if (!host) return false
+  const origin = req.headers.get('origin')
+  if (origin) {
+    try { return new URL(origin).host === host } catch { return false }
+  }
+  const referer = req.headers.get('referer')
+  if (referer) {
+    try { return new URL(referer).host === host } catch { return false }
+  }
+  // No origin/referer but custom header present — allow (server-side same-origin calls)
+  return true
+}
+
 export async function GET(req, { params }) {
+  if (!isCsrfSafe(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
@@ -15,6 +33,7 @@ export async function GET(req, { params }) {
 }
 
 export async function PATCH(req, { params }) {
+  if (!isCsrfSafe(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
@@ -41,6 +60,7 @@ export async function PATCH(req, { params }) {
 }
 
 export async function DELETE(req, { params }) {
+  if (!isCsrfSafe(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
