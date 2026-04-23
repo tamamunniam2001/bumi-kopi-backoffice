@@ -131,8 +131,8 @@ export default function KasirPage() {
             <button className="btn btn-ghost" onClick={load}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
             </button>
-            <button className="btn" style={{ background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA', fontWeight: '700' }} onClick={() => router.push('/kasir/closing')}>
-              🔒 Closing
+            <button className="btn" style={{ background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA', fontWeight: '700' }} onClick={() => setClosingOpen(true)}>
+              Closing
             </button>
           </div>
         </div>
@@ -349,6 +349,10 @@ export default function KasirPage() {
           onClose={() => setPendingOrder(null)}
           onSuccess={() => { setPendingOrder(null); loadOrders() }}
         />
+      )}
+
+      {closingOpen && (
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} />
       )}
     </div>
   )
