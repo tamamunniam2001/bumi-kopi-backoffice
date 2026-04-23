@@ -59,6 +59,7 @@ export default function KasirPage() {
   }, [])
 
   const loadOrders = useCallback(async () => {
+    if (localStorage.getItem('closing_date') === new Date().toLocaleDateString('en-CA')) return
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
@@ -389,7 +390,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false); loadOrders() }} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false) }} />
       )}
     </div>
   )
