@@ -23,10 +23,13 @@ export default function KasirPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
+  // Set untuk track order yang sedang in-flight PATCH servedAt
+  const pendingServed = useState(() => new Set())[0]
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await api.get('/products')
+      const res = await api.get('/products?slim=1')
       const prods = res.data
       const cats = [...new Set(prods.map((p) => p.category?.name).filter(Boolean))].sort()
       setProducts(prods)
@@ -39,12 +42,19 @@ export default function KasirPage() {
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
-      const res = await api.get(`/transactions?from=${today.toISOString()}&to=${endOfDay.toISOString()}&page=1`)
-      setOrders(res.data.transactions || [])
+      const res = await api.get(`/transactions?slim=1&from=${today.toISOString()}&to=${endOfDay.toISOString()}&page=1`)
+      const incoming = res.data.transactions || []
+      // Merge: jangan overwrite order yang sedang in-flight
+      setOrders((prev) => {
+        const prevMap = Object.fromEntries(prev.map((o) => [o.id, o]))
+        return incoming.map((o) => pendingServed.has(o.id) ? { ...o, servedAt: prevMap[o.id]?.servedAt } : o)
+      })
     } catch { }
-  }, [])
+  }, [pendingServed])
 
-  useEffect(() => { load(); loadOrders() }, [load, loadOrders])
+  useEffect(() => {
+    Promise.all([load(), loadOrders()])
+  }, [load, loadOrders])
 
   useEffect(() => {
     const t = setInterval(() => { load(true); loadOrders() }, 30000)
@@ -53,13 +63,15 @@ export default function KasirPage() {
 
   function toggleServed(order) {
     const newServedAt = order.servedAt ? null : new Date().toISOString()
+    pendingServed.add(order.id)
     setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: newServedAt } : o))
     setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: newServedAt } : prev)
     api.patch(`/transactions/${order.id}`, { servedAt: newServedAt }).then((res) => {
-      // Update dari server (source of truth)
+      pendingServed.delete(order.id)
       setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: res.data.servedAt } : o))
       setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: res.data.servedAt } : prev)
     }).catch(() => {
+      pendingServed.delete(order.id)
       setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: order.servedAt } : o))
       setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: order.servedAt } : prev)
     })

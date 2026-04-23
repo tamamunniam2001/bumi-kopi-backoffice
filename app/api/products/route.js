@@ -5,9 +5,14 @@ import { verifyAuth, adminOnly } from '@/lib/auth'
 export async function GET(req) {
   const { error } = verifyAuth(req)
   if (error) return error
+  const slim = new URL(req.url).searchParams.get('slim')
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    include: { category: true, ingredients: { include: { ingredient: true } } },
+    ...(slim ? {
+      select: { id: true, code: true, name: true, price: true, stock: true, imageUrl: true, categoryId: true, category: { select: { name: true } } }
+    } : {
+      include: { category: true, ingredients: { include: { ingredient: true } } }
+    }),
     orderBy: { name: 'asc' },
   })
   return NextResponse.json(products)
