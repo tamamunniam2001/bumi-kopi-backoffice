@@ -19,6 +19,7 @@ export default function KasirPage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [pendingOrder, setPendingOrder] = useState(null)
+  const [closingOpen, setClosingOpen] = useState(false)
   const router = useRouter()
   const [orders, setOrders] = useState([])
   const [ordersExpanded, setOrdersExpanded] = useState(true)
