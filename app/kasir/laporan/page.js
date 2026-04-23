@@ -10,6 +10,7 @@ export default function LaporanHarianPage() {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -61,9 +62,11 @@ export default function LaporanHarianPage() {
                       <td style={{ color: '#C47D1A' }}>{fmt(r.transfer)}</td>
                       <td style={{ color: 'var(--red)' }}>{fmt(totalPengeluaran(r))}</td>
                       <td style={{ fontWeight: '700', color: kasAkhir(r) >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(kasAkhir(r))}</td>
-                      <td>
-                        <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C0D0E8', padding: '5px 12px', fontSize: '12px' }}
+                      <td style={{ display: 'flex', gap: '6px' }}>
+                        <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C0D0E8', padding: '5px 10px', fontSize: '12px' }}
                           onClick={(e) => { e.stopPropagation(); setSelected(r) }}>Detail</button>
+                        <button className="btn" style={{ background: '#F5F8FE', color: 'var(--text2)', border: '1px solid var(--border)', padding: '5px 10px', fontSize: '12px' }}
+                          onClick={(e) => { e.stopPropagation(); setEditTarget(r) }}>Edit</button>
                       </td>
                     </tr>
                   ))}
@@ -73,13 +76,14 @@ export default function LaporanHarianPage() {
           </div>
         </div>
 
-        {selected && <DetailModal report={selected} onClose={() => setSelected(null)} fmt={fmt} fmtDate={fmtDate} totalPengeluaran={totalPengeluaran} kasAkhir={kasAkhir} />}
+        {selected && <DetailModal report={selected} onClose={() => setSelected(null)} fmt={fmt} fmtDate={fmtDate} totalPengeluaran={totalPengeluaran} kasAkhir={kasAkhir} onEdit={() => { setEditTarget(selected); setSelected(null) }} />}
+        {editTarget && <EditModal report={editTarget} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); load() }} fmt={fmt} fmtDate={fmtDate} />}
       </main>
     </div>
   )
 }
 
-function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAkhir }) {
+function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAkhir, onEdit }) {
   const kAkhir = kasAkhir(r)
   const totPengeluaran = totalPengeluaran(r)
 
@@ -88,20 +92,20 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="card fade-in" style={{ width: '720px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Header */}
         <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E2A3B' }}>Laporan Closing — {fmtDate(r.date)}</div>
             <div style={{ fontSize: '11px', color: '#7A8FAF', marginTop: '1px' }}>Kasir: {r.cashier?.name || '-'}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={onEdit} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#4A7CC7', fontSize: '12px', fontWeight: '600', padding: '5px 12px', fontFamily: 'inherit' }}>Edit</button>
+            <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
 
-        {/* Body 2 kolom */}
-        <div style={{ display: 'flex', gap: '0', flex: 1, overflow: 'hidden' }}>
-          {/* Kolom kiri */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <div style={{ flex: 1, padding: '14px 16px', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
             <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Ringkasan Penjualan</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -117,8 +121,6 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
                 </div>
               ))}
             </div>
-
-            {/* Kalkulasi kas */}
             <div style={{ background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', borderRadius: '12px', border: '1px solid #C0D0E8', padding: '12px 14px', marginTop: 'auto' }}>
               <div style={{ fontSize: '10px', fontWeight: '700', color: '#7A8FAF', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>Kalkulasi Kas</div>
               {[
@@ -138,9 +140,7 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
             </div>
           </div>
 
-          {/* Kolom kanan */}
           <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
-            {/* Pengeluaran */}
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Pengeluaran</div>
@@ -160,21 +160,98 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
                 ))}
               </div>
             </div>
-
-            {/* Catatan */}
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</div>
               </div>
               <div style={{ padding: '10px 12px' }}>
-                {r.catatan ? (
-                  <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: '1.6' }}>{r.catatan}</div>
-                ) : (
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>
-                )}
+                {r.catatan ? <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: '1.6' }}>{r.catatan}</div>
+                  : <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>}
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EditModal({ report: r, onClose, onSaved, fmt, fmtDate }) {
+  const [kasAwal, setKasAwal] = useState(String(r.kasAwal || ''))
+  const [pengeluaran, setPengeluaran] = useState((r.pengeluaran || []).map(p => ({ ...p })))
+  const [catatan, setCatatan] = useState(r.catatan || '')
+  const [saving, setSaving] = useState(false)
+
+  function addPengeluaran() { setPengeluaran(prev => [...prev, { barang: '', qty: 1, harga: 0 }]) }
+  function updateP(i, field, val) { setPengeluaran(prev => prev.map((p, n) => n === i ? { ...p, [field]: val } : p)) }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await api.put(`/daily-reports/${r.id}`, {
+        kasAwal: Number(kasAwal) || 0,
+        penjualan: r.penjualan, uangDisetor: r.uangDisetor, qris: r.qris, transfer: r.transfer,
+        pengeluaran: pengeluaran.filter(p => p.barang).map(p => ({ ...p, qty: Number(p.qty) || 1, harga: Number(p.harga) || 0 })),
+        piutang: r.piutang || [], catatan,
+      })
+      onSaved()
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="card fade-in" style={{ width: '480px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E2A3B' }}>Edit Laporan — {fmtDate(r.date)}</div>
+            <div style={{ fontSize: '11px', color: '#7A8FAF' }}>Kasir: {r.cashier?.name || '-'}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label className="label">Kas Awal</label>
+            <input className="input" type="number" placeholder="0" value={kasAwal} onChange={(e) => setKasAwal(e.target.value)} />
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="label" style={{ margin: 0 }}>Pengeluaran</label>
+              <button type="button" onClick={addPengeluaran}
+                style={{ fontSize: '12px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C0D0E8', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
+            </div>
+            {pengeluaran.length === 0 && <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '4px 0' }}>Belum ada pengeluaran</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {pengeluaran.map((p, i) => (
+                <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input className="input" placeholder="Nama barang" value={p.barang} onChange={(e) => updateP(i, 'barang', e.target.value)} style={{ flex: 2, fontSize: '12px', padding: '7px 10px' }} />
+                  <input className="input" type="number" placeholder="Qty" value={p.qty} onChange={(e) => updateP(i, 'qty', e.target.value)} style={{ flex: '0 0 52px', fontSize: '12px', padding: '7px 8px' }} />
+                  <input className="input" type="number" placeholder="Harga" value={p.harga} onChange={(e) => updateP(i, 'harga', e.target.value)} style={{ flex: 2, fontSize: '12px', padding: '7px 10px' }} />
+                  <button onClick={() => setPengeluaran(prev => prev.filter((_, n) => n !== i))}
+                    style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '7px 9px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+            <textarea className="input" rows={3} placeholder="Catatan tambahan..." value={catatan} onChange={(e) => setCatatan(e.target.value)} style={{ resize: 'none' }} />
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Batal</button>
+          <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleSave} disabled={saving}>
+            {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+          </button>
         </div>
       </div>
     </div>

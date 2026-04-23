@@ -198,10 +198,10 @@ export default function KasirPage() {
                         {/* Status badges */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                           <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', textAlign: 'center', background: served ? '#ECFDF5' : '#FFFBEB', color: served ? 'var(--green)' : 'var(--orange)', border: `1px solid ${served ? '#A7F3D0' : '#FDE68A'}` }}>
-                            {served ? '✓ Disajikan' : '⏳ Belum Disajikan'}
+                            {served ? 'Sudah Disajikan' : 'Belum Disajikan'}
                           </span>
                           <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', textAlign: 'center', background: paid ? '#ECFDF5' : '#FEF2F2', color: paid ? 'var(--green)' : 'var(--red)', border: `1px solid ${paid ? '#A7F3D0' : '#FECACA'}` }}>
-                            {paid ? '✓ Lunas' : '✗ Belum Bayar'}
+                            {paid ? 'Lunas' : 'Belum Bayar'}
                           </span>
                         </div>
                       </div>
@@ -210,7 +210,7 @@ export default function KasirPage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleServed(order.id, order.servedAt) }}
                           style={{ flex: 1, padding: '7px', border: 'none', background: served ? '#F0FDF4' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '10px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
-                          {served ? 'â†º Batal' : 'âœ“ Sajikan'}
+                          {served ? 'Batal' : 'Sajikan'}
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteOrder(order.id) }}
@@ -413,11 +413,11 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
             <div style={{ background: served ? '#ECFDF5' : '#FFFBEB', borderRadius: '10px', padding: '12px', border: `1px solid ${served ? '#A7F3D0' : '#FDE68A'}` }}>
               <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '4px' }}>STATUS SAJIAN</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: served ? 'var(--green)' : 'var(--orange)' }}>{served ? '✓ Sudah Disajikan' : '⏳ Belum Disajikan'}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: served ? 'var(--green)' : 'var(--orange)' }}>{served ? '✓ Sudah Disajikan' : 'Belum Disajikan'}</div>
             </div>
             <div style={{ background: paid ? '#ECFDF5' : '#FEF2F2', borderRadius: '10px', padding: '12px', border: `1px solid ${paid ? '#A7F3D0' : '#FECACA'}` }}>
               <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '4px' }}>STATUS BAYAR</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: paid ? 'var(--green)' : 'var(--red)' }}>{paid ? '✓ Lunas' : '✗ Belum Bayar'}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: paid ? 'var(--green)' : 'var(--red)' }}>{paid ? 'Lunas' : 'Belum Bayar'}</div>
             </div>
           </div>
 
