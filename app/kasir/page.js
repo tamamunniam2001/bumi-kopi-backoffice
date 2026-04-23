@@ -18,6 +18,7 @@ export default function KasirPage() {
   const [cartOpen, setCartOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [pendingOrder, setPendingOrder] = useState(null)
+  const [closingOpen, setClosingOpen] = useState(false)
   const [orders, setOrders] = useState([])
   const [ordersExpanded, setOrdersExpanded] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -128,6 +129,9 @@ export default function KasirPage() {
             </div>
             <button className="btn btn-ghost" onClick={load}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+            </button>
+            <button className="btn" style={{ background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA', fontWeight: '700' }} onClick={() => setClosingOpen(true)}>
+              🔒 Closing
             </button>
           </div>
         </div>
@@ -316,6 +320,13 @@ export default function KasirPage() {
           )}
         </button>
       </main>
+
+      {closingOpen && (
+        <ClosingModal
+          orders={orders}
+          onClose={() => setClosingOpen(false)}
+        />
+      )}
 
       {checkoutOpen && (
         <CheckoutModal
@@ -511,6 +522,181 @@ function ManualItemButton({ onAdd, categories }) {
         </div>
       )}
     </>
+  )
+}
+
+// ── Closing Modal ──
+function ClosingModal({ orders, onClose }) {
+  const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
+
+  const completed = orders.filter(o => o.status === 'COMPLETED')
+  const totalPenjualan = completed.reduce((s, o) => s + o.total, 0)
+  const totalCash = completed.filter(o => o.payMethod === 'CASH').reduce((s, o) => s + o.total, 0)
+  const totalQris = completed.filter(o => o.payMethod === 'QRIS').reduce((s, o) => s + o.total, 0)
+  const totalTransfer = completed.filter(o => o.payMethod === 'TRANSFER' || o.payMethod === 'NONTUNAI').reduce((s, o) => s + o.total, 0)
+
+  const [kasAwal, setKasAwal] = useState('')
+  const [pengeluaran, setPengeluaran] = useState([])
+  const [catatan, setCatatan] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const totalPengeluaran = pengeluaran.reduce((s, p) => s + (Number(p.harga) * Number(p.qty || 1)), 0)
+  const kasAkhir = Number(kasAwal || 0) + totalCash - totalPengeluaran
+
+  function addPengeluaran() {
+    setPengeluaran(prev => [...prev, { barang: '', qty: 1, harga: 0 }])
+  }
+
+  function updatePengeluaran(i, field, val) {
+    setPengeluaran(prev => prev.map((p, n) => n === i ? { ...p, [field]: val } : p))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await api.post('/daily-reports', {
+        kasAwal: Number(kasAwal) || 0,
+        penjualan: totalPenjualan,
+        uangDisetor: totalCash,
+        qris: totalQris,
+        transfer: totalTransfer,
+        pengeluaran: pengeluaran.filter(p => p.barang).map(p => ({ ...p, qty: Number(p.qty) || 1, harga: Number(p.harga) || 0 })),
+        piutang: [],
+        catatan,
+      })
+      setSaved(true)
+    } catch (e) {
+      alert(e.response?.data?.message || 'Gagal menyimpan laporan')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="card fade-in" style={{ width: '520px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #0F172A, #1E293B)' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: '#F1F5F9' }}>🔒 Closing Kasir</div>
+            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: '#94A3B8', fontSize: '18px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+          {saved ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '6px' }}>Laporan Tersimpan!</div>
+              <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '24px' }}>Closing hari ini berhasil dicatat</div>
+              <button className="btn btn-primary" style={{ justifyContent: 'center' }} onClick={onClose}>Tutup</button>
+            </div>
+          ) : (
+            <>
+              {/* Ringkasan Penjualan */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Ringkasan Penjualan</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { label: 'Total Penjualan', value: totalPenjualan, color: '#2563EB', bg: '#EFF4FF', border: '#C7D4F0' },
+                    { label: 'Cash', value: totalCash, color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
+                    { label: 'QRIS', value: totalQris, color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE' },
+                    { label: 'Transfer / Non-Tunai', value: totalTransfer, color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
+                  ].map(({ label, value, color, bg, border }) => (
+                    <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '10px', padding: '12px 14px' }}>
+                      <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>{label}</div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color }}>{fmt(value)}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: '8px', padding: '8px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
+                  {completed.length} transaksi selesai · {orders.filter(o => o.status !== 'COMPLETED').length} belum bayar
+                </div>
+              </div>
+
+              {/* Kas Awal */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Laporan Kas</div>
+                <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', padding: '14px' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label className="label">Kas Awal</label>
+                    <input className="input" type="number" placeholder="0" value={kasAwal} onChange={(e) => setKasAwal(e.target.value)} />
+                  </div>
+
+                  {/* Pengeluaran */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label className="label" style={{ margin: 0 }}>Pengeluaran</label>
+                      <button type="button" onClick={addPengeluaran}
+                        style={{ fontSize: '12px', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '7px', padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: '600' }}>+ Tambah</button>
+                    </div>
+                    {pengeluaran.length === 0 && (
+                      <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '8px 0' }}>Belum ada pengeluaran</div>
+                    )}
+                    {pengeluaran.map((p, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                        <input className="input" placeholder="Nama barang" value={p.barang}
+                          onChange={(e) => updatePengeluaran(i, 'barang', e.target.value)}
+                          style={{ flex: 2, fontSize: '12px', padding: '7px 10px' }} />
+                        <input className="input" type="number" placeholder="Qty" value={p.qty}
+                          onChange={(e) => updatePengeluaran(i, 'qty', e.target.value)}
+                          style={{ flex: '0 0 56px', fontSize: '12px', padding: '7px 8px' }} />
+                        <input className="input" type="number" placeholder="Harga" value={p.harga}
+                          onChange={(e) => updatePengeluaran(i, 'harga', e.target.value)}
+                          style={{ flex: 2, fontSize: '12px', padding: '7px 10px' }} />
+                        <button onClick={() => setPengeluaran(prev => prev.filter((_, n) => n !== i))}
+                          style={{ background: 'var(--red-light)', border: '1px solid #FECACA', borderRadius: '7px', color: 'var(--red)', cursor: 'pointer', padding: '7px 9px', fontSize: '13px', flexShrink: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Catatan */}
+                  <div>
+                    <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                    <textarea className="input" rows={2} placeholder="Catatan tambahan..." value={catatan}
+                      onChange={(e) => setCatatan(e.target.value)} style={{ resize: 'none' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Kas Akhir */}
+              <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius: '12px', padding: '16px 18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748B' }}>Kas Awal</span>
+                  <span style={{ fontSize: '13px', color: '#94A3B8' }}>{fmt(Number(kasAwal) || 0)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748B' }}>+ Penjualan Cash</span>
+                  <span style={{ fontSize: '13px', color: '#10B981' }}>+{fmt(totalCash)}</span>
+                </div>
+                {totalPengeluaran > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '12px', color: '#64748B' }}>- Pengeluaran</span>
+                    <span style={{ fontSize: '13px', color: '#EF4444' }}>-{fmt(totalPengeluaran)}</span>
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid #334155', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#F1F5F9' }}>Total Kas Akhir</span>
+                  <span style={{ fontSize: '20px', fontWeight: '800', color: kasAkhir >= 0 ? '#10B981' : '#EF4444' }}>{fmt(kasAkhir)}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!saved && (
+          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Batal</button>
+            <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleSave} disabled={saving}>
+              {saving ? 'Menyimpan...' : '💾 Simpan Laporan Closing'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
