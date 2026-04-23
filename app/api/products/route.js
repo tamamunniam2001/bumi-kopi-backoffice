@@ -15,7 +15,9 @@ export async function GET(req) {
     }),
     orderBy: { name: 'asc' },
   })
-  return NextResponse.json(products)
+  const res = NextResponse.json(products)
+  if (slim) res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+  return res
 }
 
 export async function POST(req) {

@@ -66,6 +66,7 @@ export async function POST(req) {
     const actualPayment = payLater ? 0 : (payment || 0)
     const invoiceNo = `BK-${Date.now()}`
 
+    // Buat transaksi tanpa nested select berat — hanya ambil id & invoiceNo dulu
     const transaction = await prisma.transaction.create({
       data: {
         invoiceNo, total, payment: actualPayment,
@@ -76,15 +77,11 @@ export async function POST(req) {
         note: note || '',
         items: { create: orderItems.filter(i => i.productId) },
       },
-      select: {
-        id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true,
-        status: true, servedAt: true, createdAt: true, customerName: true, note: true,
-        cashier: { select: { name: true } },
-        items: { select: { id: true, qty: true, price: true, subtotal: true, productId: true, product: { select: { name: true, imageUrl: true } } } },
-      },
+      select: { id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true, status: true, servedAt: true, createdAt: true, customerName: true, note: true },
     })
 
-    // Decrement stock secara paralel, tidak blocking response
+    // Decrement stock + fetch cashier name secara paralel, tidak blocking response
+    const cashierPromise = prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
     if (productIds.length) {
       Promise.all(productIds.map(id => {
         const item = items.find(i => i.productId === id)
@@ -92,7 +89,14 @@ export async function POST(req) {
       })).catch(console.error)
     }
 
-    return NextResponse.json(transaction, { status: 201 })
+    const cashier = await cashierPromise
+    // Bangun items dari data yang sudah ada di memory (tidak perlu query ulang)
+    const responseItems = orderItems.filter(i => i.productId).map((i, idx) => ({
+      id: `tmp_${idx}`, qty: i.qty, price: i.price, subtotal: i.subtotal, productId: i.productId,
+      product: { name: items[idx]?.name || '', imageUrl: null },
+    }))
+
+    return NextResponse.json({ ...transaction, cashier, items: responseItems }, { status: 201 })
   } catch (err) {
     return NextResponse.json({ message: err.message || 'Gagal menyimpan transaksi' }, { status: 500 })
   }

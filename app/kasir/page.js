@@ -389,7 +389,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false) }} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false); loadOrders() }} />
       )}
     </div>
   )
