@@ -61,19 +61,19 @@ export default function KasirPage() {
     return () => clearInterval(t)
   }, [load, loadOrders])
 
-  function toggleServed(order) {
-    const newServedAt = order.servedAt ? null : new Date().toISOString()
-    pendingServed.add(order.id)
-    setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: newServedAt } : o))
-    setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: newServedAt } : prev)
-    api.patch(`/transactions/${order.id}`, { servedAt: newServedAt }).then((res) => {
-      pendingServed.delete(order.id)
-      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: res.data.servedAt } : o))
-      setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: res.data.servedAt } : prev)
+  function toggleServed(orderId, currentServedAt) {
+    const newServedAt = currentServedAt ? null : new Date().toISOString()
+    pendingServed.add(orderId)
+    setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, servedAt: newServedAt } : o))
+    setSelectedOrder((prev) => prev?.id === orderId ? { ...prev, servedAt: newServedAt } : prev)
+    api.patch(`/transactions/${orderId}`, { servedAt: newServedAt }).then((res) => {
+      pendingServed.delete(orderId)
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, servedAt: res.data.servedAt } : o))
+      setSelectedOrder((prev) => prev?.id === orderId ? { ...prev, servedAt: res.data.servedAt } : prev)
     }).catch(() => {
-      pendingServed.delete(order.id)
-      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, servedAt: order.servedAt } : o))
-      setSelectedOrder((prev) => prev?.id === order.id ? { ...prev, servedAt: order.servedAt } : prev)
+      pendingServed.delete(orderId)
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, servedAt: currentServedAt } : o))
+      setSelectedOrder((prev) => prev?.id === orderId ? { ...prev, servedAt: currentServedAt } : prev)
     })
   }
 
@@ -191,7 +191,7 @@ export default function KasirPage() {
                       </div>
                       {/* Tombol sajikan */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleServed(order) }}
+                        onClick={(e) => { e.stopPropagation(); toggleServed(order.id, order.servedAt) }}
                         style={{ width: '100%', padding: '7px', border: 'none', borderTop: '1px solid var(--border)', background: served ? '#F0FDF4' : 'var(--accent)', color: served ? 'var(--green)' : '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                         {served ? '↺ Batalkan Sajian' : '✓ Tandai Disajikan'}
                       </button>
@@ -328,7 +328,7 @@ export default function KasirPage() {
         <OrderDetailModal
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onToggleServed={() => toggleServed(selectedOrder)}
+          onToggleServed={() => toggleServed(selectedOrder.id, selectedOrder.servedAt)}
           onPayNow={(order) => { setSelectedOrder(null); setPendingOrder(order) }}
           onRefresh={() => { loadOrders(); setSelectedOrder(null) }}
         />
@@ -538,23 +538,24 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
           total,
         })
         setTx({ invoiceNo: existingOrderId, total, change: payMethod === 'CASH' ? paid - total : 0 })
-        return
+      } else {
+      } else {
+        const items = cart.map((i) => {
+          const o = { qty: i.qty, price: i.product.price }
+          if (i.product.id.startsWith('manual_')) o.name = i.product.name
+          else o.productId = i.product.id
+          return o
+        })
+        const res = await api.post('/transactions', {
+          items,
+          payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
+          payMethod,
+          payLater: later,
+          customerName,
+          note,
+        })
+        setTx(res.data)
       }
-      const items = cart.map((i) => {
-        const o = { qty: i.qty, price: i.product.price }
-        if (i.product.id.startsWith('manual_')) o.name = i.product.name
-        else o.productId = i.product.id
-        return o
-      })
-      const res = await api.post('/transactions', {
-        items,
-        payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
-        payMethod,
-        payLater: later,
-        customerName,
-        note,
-      })
-      setTx(res.data)
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan transaksi')
     } finally { setLoading(false) }
