@@ -118,7 +118,7 @@ export default function KasirPage() {
 
   useEffect(() => {
     // loadOrders setiap 30 detik, reload produk setiap 5 menit
-    const tOrders = setInterval(() => loadOrders(), 30000)
+    const tOrders = setInterval(() => loadOrders(), 5000)
     const tProducts = setInterval(() => load(true), 300000)
     return () => { clearInterval(tOrders); clearInterval(tProducts) }
   }, [load, loadOrders])

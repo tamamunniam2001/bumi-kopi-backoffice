@@ -54,13 +54,16 @@ export default function DashboardPage() {
   const pathname = usePathname()
 
   useEffect(() => {
-    api.get('/admin/dashboard').then((r) => {
+    const fetchDashboard = () => api.get('/admin/dashboard').then((r) => {
       setData(r.data)
       localStorage.setItem('dashboard_cache', JSON.stringify(r.data))
     }).catch(console.error)
+
+    fetchDashboard()
+    const tData = setInterval(fetchDashboard, 30000)
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
-    const t = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
-    return () => clearInterval(t)
+    const tTime = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
+    return () => { clearInterval(tData); clearInterval(tTime) }
   }, [pathname])
 
   return (

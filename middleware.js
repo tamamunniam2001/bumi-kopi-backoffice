@@ -10,6 +10,8 @@ const ADMIN_ONLY_PATHS = [
   '/rekap-bahan',
   '/transactions',
   '/users',
+  '/rekap-absensi',
+  '/absensi-settings',
 ]
 
 export async function middleware(req) {

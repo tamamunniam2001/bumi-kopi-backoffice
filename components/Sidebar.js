@@ -8,10 +8,13 @@ const allNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: <IconGrid />, roles: ['ADMIN', 'CASHIER'] },
   { href: '/kasir', label: 'Kasir', icon: <IconCashier />, roles: ['ADMIN', 'CASHIER'] },
   { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport />, roles: ['ADMIN', 'CASHIER'] },
+  { href: '/absensi', label: 'Absensi', icon: <IconAbsensi />, roles: ['ADMIN', 'CASHIER'] },
   { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
   { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
   { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart />, roles: ['ADMIN'] },
   { href: '/transactions', label: 'Transaksi', icon: <IconReceipt />, roles: ['ADMIN'] },
+  { href: '/rekap-absensi', label: 'Rekap Absensi', icon: <IconClipboard />, roles: ['ADMIN'] },
+  { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },
   { href: '/users', label: 'Pengguna', icon: <IconUsers />, roles: ['ADMIN'] },
 ]
 
@@ -132,3 +135,6 @@ function IconLogout() { return <svg width="15" height="15" viewBox="0 0 24 24" f
 function IconChevronLeft() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg> }
 function IconChevronRight() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg> }
 function IconMenu() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg> }
+function IconAbsensi() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> }
+function IconClipboard() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg> }
+function IconSettings() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> }

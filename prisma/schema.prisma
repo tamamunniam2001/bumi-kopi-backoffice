@@ -134,3 +134,39 @@ model DailyReport {
   @@index([cashierId])
   @@index([date])
 }
+
+model Employee {
+  id        String       @id @default(cuid())
+  name      String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  absences  Attendance[]
+}
+
+model SopItem {
+  id        String   @id @default(cuid())
+  text      String
+  type      SopType
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+}
+
+model Attendance {
+  id           String   @id @default(cuid())
+  date         DateTime @default(now())
+  type         SopType
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  kasAwal      Int      @default(0)
+  checklist    Json     @default("[]")
+  createdAt    DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([date])
+  @@index([type])
+}
+
+enum SopType {
+  OPENING
+  CLOSING
+}
