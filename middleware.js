@@ -8,6 +8,7 @@ const ADMIN_ONLY_PATHS = [
   '/products',
   '/ingredients',
   '/rekap-bahan',
+  '/rekap-produk',
   '/transactions',
   '/users',
   '/rekap-absensi',

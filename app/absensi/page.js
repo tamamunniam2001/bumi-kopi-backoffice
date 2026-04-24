@@ -159,61 +159,57 @@ export default function AbsensiPage() {
       {/* Popup Ringkasan */}
       {savedData && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}>
-          <div className="card fade-in" style={{ width: '480px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="card fade-in" style={{ width: '680px', maxWidth: '96vw', maxHeight: '96vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {/* Header */}
-            <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #2A9D6E, #34D399)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <div style={{ padding: '20px 28px', background: 'linear-gradient(135deg, #2A9D6E, #34D399)', display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+              <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: '#fff' }}>Absensi Tersimpan!</div>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', marginTop: '1px' }}>
+                <div style={{ fontSize: '17px', fontWeight: '800', color: '#fff' }}>Absensi Tersimpan!</div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
                   {savedData.type} · {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </div>
               </div>
             </div>
 
             {/* Body */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ flex: 1, padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
 
-              {/* Info Staff */}
-              <div style={{ display: 'grid', gridTemplateColumns: savedData.staff2 ? '1fr 1fr' : '1fr', gap: '10px' }}>
-                <div style={{ background: 'var(--accent-light)', borderRadius: '10px', padding: '12px', border: '1px solid #C7D4F0' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>STAFF 1</div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--accent)' }}>{savedData.staff1}</div>
+              {/* Info Staff + Kas Awal */}
+              <div style={{ display: 'grid', gridTemplateColumns: savedData.kasAwal !== null ? '1fr 1fr 1fr' : savedData.staff2 ? '1fr 1fr' : '1fr', gap: '12px', flexShrink: 0 }}>
+                <div style={{ background: 'var(--accent-light)', borderRadius: '10px', padding: '14px 16px', border: '1px solid #C7D4F0' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '5px', fontWeight: '700', letterSpacing: '0.5px' }}>STAFF 1</div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--accent)' }}>{savedData.staff1}</div>
                 </div>
                 {savedData.staff2 && (
-                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>STAFF 2</div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>{savedData.staff2}</div>
+                  <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px 16px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '5px', fontWeight: '700', letterSpacing: '0.5px' }}>STAFF 2</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)' }}>{savedData.staff2}</div>
+                  </div>
+                )}
+                {savedData.kasAwal !== null && (
+                  <div style={{ background: 'var(--green-light)', borderRadius: '10px', padding: '14px 16px', border: '1px solid #A7DFC8' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '5px', fontWeight: '700', letterSpacing: '0.5px' }}>KAS AWAL</div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--green)' }}>Rp {Number(savedData.kasAwal).toLocaleString('id-ID')}</div>
                   </div>
                 )}
               </div>
 
-              {/* Kas Awal (hanya Opening) */}
-              {savedData.kasAwal !== null && (
-                <div style={{ background: 'var(--green-light)', borderRadius: '10px', padding: '12px', border: '1px solid #A7DFC8' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>KAS AWAL</div>
-                  <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--green)' }}>
-                    Rp {Number(savedData.kasAwal).toLocaleString('id-ID')}
-                  </div>
-                </div>
-              )}
-
               {/* Checklist */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div className="section-label" style={{ margin: 0 }}>Checklist SOP {savedData.type}</div>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: savedData.checklist.filter(c => c.checked).length === savedData.checklist.length ? 'var(--green)' : 'var(--accent)' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexShrink: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Checklist SOP {savedData.type}</div>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: savedData.checklist.filter(c => c.checked).length === savedData.checklist.length ? 'var(--green)' : 'var(--accent)', background: savedData.checklist.filter(c => c.checked).length === savedData.checklist.length ? 'var(--green-light)' : 'var(--accent-light)', padding: '3px 10px', borderRadius: '20px', border: `1px solid ${savedData.checklist.filter(c => c.checked).length === savedData.checklist.length ? '#A7DFC8' : '#C7D4F0'}` }}>
                     {savedData.checklist.filter(c => c.checked).length}/{savedData.checklist.length} selesai
                   </span>
                 </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
                   {savedData.checklist.map((item, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderBottom: i < savedData.checklist.length - 1 ? '1px solid var(--border)' : 'none', background: item.checked ? 'var(--accent-light)' : 'transparent' }}>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: item.checked ? 'var(--accent)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {item.checked && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', borderBottom: i < savedData.checklist.length - 1 ? '1px solid var(--border)' : 'none', background: item.checked ? 'var(--accent-light)' : 'transparent' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: item.checked ? 'var(--accent)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {item.checked && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
                       </div>
                       <span style={{ fontSize: '13px', color: item.checked ? 'var(--accent)' : 'var(--text2)', fontWeight: item.checked ? '600' : '400' }}>{item.text}</span>
                     </div>
@@ -223,12 +219,12 @@ export default function AbsensiPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
-              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }}
+            <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px', flexShrink: 0 }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
                 onClick={() => { setSavedData(null); reset() }}>
                 Absensi Lagi
               </button>
-              <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}
+              <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '12px' }}
                 onClick={() => { const next = savedData.type === 'OPENING' ? 'CLOSING' : 'OPENING'; setSavedData(null); setTab(next); reset() }}>
                 Lanjut {savedData.type === 'OPENING' ? 'Closing' : 'Opening'}
               </button>
