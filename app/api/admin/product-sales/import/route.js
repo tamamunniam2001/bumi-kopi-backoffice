@@ -52,9 +52,9 @@ export async function POST(req) {
     if (dataLines.filter(l => l.trim()).length === 0)
       return NextResponse.json({ message: 'File kosong atau tidak valid' }, { status: 400 })
 
-    // Auto-detect separator dari header: tab atau koma
+    // Auto-detect separator dari header: tab, titik koma, atau koma
     const header = lines[0] || ''
-    const sep = header.includes('\t') ? '\t' : ','
+    const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ','
 
     let created = 0, skipped = 0
     const errors = []
@@ -79,17 +79,24 @@ export async function POST(req) {
       }
 
       if (cols.length < 5) {
-        errors.push(`Baris ${rowNum}: Kolom tidak lengkap (hanya ${cols.length} kolom)`)
+        errors.push(`Baris ${rowNum}: Kolom tidak lengkap (hanya ${cols.length} kolom) — "${line.substring(0, 50)}"`)
         skipped++; continue
       }
 
-      const [dateStr, code, , name, qtyStr, totalStr] = cols
+      // cols: [tanggal, kode, kategori, nama, qty, total]
+      // Jika hanya 5 kolom, kemungkinan tanpa kategori: [tanggal, kode, nama, qty, total]
+      let dateStr, code, name, qtyStr, totalStr
+      if (cols.length >= 6) {
+        [dateStr, code, , name, qtyStr, totalStr] = cols
+      } else {
+        [dateStr, code, name, qtyStr, totalStr] = cols
+      }
       const date = parseDate(dateStr)
-      const qty = parseInt(qtyStr) || 0
+      const qty = parseInt(String(qtyStr || '0').replace(/[^0-9]/g, '')) || 0
       const total = parseInt(String(totalStr || '0').replace(/[^0-9]/g, '')) || 0
 
       if (!date || isNaN(date.getTime())) {
-        errors.push(`Baris ${rowNum}: Format tanggal tidak valid "${dateStr}"`)
+        errors.push(`Baris ${rowNum}: Tanggal tidak valid "${dateStr}" — gunakan format DD/MM/YYYY`)
         skipped++; continue
       }
       if (!name || !name.trim()) {
@@ -97,7 +104,7 @@ export async function POST(req) {
         skipped++; continue
       }
       if (qty <= 0) {
-        errors.push(`Baris ${rowNum}: QTY tidak valid "${qtyStr}"`)
+        errors.push(`Baris ${rowNum}: QTY tidak valid "${qtyStr}" (terbaca: ${qty}) — harus angka > 0`)
         skipped++; continue
       }
       if (total < 0) {
@@ -105,12 +112,15 @@ export async function POST(req) {
         skipped++; continue
       }
 
-      let product = code && code.trim() !== '-' && code.trim() !== '' ? productByCode[code.toLowerCase().trim()] : null
+      // Cari produk: by kode dulu (jika bukan '-' atau kosong), lalu by nama
+      const cleanCode = code ? code.trim() : ''
+      let product = (cleanCode && cleanCode !== '-') ? productByCode[cleanCode.toLowerCase()] : null
       if (!product) product = productByName[name.toLowerCase().trim()]
 
+      // Jika produk tidak ditemukan, tetap simpan sebagai item tanpa produk
       validRows.push({
         rowNum, date, qty, total, product,
-        price: product ? product.price : Math.round(total / qty),
+        price: product ? product.price : (qty > 0 ? Math.round(total / qty) : 0),
         invoiceNo: `HIST-${date.getTime()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       })
     }
