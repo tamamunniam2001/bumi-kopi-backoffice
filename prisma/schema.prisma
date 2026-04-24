@@ -17,6 +17,7 @@ model User {
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   dailyReports DailyReport[]
+  expenses     Expense[]
 }
 
 model Category {
@@ -153,6 +154,45 @@ model SopItem {
   type      SopType
   order     Int      @default(0)
   isActive  Boolean  @default(true)
+}
+
+model ExpenseItem {
+  id        String          @id @default(cuid())
+  code      String?         @unique
+  name      String
+  category  String?         @default("")
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  details   ExpenseDetail[]
+}
+
+model Expense {
+  id        String        @id @default(cuid())
+  date      DateTime      @default(now())
+  total     Int
+  catatan   String?       @default("")
+  cashierId String
+  cashier   User          @relation(fields: [cashierId], references: [id])
+  items     ExpenseDetail[]
+  createdAt DateTime      @default(now())
+
+  @@index([cashierId])
+  @@index([date])
+}
+
+model ExpenseDetail {
+  id           String      @id @default(cuid())
+  expenseId    String
+  expense      Expense     @relation(fields: [expenseId], references: [id])
+  expenseItemId String?
+  expenseItem  ExpenseItem? @relation(fields: [expenseItemId], references: [id])
+  name         String
+  keterangan   String?     @default("")
+  harga        Int
+  qty          Int         @default(1)
+  subtotal     Int
+
+  @@index([expenseId])
 }
 
 model Attendance {

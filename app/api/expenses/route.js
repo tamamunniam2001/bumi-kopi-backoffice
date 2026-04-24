@@ -1,0 +1,29 @@
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { verifyAuth } from '@/lib/auth'
+
+export async function POST(req) {
+  const { error, user } = verifyAuth(req)
+  if (error) return error
+  const { items, catatan } = await req.json()
+  if (!items?.length) return NextResponse.json({ message: 'Items tidak boleh kosong' }, { status: 400 })
+
+  const details = items.map(i => ({
+    expenseItemId: i.expenseItemId || null,
+    name: i.name,
+    keterangan: i.keterangan || '',
+    harga: Number(i.harga),
+    qty: Number(i.qty) || 1,
+    subtotal: Number(i.harga) * (Number(i.qty) || 1),
+  }))
+  const total = details.reduce((s, d) => s + d.subtotal, 0)
+
+  const expense = await prisma.expense.create({
+    data: {
+      total, catatan: catatan || '', cashierId: user.id,
+      items: { create: details },
+    },
+    include: { items: true, cashier: { select: { name: true } } },
+  })
+  return NextResponse.json(expense, { status: 201 })
+}
