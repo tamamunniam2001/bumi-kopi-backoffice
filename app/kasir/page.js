@@ -40,10 +40,28 @@ export default function KasirPage() {
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
   const todayKey = new Date().toLocaleDateString('en-CA')
-  const isClosed = () => localStorage.getItem('closing_date') === todayKey
   const [closed, setClosed] = useState(false)
 
-  useEffect(() => { setClosed(isClosed()) }, [])
+  useEffect(() => {
+    // Cek apakah ada laporan harian hari ini di DB
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
+    api.get(`/daily-reports?from=${today.toISOString()}&to=${endOfDay.toISOString()}`)
+      .then(res => {
+        const hasReport = (res.data.reports || []).length > 0
+        if (hasReport) {
+          localStorage.setItem('closing_date', todayKey)
+          setClosed(true)
+        } else {
+          localStorage.removeItem('closing_date')
+          setClosed(false)
+        }
+      })
+      .catch(() => {
+        // Fallback ke localStorage jika offline
+        setClosed(localStorage.getItem('closing_date') === todayKey)
+      })
+  }, [])
 
   // Set untuk track order yang sedang in-flight PATCH servedAt
   const pendingServed = useState(() => new Set())[0]
