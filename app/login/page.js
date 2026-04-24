@@ -16,10 +16,6 @@ export default function LoginPage() {
     setError('')
     try {
       const { data } = await api.post('/auth/login', form)
-      if (data.user.role !== 'ADMIN') {
-        setError('Akses hanya untuk Admin')
-        return
-      }
       Cookies.set('token', data.token, { expires: 1 })
       Cookies.set('user', JSON.stringify(data.user), { expires: 1 })
       router.push('/dashboard')
