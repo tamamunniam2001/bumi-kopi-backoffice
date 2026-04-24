@@ -4,15 +4,15 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: <IconGrid /> },
-  { href: '/kasir', label: 'Kasir', icon: <IconCashier /> },
-  { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport /> },
-  { href: '/products', label: 'Produk', icon: <IconBox /> },
-  { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask /> },
-  { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart /> },
-  { href: '/transactions', label: 'Transaksi', icon: <IconReceipt /> },
-  { href: '/users', label: 'Pengguna', icon: <IconUsers /> },
+const allNavItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: <IconGrid />, roles: ['ADMIN', 'CASHIER'] },
+  { href: '/kasir', label: 'Kasir', icon: <IconCashier />, roles: ['ADMIN', 'CASHIER'] },
+  { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport />, roles: ['ADMIN', 'CASHIER'] },
+  { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
+  { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
+  { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart />, roles: ['ADMIN'] },
+  { href: '/transactions', label: 'Transaksi', icon: <IconReceipt />, roles: ['ADMIN'] },
+  { href: '/users', label: 'Pengguna', icon: <IconUsers />, roles: ['ADMIN'] },
 ]
 
 export default function Sidebar() {
@@ -20,6 +20,9 @@ export default function Sidebar() {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
+  const role = user.role || 'CASHIER'
+  const navItems = allNavItems.filter(item => item.roles.includes(role))
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar_collapsed')
