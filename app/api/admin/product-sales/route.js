@@ -12,7 +12,26 @@ export async function GET(req) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const page = Number(searchParams.get('page') || 1)
+  const year = Number(searchParams.get('year') || new Date().getFullYear())
   const limit = 50
+
+  // Mode monthly summary
+  if (searchParams.get('monthly') === '1') {
+    const start = new Date(year, 0, 1)
+    const end = new Date(year, 11, 31, 23, 59, 59, 999)
+    const items = await prisma.orderItem.findMany({
+      where: { transaction: { status: 'COMPLETED', createdAt: { gte: start, lte: end } } },
+      select: { subtotal: true, qty: true, transaction: { select: { createdAt: true } } },
+    })
+    // Group by bulan
+    const monthly = Array.from({ length: 12 }, (_, m) => ({ month: m + 1, total: 0, qty: 0 }))
+    for (const item of items) {
+      const m = new Date(item.transaction.createdAt).getMonth()
+      monthly[m].total += item.subtotal
+      monthly[m].qty += item.qty
+    }
+    return NextResponse.json({ monthly, year })
+  }
 
   const txWhere = { status: 'COMPLETED' }
   if (from && to) txWhere.createdAt = { gte: new Date(from), lte: new Date(new Date(to).setHours(23, 59, 59, 999)) }

@@ -24,6 +24,18 @@ export default function RekapProdukPage() {
   const [selected, setSelected] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef(null)
+  const [monthly, setMonthly] = useState(Array.from({ length: 12 }, (_, m) => ({ month: m + 1, total: 0, qty: 0 })))
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [monthlyLoading, setMonthlyLoading] = useState(true)
+
+  async function loadMonthly(y = year) {
+    setMonthlyLoading(true)
+    try {
+      const res = await api.get(`/admin/product-sales?monthly=1&year=${y}`)
+      setMonthly(res.data.monthly)
+    } catch { }
+    finally { setMonthlyLoading(false) }
+  }
 
   async function load(p = page) {
     setLoading(true)
@@ -39,6 +51,7 @@ export default function RekapProdukPage() {
   }
 
   useEffect(() => { load() }, [page])
+  useEffect(() => { loadMonthly() }, [])
 
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
@@ -128,6 +141,7 @@ export default function RekapProdukPage() {
         setImporting(false)
         setImportProgress(0)
         load(1)
+        loadMonthly()
       }, 400)
     } catch (err) {
       clearInterval(progressInterval)
@@ -220,6 +234,55 @@ export default function RekapProdukPage() {
         )}
 
         <div className="content">
+          {/* Rekap Bulanan */}
+          <div className="card" style={{ padding: '20px 24px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Rekap Penjualan Bulanan</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={() => { const y = year - 1; setYear(y); loadMonthly(y) }}
+                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', padding: '4px 10px', fontSize: '13px', color: 'var(--text2)', fontFamily: 'inherit' }}>‹</button>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text)', minWidth: '48px', textAlign: 'center' }}>{year}</span>
+                <button onClick={() => { const y = year + 1; setYear(y); loadMonthly(y) }}
+                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', padding: '4px 10px', fontSize: '13px', color: 'var(--text2)', fontFamily: 'inherit' }}>›</button>
+              </div>
+            </div>
+            {(() => {
+              const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+              const maxTotal = Math.max(...monthly.map(m => m.total), 1)
+              const grandTotal = monthly.reduce((s, m) => s + m.total, 0)
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '8px' }}>
+                    {monthly.map((m, i) => {
+                      const pct = Math.round((m.total / maxTotal) * 100)
+                      const isCurrentMonth = new Date().getFullYear() === year && new Date().getMonth() === i
+                      return (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          {/* Bar */}
+                          <div style={{ width: '100%', height: '60px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: '1px solid var(--border)' }}>
+                            <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isCurrentMonth ? 'var(--accent)' : m.total > 0 ? '#93C5FD' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
+                          </div>
+                          {/* Total */}
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: m.total > 0 ? 'var(--accent)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
+                            {m.total > 0 ? (m.total >= 1000000 ? `${(m.total / 1000000).toFixed(1)}jt` : `${(m.total / 1000).toFixed(0)}rb`) : '-'}
+                          </div>
+                          {/* Nama bulan */}
+                          <div style={{ fontSize: '11px', fontWeight: isCurrentMonth ? '700' : '500', color: isCurrentMonth ? 'var(--accent)' : 'var(--muted)' }}>{MONTHS[i]}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {grandTotal > 0 && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '24px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total {year}: <span style={{ fontWeight: '800', color: 'var(--accent)', fontSize: '13px' }}>{fmt(grandTotal)}</span></div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rata-rata/bulan: <span style={{ fontWeight: '700', color: 'var(--text)' }}>{fmt(Math.round(grandTotal / monthly.filter(m => m.total > 0).length || 1))}</span></div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+
           {/* Filter */}
           <div className="card" style={{ padding: '18px 24px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>

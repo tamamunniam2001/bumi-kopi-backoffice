@@ -11,8 +11,9 @@ function parseDate(str) {
   return isNaN(d.getTime()) ? null : d
 }
 
-// Parser CSV yang handle quoted fields dengan benar
-function parseCSVLine(line) {
+// Parser CSV/TSV yang handle quoted fields dan auto-detect separator
+function parseLine(line, sep) {
+  if (sep === '\t') return line.split('\t').map(c => c.trim())
   const result = []
   let current = ''
   let inQuotes = false
@@ -21,7 +22,7 @@ function parseCSVLine(line) {
     if (ch === '"') {
       if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
       else inQuotes = !inQuotes
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === sep && !inQuotes) {
       result.push(current.trim())
       current = ''
     } else {
@@ -51,6 +52,10 @@ export async function POST(req) {
     if (dataLines.filter(l => l.trim()).length === 0)
       return NextResponse.json({ message: 'File kosong atau tidak valid' }, { status: 400 })
 
+    // Auto-detect separator dari header: tab atau koma
+    const header = lines[0] || ''
+    const sep = header.includes('\t') ? '\t' : ','
+
     let created = 0, skipped = 0
     const errors = []
 
@@ -67,7 +72,7 @@ export async function POST(req) {
       const rowNum = i + 2 // +2 karena header di baris 1
       let cols
       try {
-        cols = parseCSVLine(line)
+        cols = parseLine(line, sep)
       } catch {
         errors.push(`Baris ${rowNum}: Gagal parse baris`)
         skipped++; continue
@@ -95,7 +100,7 @@ export async function POST(req) {
         errors.push(`Baris ${rowNum}: QTY tidak valid "${qtyStr}"`)
         skipped++; continue
       }
-      if (total <= 0) {
+      if (total < 0) {
         errors.push(`Baris ${rowNum}: Total tidak valid "${totalStr}"`)
         skipped++; continue
       }
