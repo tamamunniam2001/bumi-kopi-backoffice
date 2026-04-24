@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
@@ -18,6 +18,9 @@ export default function RekapProdukPage() {
   const [to, setTo] = useState('')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileRef = useRef(null)
 
   async function load(p = page) {
     setLoading(true)
@@ -33,6 +36,34 @@ export default function RekapProdukPage() {
 
   useEffect(() => { load() }, [page])
 
+  function downloadTemplate() {
+    const header = 'Tanggal,Kode Produk,Kategori,Nama Produk,QTY,Total'
+    const contoh = [
+      '23/04/2025,KP-001,Minuman,Kopi Susu,2,30000',
+      '23/04/2025,MK-001,Makanan,Mie Goreng,1,20000',
+      '24/04/2025,-,Minuman,Es Teh,3,15000',
+    ].join('\n')
+    const blob = new Blob(['\uFEFF' + header + '\n' + contoh], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'template-import-penjualan.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/admin/product-sales/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setImportResult(res.data)
+      load(1)
+    } catch (err) {
+      setImportResult({ error: err.response?.data?.message || 'Gagal import' })
+    } finally { setImporting(false); fileRef.current.value = '' }
+  }
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
 
@@ -76,9 +107,20 @@ export default function RekapProdukPage() {
       <main className="main">
         <div className="topbar">
           <div>
-            <div className="topbar-title">Rekap Transaksi Produk</div>
+            <div className="topbar-title">Produk Terjual</div>
             <div className="topbar-sub">{data.total} item terjual</div>
           </div>
+          <button className="btn btn-ghost" onClick={downloadTemplate}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Template
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
+          <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
+            onClick={() => fileRef.current.click()} disabled={importing}>
+            {importing
+              ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Mengimpor...</>
+              : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV</>}
+          </button>
           <button className="btn btn-ghost" onClick={exportCSV}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export CSV
@@ -102,6 +144,34 @@ export default function RekapProdukPage() {
             </button>
             {(from || to) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
           </div>
+
+          {/* Hasil Import */}
+          {importResult && (
+            <div className="slide-down" style={{ marginBottom: '16px', padding: '14px 18px', borderRadius: '12px', border: `1px solid ${importResult.error ? '#FECACA' : '#A7F3D0'}`, background: importResult.error ? '#FEF2F2' : '#F0FDF4', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '16px', marginTop: '1px' }}>{importResult.error ? '❌' : '✅'}</span>
+                <div>
+                  {importResult.error
+                    ? <div style={{ fontSize: '13px', fontWeight: '600', color: '#EF4444' }}>{importResult.error}</div>
+                    : <>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#10B981', marginBottom: '4px' }}>Import berhasil</div>
+                        <div style={{ fontSize: '12px', color: '#4A5578', display: 'flex', gap: '16px' }}>
+                          <span>✚ <b>{importResult.created}</b> ditambahkan</span>
+                          <span>⊘ <b>{importResult.skipped}</b> dilewati</span>
+                        </div>
+                        {importResult.errors?.length > 0 && (
+                          <div style={{ marginTop: '6px', fontSize: '11px', color: '#EF4444' }}>
+                            {importResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+                          </div>
+                        )}
+                      </>}
+                </div>
+              </div>
+              <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          )}
 
           {/* Summary cards */}
           {!loading && data.rows.length > 0 && (
@@ -189,5 +259,6 @@ export default function RekapProdukPage() {
         </div>
       </main>
     </div>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
   )
 }
