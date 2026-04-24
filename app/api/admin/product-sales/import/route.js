@@ -86,11 +86,12 @@ export async function POST(req) {
 
       // cols: [tanggal, kode, kategori, nama, qty, total]
       // Jika hanya 5 kolom, kemungkinan tanpa kategori: [tanggal, kode, nama, qty, total]
-      let dateStr, code, name, qtyStr, totalStr
+      let dateStr, code, category, name, qtyStr, totalStr
       if (cols.length >= 6) {
-        [dateStr, code, , name, qtyStr, totalStr] = cols
+        [dateStr, code, category, name, qtyStr, totalStr] = cols
       } else {
         [dateStr, code, name, qtyStr, totalStr] = cols
+        category = ''
       }
       const date = parseDate(dateStr)
       const qty = parseInt(String(qtyStr || '0').replace(/[^0-9]/g, '')) || 0
@@ -120,7 +121,7 @@ export async function POST(req) {
 
       // Jika produk tidak ditemukan, tetap simpan sebagai item tanpa produk
       validRows.push({
-        rowNum, date, qty, total, name: name.trim(), product,
+        rowNum, date, qty, total, name: name.trim(), code: code?.trim() || '', category: category?.trim() || '', product,
         price: product ? product.price : (qty > 0 ? Math.round(total / qty) : 0),
         invoiceNo: `HIST-${batchId}-${i}`,
       })
@@ -151,6 +152,8 @@ export async function POST(req) {
             transactionId: tx.id,
             productId: r.product?.id || null,
             name: r.product ? null : r.name,
+            code: r.product ? null : r.code,
+            category: r.product ? null : r.category,
             qty: r.qty,
             price: r.price,
             subtotal: r.total,

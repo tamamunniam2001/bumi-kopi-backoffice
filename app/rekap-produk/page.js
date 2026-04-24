@@ -24,6 +24,10 @@ export default function RekapProdukPage() {
   const [selected, setSelected] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef(null)
+  const [exportModal, setExportModal] = useState(false)
+  const [exportFrom, setExportFrom] = useState('')
+  const [exportTo, setExportTo] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [monthly, setMonthly] = useState(Array.from({ length: 12 }, (_, m) => ({ month: m + 1, total: 0, qty: 0 })))
   const [year, setYear] = useState(new Date().getFullYear())
   const [monthlyLoading, setMonthlyLoading] = useState(true)
@@ -80,6 +84,7 @@ export default function RekapProdukPage() {
       await api.delete(`/admin/product-sales/${id}`)
       setData(prev => ({ ...prev, rows: prev.rows.filter(r => r.id !== id), total: prev.total - 1 }))
       setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
+      loadMonthly()
     } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
   }
 
@@ -95,6 +100,7 @@ export default function RekapProdukPage() {
         total: prev.total - selected.size,
       }))
       setSelected(new Set())
+      loadMonthly()
     } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
     finally { setDeleting(false) }
   }
@@ -155,10 +161,11 @@ export default function RekapProdukPage() {
 
   // ── Export CSV ──
   async function exportCSV() {
+    setExporting(true)
     try {
       const params = new URLSearchParams({ page: 1, limit: 99999 })
-      if (from) params.append('from', from)
-      if (to) params.append('to', to)
+      if (exportFrom) params.append('from', exportFrom)
+      if (exportTo) params.append('to', exportTo)
       const res = await api.get(`/admin/product-sales?${params}`)
       const rows = res.data.rows || []
       const header = ['Tanggal', 'Kode Produk', 'Kategori', 'Nama Produk', 'QTY', 'Total']
@@ -170,10 +177,12 @@ export default function RekapProdukPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `rekap-produk${from ? `-${from}` : ''}${to ? `-sd-${to}` : ''}.csv`
+      a.download = `rekap-produk${exportFrom ? `-${exportFrom}` : ''}${exportTo ? `-sd-${exportTo}` : ''}.csv`
       a.click()
       URL.revokeObjectURL(url)
+      setExportModal(false)
     } catch { alert('Gagal export') }
+    finally { setExporting(false) }
   }
 
   const totalQty = data.rows.reduce((s, r) => s + r.qty, 0)
@@ -201,7 +210,7 @@ export default function RekapProdukPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Import CSV
             </button>
-            <button className="btn btn-ghost" onClick={exportCSV}>
+            <button className="btn btn-ghost" onClick={() => { setExportFrom(from); setExportTo(to); setExportModal(true) }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export CSV
             </button>
@@ -264,7 +273,7 @@ export default function RekapProdukPage() {
                           </div>
                           {/* Total */}
                           <div style={{ fontSize: '10px', fontWeight: '700', color: m.total > 0 ? 'var(--accent)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
-                            {m.total > 0 ? (m.total >= 1000000 ? `${(m.total / 1000000).toFixed(1)}jt` : `${(m.total / 1000).toFixed(0)}rb`) : '-'}
+                            {m.total > 0 ? `Rp ${m.total.toLocaleString('id-ID')}` : '-'}
                           </div>
                           {/* Nama bulan */}
                           <div style={{ fontSize: '11px', fontWeight: isCurrentMonth ? '700' : '500', color: isCurrentMonth ? 'var(--accent)' : 'var(--muted)' }}>{MONTHS[i]}</div>
@@ -275,7 +284,7 @@ export default function RekapProdukPage() {
                   {grandTotal > 0 && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '24px' }}>
                       <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total {year}: <span style={{ fontWeight: '800', color: 'var(--accent)', fontSize: '13px' }}>{fmt(grandTotal)}</span></div>
-                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rata-rata/bulan: <span style={{ fontWeight: '700', color: 'var(--text)' }}>{fmt(Math.round(grandTotal / monthly.filter(m => m.total > 0).length || 1))}</span></div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rata-rata/bulan: <span style={{ fontWeight: '700', color: 'var(--text)' }}>{fmt(Math.round(grandTotal / (monthly.filter(m => m.total > 0).length || 1)))}</span></div>
                     </div>
                   )}
                 </>
