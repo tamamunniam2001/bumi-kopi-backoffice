@@ -120,7 +120,7 @@ export async function POST(req) {
 
       // Jika produk tidak ditemukan, tetap simpan sebagai item tanpa produk
       validRows.push({
-        rowNum, date, qty, total, product,
+        rowNum, date, qty, total, name: name.trim(), product,
         price: product ? product.price : (qty > 0 ? Math.round(total / qty) : 0),
         invoiceNo: `HIST-${batchId}-${i}`,
       })
@@ -150,6 +150,7 @@ export async function POST(req) {
           data: {
             transactionId: tx.id,
             productId: r.product?.id || null,
+            name: r.product ? null : r.name,
             qty: r.qty,
             price: r.price,
             subtotal: r.total,

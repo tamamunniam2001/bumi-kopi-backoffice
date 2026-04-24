@@ -57,7 +57,7 @@ export async function GET(req) {
       date: r.transaction.createdAt,
       code: r.product?.code || '-',
       category: r.product?.category?.name || '-',
-      name: r.product?.name || 'Item Manual',
+      name: r.product?.name || r.name || 'Item Manual',
       qty: r.qty,
       total: r.subtotal,
     })),
