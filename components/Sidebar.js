@@ -12,7 +12,6 @@ const allNavItems = [
   { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
   { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
   { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart />, roles: ['ADMIN'] },
-  { href: '/transactions', label: 'Transaksi', icon: <IconReceipt />, roles: ['ADMIN'] },
   { href: '/rekap-produk', label: 'Produk Terjual', icon: <IconBarChart />, roles: ['ADMIN'] },
   { href: '/rekap-absensi', label: 'Rekap Absensi', icon: <IconClipboard />, roles: ['ADMIN'] },
   { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },

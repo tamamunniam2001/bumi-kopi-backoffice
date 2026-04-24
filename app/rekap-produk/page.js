@@ -19,11 +19,15 @@ export default function RekapProdukPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
   const [importResult, setImportResult] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef(null)
 
   async function load(p = page) {
     setLoading(true)
+    setSelected(new Set())
     try {
       const params = new URLSearchParams({ page: p })
       if (from) params.append('from', from)
@@ -36,6 +40,53 @@ export default function RekapProdukPage() {
 
   useEffect(() => { load() }, [page])
 
+  function handleFilter() { setPage(1); load(1) }
+  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
+
+  // ── Select ──
+  function toggleSelect(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === data.rows.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(data.rows.map(r => r.id)))
+    }
+  }
+
+  // ── Delete single ──
+  async function handleDelete(id) {
+    if (!confirm('Hapus item ini?')) return
+    try {
+      await api.delete(`/admin/product-sales/${id}`)
+      setData(prev => ({ ...prev, rows: prev.rows.filter(r => r.id !== id), total: prev.total - 1 }))
+      setSelected(prev => { const next = new Set(prev); next.delete(id); return next })
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+  }
+
+  // ── Delete bulk ──
+  async function handleDeleteSelected() {
+    if (!confirm(`Hapus ${selected.size} item yang dipilih?`)) return
+    setDeleting(true)
+    try {
+      await Promise.all([...selected].map(id => api.delete(`/admin/product-sales/${id}`)))
+      setData(prev => ({
+        ...prev,
+        rows: prev.rows.filter(r => !selected.has(r.id)),
+        total: prev.total - selected.size,
+      }))
+      setSelected(new Set())
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+    finally { setDeleting(false) }
+  }
+
+  // ── Template ──
   function downloadTemplate() {
     const header = 'Tanggal,Kode Produk,Kategori,Nama Produk,QTY,Total'
     const contoh = [
@@ -50,31 +101,45 @@ export default function RekapProdukPage() {
     URL.revokeObjectURL(url)
   }
 
+  // ── Import dengan progress ──
   async function handleImport(e) {
     const file = e.target.files[0]
     if (!file) return
-    setImporting(true); setImportResult(null)
+    setImporting(true); setImportResult(null); setImportProgress(0)
+
+    // Simulasi progress upload (karena XHR tidak expose server processing progress)
+    const progressInterval = setInterval(() => {
+      setImportProgress(prev => {
+        if (prev >= 85) { clearInterval(progressInterval); return prev }
+        return prev + Math.random() * 15
+      })
+    }, 200)
+
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await api.post('/admin/product-sales/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      setImportResult(res.data)
-      load(1)
+      const res = await api.post('/admin/product-sales/import', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      clearInterval(progressInterval)
+      setImportProgress(100)
+      setTimeout(() => {
+        setImportResult(res.data)
+        setImporting(false)
+        setImportProgress(0)
+        load(1)
+      }, 400)
     } catch (err) {
+      clearInterval(progressInterval)
+      setImportProgress(0)
       setImportResult({ error: err.response?.data?.message || 'Gagal import' })
-    } finally { setImporting(false); fileRef.current.value = '' }
-  }
-  function handleFilter() { setPage(1); load(1) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
-
-  async function handleDelete(id) {
-    if (!confirm('Hapus item ini?')) return
-    try {
-      await api.delete(`/admin/product-sales/${id}`)
-      setData(prev => ({ ...prev, rows: prev.rows.filter(r => r.id !== id), total: prev.total - 1 }))
-    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+      setImporting(false)
+    } finally {
+      fileRef.current.value = ''
+    }
   }
 
+  // ── Export CSV ──
   async function exportCSV() {
     try {
       const params = new URLSearchParams({ page: 1, limit: 99999 })
@@ -85,16 +150,8 @@ export default function RekapProdukPage() {
       const header = ['Tanggal', 'Kode Produk', 'Kategori', 'Nama Produk', 'QTY', 'Total']
       const lines = [
         header.join(','),
-        ...rows.map(r => [
-          fmtDate(r.date),
-          r.code,
-          `"${r.category}"`,
-          `"${r.name}"`,
-          r.qty,
-          r.total,
-        ].join(','))
+        ...rows.map(r => [fmtDate(r.date), r.code, `"${r.category}"`, `"${r.name}"`, r.qty, r.total].join(','))
       ]
-      // BOM agar Excel bisa baca UTF-8
       const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -105,9 +162,10 @@ export default function RekapProdukPage() {
     } catch { alert('Gagal export') }
   }
 
-  // Hitung summary
   const totalQty = data.rows.reduce((s, r) => s + r.qty, 0)
   const totalRevenue = data.rows.reduce((s, r) => s + r.total, 0)
+  const allSelected = data.rows.length > 0 && selected.size === data.rows.length
+  const someSelected = selected.size > 0 && !allSelected
 
   return (
     <div className="page">
@@ -118,22 +176,48 @@ export default function RekapProdukPage() {
             <div className="topbar-title">Produk Terjual</div>
             <div className="topbar-sub">{data.total} item terjual</div>
           </div>
-          <button className="btn btn-ghost" onClick={downloadTemplate}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Template
-          </button>
-          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
-          <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
-            onClick={() => fileRef.current.click()} disabled={importing}>
-            {importing
-              ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Mengimpor...</>
-              : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV</>}
-          </button>
-          <button className="btn btn-ghost" onClick={exportCSV}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export CSV
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" onClick={downloadTemplate}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Template
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
+            <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
+              onClick={() => fileRef.current.click()} disabled={importing}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import CSV
+            </button>
+            <button className="btn btn-ghost" onClick={exportCSV}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+          </div>
         </div>
+
+        {/* Progress Bar Import */}
+        {importing && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
+            <div style={{ height: '3px', background: '#E2E8F0' }}>
+              <div style={{ height: '100%', width: `${importProgress}%`, background: 'linear-gradient(90deg, #10B981, #34D399)', transition: 'width 0.2s ease', borderRadius: '0 2px 2px 0' }} />
+            </div>
+          </div>
+        )}
+
+        {importing && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(4px)' }}>
+            <div className="card fade-in" style={{ padding: '32px 40px', textAlign: 'center', minWidth: '320px' }}>
+              <div style={{ width: '56px', height: '56px', background: '#F0FDF4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '2px solid #A7F3D0' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)', marginBottom: '6px' }}>Mengimpor Data...</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '20px' }}>Mohon tunggu, sedang memproses file CSV</div>
+              <div style={{ background: '#F1F5F9', borderRadius: '99px', height: '8px', overflow: 'hidden', marginBottom: '8px' }}>
+                <div style={{ height: '100%', width: `${importProgress}%`, background: 'linear-gradient(90deg, #10B981, #34D399)', borderRadius: '99px', transition: 'width 0.2s ease' }} />
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#10B981' }}>{Math.round(importProgress)}%</div>
+            </div>
+          </div>
+        )}
 
         <div className="content">
           {/* Filter */}
@@ -199,11 +283,31 @@ export default function RekapProdukPage() {
             </div>
           )}
 
+          {/* Bulk action bar */}
+          {selected.size > 0 && (
+            <div className="slide-down" style={{ marginBottom: '12px', padding: '10px 16px', background: 'var(--accent-light)', border: '1px solid #C7D4F0', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--accent)' }}>{selected.size} item dipilih</span>
+              <button className="btn btn-danger" style={{ padding: '5px 14px', fontSize: '12px' }}
+                onClick={handleDeleteSelected} disabled={deleting}>
+                {deleting ? 'Menghapus...' : `Hapus ${selected.size} Item`}
+              </button>
+              <button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '12px' }}
+                onClick={() => setSelected(new Set())}>
+                Batal
+              </button>
+            </div>
+          )}
+
           {/* Tabel */}
           <div className="card" style={{ overflow: 'hidden' }}>
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }}
+                      onChange={toggleSelectAll}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                  </th>
                   <th>Tanggal</th>
                   <th>Kode Produk</th>
                   <th>Kategori</th>
@@ -215,14 +319,18 @@ export default function RekapProdukPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Memuat...</td></tr>
+                  <tr><td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Memuat...</td></tr>
                 ) : data.rows.length === 0 ? (
-                  <tr><td colSpan={6} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
+                  <tr><td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
                     <div>Belum ada data transaksi produk</div>
                   </td></tr>
                 ) : data.rows.map((r, i) => (
-                  <tr key={i}>
+                  <tr key={i} style={{ background: selected.has(r.id) ? 'var(--accent-light)' : undefined }}>
+                    <td>
+                      <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)}
+                        style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                    </td>
                     <td style={{ color: 'var(--text2)', fontSize: '13px', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
                     <td>
                       {r.code !== '-'
@@ -231,9 +339,7 @@ export default function RekapProdukPage() {
                     </td>
                     <td><span className="badge badge-gray">{r.category}</span></td>
                     <td style={{ fontWeight: '600', color: 'var(--text)' }}>{r.name}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className="badge badge-purple">{r.qty}</span>
-                    </td>
+                    <td style={{ textAlign: 'center' }}><span className="badge badge-purple">{r.qty}</span></td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent)' }}>{fmt(r.total)}</td>
                     <td>
                       <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }}
@@ -252,6 +358,7 @@ export default function RekapProdukPage() {
                     </td>
                     <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: '800', color: 'var(--text)' }}>{totalQty}</td>
                     <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '800', color: 'var(--accent)' }}>{fmt(totalRevenue)}</td>
+                    <td />
                   </tr>
                 </tfoot>
               )}
