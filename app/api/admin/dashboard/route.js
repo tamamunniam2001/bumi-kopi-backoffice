@@ -3,10 +3,8 @@ import prisma from '@/lib/prisma'
 import { verifyAuth, adminOnly } from '@/lib/auth'
 
 export async function GET(req) {
-  const { error, user } = verifyAuth(req)
+  const { error } = verifyAuth(req)
   if (error) return error
-  const denied = adminOnly(user)
-  if (denied) return denied
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
@@ -29,7 +30,8 @@ export default function LaporanHarianPage() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const pathname = usePathname()
+  useEffect(() => { load() }, [load, pathname])
 
   async function handleReopen(r) {
     if (!confirm('Batalkan closing dan buka kembali order list? Laporan ini akan dihapus.')) return

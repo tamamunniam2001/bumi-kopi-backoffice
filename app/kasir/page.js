@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 import { printThermal } from '@/lib/thermal'
@@ -110,9 +110,11 @@ export default function KasirPage() {
     } catch { }
   }, [pendingServed])
 
+  const pathname = usePathname()
+
   useEffect(() => {
     Promise.all([load(), loadOrders()])
-  }, [load, loadOrders])
+  }, [load, loadOrders, pathname])
 
   useEffect(() => {
     // loadOrders setiap 30 detik, reload produk setiap 5 menit

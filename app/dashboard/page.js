@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
@@ -47,13 +48,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function DashboardPage() {
   const [data, setData] = useState(null)
   const [time, setTime] = useState('')
+  const pathname = usePathname()
 
   useEffect(() => {
+    setData(null)
     api.get('/admin/dashboard').then((r) => setData(r.data)).catch(console.error)
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     const t = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
     return () => clearInterval(t)
-  }, [])
+  }, [pathname])
 
   return (
     <div className="page">
