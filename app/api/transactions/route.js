@@ -18,7 +18,7 @@ function isSameOrigin(req) {
 
 export async function GET(req) {
   if (!isSameOrigin(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
-  const { error } = verifyAuth(req)
+  const { error, user } = verifyAuth(req)
   if (error) return error
   const { searchParams } = new URL(req.url)
   const page = Number(searchParams.get('page') || 1)

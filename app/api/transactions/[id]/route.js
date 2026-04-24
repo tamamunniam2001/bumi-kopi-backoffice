@@ -61,9 +61,14 @@ export async function PATCH(req, { params }) {
 
 export async function DELETE(req, { params }) {
   if (!isCsrfSafe(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
-  const { error } = verifyAuth(req)
+  const { error, user } = verifyAuth(req)
   if (error) return error
   const { id } = await params
+  // Kasir hanya bisa hapus transaksi miliknya
+  const tx = await prisma.transaction.findUnique({ where: { id }, select: { cashierId: true } })
+  if (!tx) return NextResponse.json({ message: 'Transaksi tidak ditemukan' }, { status: 404 })
+  if (user.role !== 'ADMIN' && tx.cashierId !== user.id)
+    return NextResponse.json({ message: 'Akses ditolak' }, { status: 403 })
   await prisma.orderItem.deleteMany({ where: { transactionId: id } })
   await prisma.transaction.delete({ where: { id } })
   return NextResponse.json({ success: true })
