@@ -107,13 +107,13 @@ export default function RekapProdukPage() {
     if (!file) return
     setImporting(true); setImportResult(null); setImportProgress(0)
 
-    // Simulasi progress upload (karena XHR tidak expose server processing progress)
+    // Simulasi progress upload
     const progressInterval = setInterval(() => {
       setImportProgress(prev => {
-        if (prev >= 85) { clearInterval(progressInterval); return prev }
-        return prev + Math.random() * 15
+        if (prev >= 90) { clearInterval(progressInterval); return prev }
+        return prev + Math.random() * 8
       })
-    }, 200)
+    }, 400)
 
     try {
       const fd = new FormData()
@@ -246,14 +246,17 @@ export default function RekapProdukPage() {
                   {importResult.error
                     ? <div style={{ fontSize: '13px', fontWeight: '600', color: '#EF4444' }}>{importResult.error}</div>
                     : <>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#10B981', marginBottom: '4px' }}>Import berhasil</div>
-                        <div style={{ fontSize: '12px', color: '#4A5578', display: 'flex', gap: '16px' }}>
-                          <span>✚ <b>{importResult.created}</b> ditambahkan</span>
-                          <span>⊘ <b>{importResult.skipped}</b> dilewati</span>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#10B981', marginBottom: '4px' }}>Import selesai</div>
+                        <div style={{ fontSize: '12px', color: '#4A5578', display: 'flex', gap: '16px', marginBottom: importResult.errors?.length > 0 ? '8px' : '0' }}>
+                          <span>✚ <b>{importResult.created}</b> berhasil</span>
+                          <span>⊘ <b>{importResult.skipped}</b> gagal</span>
+                          <span>∑ <b>{importResult.total}</b> total diproses</span>
                         </div>
                         {importResult.errors?.length > 0 && (
-                          <div style={{ marginTop: '6px', fontSize: '11px', color: '#EF4444' }}>
-                            {importResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+                          <div style={{ maxHeight: '120px', overflowY: 'auto', background: '#FEF2F2', borderRadius: '6px', padding: '8px 10px', border: '1px solid #FECACA' }}>
+                            {importResult.errors.map((e, i) => (
+                              <div key={i} style={{ fontSize: '11px', color: '#EF4444', marginBottom: i < importResult.errors.length - 1 ? '3px' : '0' }}>{e}</div>
+                            ))}
                           </div>
                         )}
                       </>}

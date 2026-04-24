@@ -2,16 +2,34 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth, adminOnly } from '@/lib/auth'
 
-// Parse tanggal format DD/MM/YYYY
 function parseDate(str) {
   if (!str) return null
   const s = String(str).trim()
-  // DD/MM/YYYY
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]))
-  // YYYY-MM-DD
   const d = new Date(s)
   return isNaN(d.getTime()) ? null : d
+}
+
+// Parser CSV yang handle quoted fields dengan benar
+function parseCSVLine(line) {
+  const result = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+      else inQuotes = !inQuotes
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  result.push(current.trim())
+  return result
 }
 
 export async function POST(req) {
@@ -26,70 +44,105 @@ export async function POST(req) {
     if (!file) return NextResponse.json({ message: 'File tidak ditemukan' }, { status: 400 })
 
     const text = await file.text()
-    // Hapus BOM jika ada
     const clean = text.replace(/^\uFEFF/, '')
-    const lines = clean.split(/\r?\n/).filter(l => l.trim())
-    if (lines.length < 2) return NextResponse.json({ message: 'File kosong atau tidak valid' }, { status: 400 })
+    const lines = clean.split(/\r?\n/)
+    const dataLines = lines.slice(1) // skip header
 
-    // Skip header
-    const rows = lines.slice(1)
+    if (dataLines.filter(l => l.trim()).length === 0)
+      return NextResponse.json({ message: 'File kosong atau tidak valid' }, { status: 400 })
+
     let created = 0, skipped = 0
     const errors = []
 
-    // Cache produk dan kategori
     const products = await prisma.product.findMany({ select: { id: true, code: true, name: true, price: true } })
     const productByCode = Object.fromEntries(products.filter(p => p.code).map(p => [p.code.toLowerCase(), p]))
     const productByName = Object.fromEntries(products.map(p => [p.name.toLowerCase(), p]))
 
-    for (let i = 0; i < rows.length; i++) {
-      const line = rows[i].trim()
+    const validRows = []
+
+    for (let i = 0; i < dataLines.length; i++) {
+      const line = dataLines[i].trim()
       if (!line) continue
 
-      // Parse CSV (handle quoted fields)
-      const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || line.split(',').map(c => c.trim())
+      const rowNum = i + 2 // +2 karena header di baris 1
+      let cols
+      try {
+        cols = parseCSVLine(line)
+      } catch {
+        errors.push(`Baris ${rowNum}: Gagal parse baris`)
+        skipped++; continue
+      }
+
+      if (cols.length < 5) {
+        errors.push(`Baris ${rowNum}: Kolom tidak lengkap (hanya ${cols.length} kolom)`)
+        skipped++; continue
+      }
 
       const [dateStr, code, , name, qtyStr, totalStr] = cols
       const date = parseDate(dateStr)
       const qty = parseInt(qtyStr) || 0
-      const total = parseInt(String(totalStr).replace(/[^0-9]/g, '')) || 0
+      const total = parseInt(String(totalStr || '0').replace(/[^0-9]/g, '')) || 0
 
       if (!date || isNaN(date.getTime())) {
-        errors.push(`Baris ${i + 2}: Format tanggal tidak valid "${dateStr}"`)
+        errors.push(`Baris ${rowNum}: Format tanggal tidak valid "${dateStr}"`)
         skipped++; continue
       }
-      if (!name) { errors.push(`Baris ${i + 2}: Nama produk kosong`); skipped++; continue }
-      if (qty <= 0) { errors.push(`Baris ${i + 2}: QTY tidak valid`); skipped++; continue }
+      if (!name || !name.trim()) {
+        errors.push(`Baris ${rowNum}: Nama produk kosong`)
+        skipped++; continue
+      }
+      if (qty <= 0) {
+        errors.push(`Baris ${rowNum}: QTY tidak valid "${qtyStr}"`)
+        skipped++; continue
+      }
+      if (total <= 0) {
+        errors.push(`Baris ${rowNum}: Total tidak valid "${totalStr}"`)
+        skipped++; continue
+      }
 
-      // Cari produk by kode dulu, lalu by nama
-      let product = code && code !== '-' ? productByCode[code.toLowerCase()] : null
-      if (!product) product = productByName[name.toLowerCase()]
+      let product = code && code.trim() !== '-' && code.trim() !== '' ? productByCode[code.toLowerCase().trim()] : null
+      if (!product) product = productByName[name.toLowerCase().trim()]
 
-      const price = product ? product.price : Math.round(total / qty)
-      const productId = product?.id || null
-
-      // Buat transaksi historis
-      const invoiceNo = `HIST-${date.getTime()}-${i}-${Math.random().toString(36).slice(2, 7)}`
-      await prisma.transaction.create({
-        data: {
-          invoiceNo,
-          total,
-          payment: total,
-          change: 0,
-          payMethod: 'CASH',
-          status: 'COMPLETED',
-          cashierId: user.id,
-          createdAt: date,
-          customerName: '',
-          note: 'Import historis',
-          items: productId ? {
-            create: [{ productId, qty, price, subtotal: total }]
-          } : undefined,
-        },
+      validRows.push({
+        rowNum, date, qty, total, product,
+        price: product ? product.price : Math.round(total / qty),
+        invoiceNo: `HIST-${date.getTime()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       })
-      created++
     }
 
-    return NextResponse.json({ created, skipped, errors: errors.slice(0, 10) })
+    // Batch insert 20 sekaligus
+    const BATCH = 20
+    for (let b = 0; b < validRows.length; b += BATCH) {
+      const batch = validRows.slice(b, b + BATCH)
+      const results = await Promise.allSettled(batch.map(r =>
+        prisma.transaction.create({
+          data: {
+            invoiceNo: r.invoiceNo,
+            total: r.total,
+            payment: r.total,
+            change: 0,
+            payMethod: 'CASH',
+            status: 'COMPLETED',
+            cashierId: user.id,
+            createdAt: r.date,
+            customerName: '',
+            note: 'Import historis',
+            items: r.product ? { create: [{ productId: r.product.id, qty: r.qty, price: r.price, subtotal: r.total }] } : undefined,
+          },
+        })
+      ))
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          created++
+        } else {
+          const r = batch[idx]
+          errors.push(`Baris ${r.rowNum}: Gagal simpan — ${result.reason?.message || 'error tidak diketahui'}`)
+          skipped++
+        }
+      })
+    }
+
+    return NextResponse.json({ created, skipped, total: created + skipped, errors })
   } catch (err) {
     return NextResponse.json({ message: err.message || 'Gagal import' }, { status: 500 })
   }
