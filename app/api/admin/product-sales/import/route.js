@@ -68,7 +68,7 @@ export async function POST(req) {
       const productId = product?.id || null
 
       // Buat transaksi historis
-      const invoiceNo = `HIST-${date.getTime()}-${i}`
+      const invoiceNo = `HIST-${date.getTime()}-${i}-${Math.random().toString(36).slice(2, 7)}`
       await prisma.transaction.create({
         data: {
           invoiceNo,
