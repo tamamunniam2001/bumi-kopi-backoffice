@@ -62,7 +62,7 @@ export default function RekapAbsensiPage() {
             <table className="table">
               <thead>
                 <tr>
-                  {['Tanggal', 'Waktu', 'Barista', 'Helper', 'Tipe', 'Kas Awal', 'Checklist', ''].map(h => <th key={h}>{h}</th>)}
+                  {['Tanggal', 'Waktu', 'Staff 1', 'Staff 2', 'Tipe', 'Kas Awal', 'Checklist', ''].map(h => <th key={h}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +135,7 @@ function DetailModal({ record: r, onClose, fmt, fmtDate, fmtTime }) {
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>{r.employee?.name} — {r.type}</div>
-            {r.helper && <div style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '2px' }}>Helper: {r.helper.name}</div>}
+            {r.helper && <div style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '2px' }}>Staff 2: {r.helper.name}</div>}
             <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{fmtDate(r.date)} · {fmtTime(r.date)}</div>
           </div>
           <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: 'var(--text2)', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

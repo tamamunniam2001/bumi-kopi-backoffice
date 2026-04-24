@@ -32,7 +32,7 @@ export default function AbsensiPage() {
   }
 
   async function handleSave() {
-    if (!employeeId) return alert('Pilih nama barista terlebih dahulu')
+    if (!employeeId) return alert('Pilih nama staff terlebih dahulu')
     setSaving(true)
     try {
       await api.post('/attendance', {
@@ -100,21 +100,21 @@ export default function AbsensiPage() {
             </div>
 
             <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Nama Barista */}
+              {/* Staff 1 */}
               <div>
-                <label className="label">Nama Barista</label>
+                <label className="label">Nama Staff 1</label>
                 <select className="input" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
-                  <option value="">Pilih barista bertugas...</option>
+                  <option value="">Pilih staff bertugas...</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
 
-              {/* Nama Helper */}
+              {/* Staff 2 */}
               <div>
-                <label className="label">Nama Helper <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <label className="label">Nama Staff 2 <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                 <select className="input" value={helperId} onChange={e => setHelperId(e.target.value)}>
-                  <option value="">Pilih helper bertugas...</option>
-                  {employees.filter(e => e.id !== employeeId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  <option value="">Pilih staff bertugas...</option>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
 
