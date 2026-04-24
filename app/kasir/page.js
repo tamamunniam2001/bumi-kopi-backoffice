@@ -39,7 +39,7 @@ export default function KasirPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
-  const todayKey = new Date().toLocaleDateString('en-CA') // 'YYYY-MM-DD' local time
+  const todayKey = new Date().toLocaleDateString('en-CA')
   const isClosed = () => localStorage.getItem('closing_date') === todayKey
 
   // Set untuk track order yang sedang in-flight PATCH servedAt
@@ -72,7 +72,11 @@ export default function KasirPage() {
   }, [])
 
   const loadOrders = useCallback(async () => {
-    if (localStorage.getItem('closing_date') === new Date().toLocaleDateString('en-CA')) return
+    const today = new Date().toLocaleDateString('en-CA')
+    const closingDate = localStorage.getItem('closing_date')
+    // Hapus closing_date lama jika sudah hari baru
+    if (closingDate && closingDate !== today) localStorage.removeItem('closing_date')
+    if (closingDate === today) return
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
