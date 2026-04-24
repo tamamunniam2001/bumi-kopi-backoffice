@@ -145,11 +145,16 @@ export async function POST(req) {
             note: 'Import historis',
           },
         })
-        if (r.product) {
-          await prisma.orderItem.create({
-            data: { transactionId: tx.id, productId: r.product.id, qty: r.qty, price: r.price, subtotal: r.total },
-          })
-        }
+        // Selalu buat orderItem agar muncul di tabel, meski produk tidak ditemukan
+        await prisma.orderItem.create({
+          data: {
+            transactionId: tx.id,
+            productId: r.product?.id || null,
+            qty: r.qty,
+            price: r.price,
+            subtotal: r.total,
+          },
+        })
         return tx
       }))
       results.forEach((result, idx) => {
