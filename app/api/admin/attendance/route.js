@@ -14,7 +14,7 @@ export async function GET(req) {
   const [records, total] = await Promise.all([
     prisma.attendance.findMany({
       where, orderBy: { date: 'desc' }, take: 30, skip: (page - 1) * 30,
-      include: { employee: { select: { name: true } } },
+      include: { employee: { select: { name: true } }, helper: { select: { name: true } } },
     }),
     prisma.attendance.count({ where }),
   ])

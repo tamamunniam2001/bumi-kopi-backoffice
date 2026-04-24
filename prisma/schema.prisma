@@ -136,11 +136,12 @@ model DailyReport {
 }
 
 model Employee {
-  id        String       @id @default(cuid())
-  name      String
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  absences  Attendance[]
+  id            String       @id @default(cuid())
+  name          String
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  absences      Attendance[]
+  helperOf      Attendance[] @relation("AttendanceHelper")
 }
 
 model SopItem {
@@ -157,6 +158,8 @@ model Attendance {
   type         SopType
   employeeId   String
   employee     Employee @relation(fields: [employeeId], references: [id])
+  helperId     String?
+  helper       Employee? @relation("AttendanceHelper", fields: [helperId], references: [id])
   kasAwal      Int      @default(0)
   checklist    Json     @default("[]")
   createdAt    DateTime @default(now())

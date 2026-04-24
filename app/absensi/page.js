@@ -8,6 +8,7 @@ export default function AbsensiPage() {
   const [employees, setEmployees] = useState([])
   const [sopItems, setSopItems] = useState([])
   const [employeeId, setEmployeeId] = useState('')
+  const [helperId, setHelperId] = useState('')
   const [kasAwal, setKasAwal] = useState('')
   const [checklist, setChecklist] = useState({})
   const [saving, setSaving] = useState(false)
@@ -27,15 +28,15 @@ export default function AbsensiPage() {
   }
 
   function reset() {
-    setEmployeeId(''); setKasAwal(''); setChecklist({}); setSaved(false)
+    setEmployeeId(''); setHelperId(''); setKasAwal(''); setChecklist({}); setSaved(false)
   }
 
   async function handleSave() {
-    if (!employeeId) return alert('Pilih nama staf terlebih dahulu')
+    if (!employeeId) return alert('Pilih nama barista terlebih dahulu')
     setSaving(true)
     try {
       await api.post('/attendance', {
-        employeeId, type: tab,
+        employeeId, helperId: helperId || null, type: tab,
         kasAwal: tab === 'OPENING' ? (Number(kasAwal) || 0) : 0,
         checklist: filtered.map(s => ({ id: s.id, text: s.text, checked: !!checklist[s.id] })),
       })
@@ -99,12 +100,21 @@ export default function AbsensiPage() {
             </div>
 
             <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Nama Staf */}
+              {/* Nama Barista */}
               <div>
-                <label className="label">Nama Staf</label>
+                <label className="label">Nama Barista</label>
                 <select className="input" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
-                  <option value="">Pilih staf bertugas...</option>
+                  <option value="">Pilih barista bertugas...</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+
+              {/* Nama Helper */}
+              <div>
+                <label className="label">Nama Helper <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <select className="input" value={helperId} onChange={e => setHelperId(e.target.value)}>
+                  <option value="">Pilih helper bertugas...</option>
+                  {employees.filter(e => e.id !== employeeId).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
 
