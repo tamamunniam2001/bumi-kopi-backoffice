@@ -11,15 +11,10 @@ export async function GET(req, { params }) {
   return NextResponse.json(report)
 }
 
-export async function PUT(req, { params }) {
+export async function DELETE(req, { params }) {
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
-  const { kasAwal, penjualan, uangDisetor, qris, transfer, pengeluaran, piutang, catatan } = await req.json()
-  const report = await prisma.dailyReport.update({
-    where: { id },
-    data: { kasAwal, penjualan, uangDisetor, qris, transfer, pengeluaran, piutang, catatan },
-    include: { cashier: { select: { name: true } } },
-  })
-  return NextResponse.json(report)
+  await prisma.dailyReport.delete({ where: { id } })
+  return NextResponse.json({ message: 'Laporan dihapus' })
 }

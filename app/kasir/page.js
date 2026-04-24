@@ -41,6 +41,9 @@ export default function KasirPage() {
 
   const todayKey = new Date().toLocaleDateString('en-CA')
   const isClosed = () => localStorage.getItem('closing_date') === todayKey
+  const [closed, setClosed] = useState(false)
+
+  useEffect(() => { setClosed(isClosed()) }, [])
 
   // Set untuk track order yang sedang in-flight PATCH servedAt
   const pendingServed = useState(() => new Set())[0]
@@ -180,6 +183,17 @@ export default function KasirPage() {
             </button>
           </div>
         </div>
+
+        {/* Banner Kasir Tutup */}
+        {closed && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', margin: '16px 24px 0', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>🔒</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#C95555' }}>Kasir sudah closing hari ini</div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>Untuk membuka kembali, buka <a href="/kasir/laporan" style={{ color: 'var(--accent)', fontWeight: '600' }}>Laporan Harian</a> dan batalkan closing.</div>
+            </div>
+          </div>
+        )}
 
         {/* Produk area — full width */}
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
@@ -354,8 +368,8 @@ export default function KasirPage() {
             </div>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '0' }}>
               <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}
-                disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
-                Lanjutkan →
+                disabled={cart.length === 0 || closed} onClick={() => setCheckoutOpen(true)}>
+                {closed ? '🔒 Kasir Tutup' : 'Lanjutkan →'}
               </button>
             </div>
           </div>
@@ -407,7 +421,7 @@ export default function KasirPage() {
       )}
 
       {closingOpen && (
-        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosingOpen(false) }} />
+        <ClosingModal orders={orders} onClose={() => setClosingOpen(false)} onSaved={() => { localStorage.setItem('closing_date', todayKey); setOrders([]); setClosed(true); setClosingOpen(false) }} />
       )}
     </div>
   )

@@ -5,12 +5,14 @@ import api from '@/lib/api'
 
 const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
 const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+const isToday = (d) => new Date(d).toLocaleDateString('en-CA') === new Date().toLocaleDateString('en-CA')
 
 export default function LaporanHarianPage() {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  const [reopening, setReopening] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -22,6 +24,18 @@ export default function LaporanHarianPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function handleReopen(r) {
+    if (!confirm('Batalkan closing dan buka kembali order list? Laporan ini akan dihapus.')) return
+    setReopening(r.id)
+    try {
+      await api.delete(`/daily-reports/${r.id}`)
+      localStorage.removeItem('closing_date')
+      setReports(prev => prev.filter(x => x.id !== r.id))
+      alert('Closing dibatalkan. Silakan kembali ke halaman Kasir.')
+    } catch (e) { alert(e.response?.data?.message || 'Gagal membuka kembali') }
+    finally { setReopening(null) }
+  }
 
   const totalPengeluaran = (r) => (r.pengeluaran || []).reduce((s, p) => s + (p.harga * p.qty), 0)
   const kasAkhir = (r) => (r.kasAwal || 0) + (r.uangDisetor || 0) - totalPengeluaran(r)
@@ -67,6 +81,13 @@ export default function LaporanHarianPage() {
                           onClick={(e) => { e.stopPropagation(); setSelected(r) }}>Detail</button>
                         <button className="btn" style={{ background: '#F5F8FE', color: 'var(--text2)', border: '1px solid var(--border)', padding: '5px 10px', fontSize: '12px' }}
                           onClick={(e) => { e.stopPropagation(); setEditTarget(r) }}>Edit</button>
+                        {isToday(r.date) && (
+                          <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }}
+                            disabled={reopening === r.id}
+                            onClick={(e) => { e.stopPropagation(); handleReopen(r) }}>
+                            {reopening === r.id ? '...' : 'Buka Kembali'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
