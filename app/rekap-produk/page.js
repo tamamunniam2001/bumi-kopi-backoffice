@@ -455,6 +455,44 @@ export default function RekapProdukPage() {
           </div>
         </div>
       </main>
+
+      {/* Modal Export CSV */}
+      {exportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setExportModal(false) }}>
+          <div className="card fade-in" style={{ width: '420px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Export CSV</div>
+              <button onClick={() => setExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>Pilih rentang waktu data yang akan diekspor. Kosongkan untuk export semua data.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                <div>
+                  <label className="label">Dari Tanggal</label>
+                  <input type="date" className="input" value={exportFrom} onChange={e => setExportFrom(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Sampai Tanggal</label>
+                  <input type="date" className="input" value={exportTo} onChange={e => setExportTo(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ padding: '12px 14px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '20px', fontSize: '12px', color: 'var(--muted)' }}>
+                {exportFrom || exportTo
+                  ? `Export data dari ${exportFrom || '...'} sampai ${exportTo || '...'}`
+                  : 'Export semua data (tanpa filter tanggal)'}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setExportModal(false)}>Batal</button>
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={exportCSV} disabled={exporting}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {exporting ? 'Mengekspor...' : 'Download CSV'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

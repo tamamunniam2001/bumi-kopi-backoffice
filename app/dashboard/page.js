@@ -6,7 +6,8 @@ import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
 const fmt = (n) => 'Rp ' + Number(n).toLocaleString('id-ID')
-const fmtShort = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}jt` : n >= 1000 ? `${(n / 1000).toFixed(0)}rb` : n
+const fmtShort = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}jt` : n >= 1000 ? `${(n / 1000).toFixed(0)}rb` : String(n)
+const fmtTime = (d) => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
 function StatCard({ label, value, sub, icon, color, trend }) {
   const colors = {
@@ -14,15 +15,15 @@ function StatCard({ label, value, sub, icon, color, trend }) {
     green: { bg: 'linear-gradient(135deg, #10B981, #34D399)', light: '#ECFDF5', text: '#10B981', shadow: 'rgba(16,185,129,0.25)' },
     orange: { bg: 'linear-gradient(135deg, #F59E0B, #FBBF24)', light: '#FFFBEB', text: '#F59E0B', shadow: 'rgba(245,158,11,0.25)' },
     purple: { bg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)', light: '#F5F3FF', text: '#8B5CF6', shadow: 'rgba(139,92,246,0.25)' },
+    red: { bg: 'linear-gradient(135deg, #EF4444, #F87171)', light: '#FEF2F2', text: '#EF4444', shadow: 'rgba(239,68,68,0.25)' },
   }
   const c = colors[color] || colors.blue
-
   return (
     <div className="stat-card">
       <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: c.light, borderRadius: '0 16px 0 80px' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
         <div style={{ width: '44px', height: '44px', background: c.bg, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: `0 4px 12px ${c.shadow}` }}>{icon}</div>
-        {trend !== undefined && (
+        {trend !== null && trend !== undefined && (
           <span style={{ fontSize: '12px', fontWeight: '600', color: trend >= 0 ? '#10B981' : '#EF4444', background: trend >= 0 ? '#ECFDF5' : '#FEF2F2', padding: '3px 8px', borderRadius: '20px' }}>
             {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
           </span>
@@ -38,7 +39,7 @@ function StatCard({ label, value, sub, icon, color, trend }) {
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F8', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 4px 16px rgba(15,23,41,0.1)' }}>
+    <div style={{ background: '#fff', border: '1px solid #E2E8F8', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 4px 16px rgba(15,23,41,0.1)' }}>
       <p style={{ fontSize: '12px', color: '#8896B3', marginBottom: '4px' }}>{label}</p>
       <p style={{ fontSize: '14px', fontWeight: '700', color: '#2563EB' }}>{fmtShort(payload[0]?.value)}</p>
     </div>
@@ -54,13 +55,13 @@ export default function DashboardPage() {
   const pathname = usePathname()
 
   useEffect(() => {
-    const fetchDashboard = () => api.get('/admin/dashboard').then((r) => {
+    const fetch = () => api.get('/admin/dashboard').then(r => {
       setData(r.data)
       localStorage.setItem('dashboard_cache', JSON.stringify(r.data))
     }).catch(console.error)
 
-    fetchDashboard()
-    const tData = setInterval(fetchDashboard, 30000)
+    fetch()
+    const tData = setInterval(fetch, 30000)
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     const tTime = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
     return () => { clearInterval(tData); clearInterval(tTime) }
@@ -70,7 +71,6 @@ export default function DashboardPage() {
     <div className="page">
       <Sidebar />
       <main className="main">
-        {/* Topbar */}
         <div className="topbar">
           <div>
             <div className="topbar-title">Dashboard</div>
@@ -88,17 +88,34 @@ export default function DashboardPage() {
           ) : (
             <>
               {/* Stat Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
-                <StatCard icon="💰" label="Pendapatan Hari Ini" value={fmt(data.today.revenue)} sub={`${data.today.transactions} transaksi`} color="blue" trend={12} />
-                <StatCard icon="📈" label="Pendapatan Bulan Ini" value={fmt(data.month.revenue)} sub={`${data.month.transactions} transaksi`} color="green" trend={8} />
-                <StatCard icon="☕" label="Total Produk" value={data.totalProducts} sub="produk aktif" color="orange" />
-                <StatCard icon="👥" label="Transaksi Hari Ini" value={data.today.transactions} sub="pesanan masuk" color="purple" trend={5} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                <StatCard icon="💰" label="Pendapatan Hari Ini" value={fmt(data.today.revenue)} sub={`${data.today.transactions} transaksi`} color="blue" />
+                <StatCard icon="📈" label="Pendapatan Bulan Ini" value={fmt(data.month.revenue)} sub={`${data.month.transactions} transaksi`} color="green" trend={data.month.trend} />
+                <StatCard icon="☕" label="Produk Aktif" value={data.totalProducts} sub="jenis produk" color="orange" />
+                <StatCard icon="👥" label="Karyawan Aktif" value={data.totalEmployees} sub="staff terdaftar" color="purple" />
+              </div>
+
+              {/* Metode Pembayaran Hari Ini */}
+              <div className="card" style={{ padding: '20px 24px', marginBottom: '24px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>Metode Pembayaran Hari Ini</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  {[
+                    { key: 'CASH', label: 'Cash', color: '#2A9D6E', bg: '#E8F7F1', border: '#A7DFC8' },
+                    { key: 'QRIS', label: 'QRIS', color: '#6B5BAF', bg: '#EEEAF8', border: '#C8C0E8' },
+                    { key: 'TRANSFER', label: 'Transfer', color: '#C47D1A', bg: '#FDF4E3', border: '#F0D090' },
+                    { key: 'NONTUNAI', label: 'Non-Tunai', color: '#4A7CC7', bg: '#EBF1FB', border: '#C0D0E8' },
+                  ].map(m => (
+                    <div key={m.key} style={{ background: m.bg, borderRadius: '10px', padding: '14px 16px', border: `1px solid ${m.border}` }}>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '6px', fontWeight: '600' }}>{m.label}</div>
+                      <div style={{ fontSize: '16px', fontWeight: '800', color: m.color }}>{fmt(data.payMethods?.[m.key] || 0)}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Charts Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '28px' }}>
-                {/* Area Chart */}
-                <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Pendapatan 7 Hari</h3>
@@ -123,11 +140,10 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Bar Chart - Transaksi */}
-                <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
                   <div style={{ marginBottom: '24px' }}>
                     <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Jumlah Transaksi</h3>
-                    <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '2px' }}>Per hari</p>
+                    <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '2px' }}>Per hari (7 hari terakhir)</p>
                   </div>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={data.chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
@@ -142,56 +158,79 @@ export default function DashboardPage() {
               </div>
 
               {/* Bottom Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Recent Transactions */}
-                <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Transaksi Terbaru</h3>
-                    <a href="/transactions" style={{ fontSize: '12px', color: '#2563EB', fontWeight: '600', textDecoration: 'none' }}>Lihat semua →</a>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {data.recentTransactions.map((tx) => (
-                      <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#F8FAFF', borderRadius: '10px', border: '1px solid #F0F4FF' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                {/* Transaksi Terbaru */}
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729', marginBottom: '16px' }}>Transaksi Terbaru</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {data.recentTransactions.length === 0 && <p style={{ color: '#8896B3', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>Belum ada transaksi</p>}
+                    {data.recentTransactions.map(tx => (
+                      <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F8FAFF', borderRadius: '10px', border: '1px solid #F0F4FF' }}>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: '600', color: '#0F1729' }}>{tx.cashier.name}</div>
-                          <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '2px', fontFamily: 'monospace' }}>{tx.invoiceNo}</div>
+                          <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '1px', fontFamily: 'monospace' }}>{tx.invoiceNo}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '13px', fontWeight: '700', color: '#2563EB' }}>{fmt(tx.total)}</div>
-                          <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '2px' }}>{new Date(tx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+                          <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '1px' }}>{fmtTime(tx.createdAt)}</div>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Top Products */}
-                <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
-                  <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Produk Terlaris</h3>
-                    <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '2px' }}>Berdasarkan total penjualan</p>
-                  </div>
+                {/* Produk Terlaris */}
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729', marginBottom: '4px' }}>Produk Terlaris</h3>
+                  <p style={{ fontSize: '12px', color: '#8896B3', marginBottom: '16px' }}>Berdasarkan total penjualan</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {data.topProducts.length === 0 && <p style={{ color: '#8896B3', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>Belum ada data</p>}
                     {data.topProducts.map((p, i) => {
-                      const maxRevenue = data.topProducts[0]?.revenue || 1
-                      const pct = Math.round((p.revenue / maxRevenue) * 100)
+                      const maxRev = data.topProducts[0]?.revenue || 1
+                      const pct = Math.round((p.revenue / maxRev) * 100)
                       const colors = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE']
                       return (
                         <div key={i}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ width: '20px', height: '20px', background: colors[i], borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: '700' }}>{i + 1}</span>
-                              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F1729' }}>{p.name}</span>
+                              <span style={{ width: '20px', height: '20px', background: colors[i], borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: '700', flexShrink: 0 }}>{i + 1}</span>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F1729', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{p.name}</span>
                             </div>
-                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#2563EB' }}>{fmtShort(p.revenue)}</span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#2563EB', flexShrink: 0 }}>{fmtShort(p.revenue)}</span>
                           </div>
-                          <div style={{ height: '6px', background: '#F0F4FF', borderRadius: '99px', overflow: 'hidden' }}>
+                          <div style={{ height: '5px', background: '#F0F4FF', borderRadius: '99px', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: colors[i], borderRadius: '99px', transition: 'width 0.8s ease' }} />
                           </div>
                         </div>
                       )
                     })}
-                    {data.topProducts.length === 0 && <p style={{ color: '#8896B3', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>Belum ada data penjualan</p>}
+                  </div>
+                </div>
+
+                {/* Absensi Hari Ini */}
+                <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(15,23,41,0.06)', border: '1px solid #E2E8F8' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729', marginBottom: '4px' }}>Absensi Hari Ini</h3>
+                  <p style={{ fontSize: '12px', color: '#8896B3', marginBottom: '16px' }}>{data.absensiToday?.length || 0} catatan absensi</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(!data.absensiToday || data.absensiToday.length === 0) && (
+                      <div style={{ textAlign: 'center', padding: '20px 0', color: '#8896B3', fontSize: '13px' }}>Belum ada absensi hari ini</div>
+                    )}
+                    {data.absensiToday?.map(a => (
+                      <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: a.type === 'OPENING' ? '#EBF1FB' : '#FEF2F2', borderRadius: '10px', border: `1px solid ${a.type === 'OPENING' ? '#C0D0E8' : '#FECACA'}` }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: '#0F1729' }}>{a.name}</div>
+                          {a.type === 'OPENING' && a.kasAwal > 0 && (
+                            <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '1px' }}>Kas: {fmt(a.kasAwal)}</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: a.type === 'OPENING' ? 'var(--accent)' : 'var(--red)', color: '#fff' }}>
+                            {a.type}
+                          </span>
+                          <div style={{ fontSize: '11px', color: '#8896B3', marginTop: '3px' }}>{fmtTime(a.time)}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
