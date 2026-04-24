@@ -46,16 +46,29 @@ export default function KasirPage() {
   const pendingServed = useState(() => new Set())[0]
 
   const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+    // Tampil dari cache dulu agar instan
+    if (!silent) {
+      const cached = localStorage.getItem('kasir_products_cache')
+      if (cached) {
+        try {
+          const { products: cp, categories: cc } = JSON.parse(cached)
+          setProducts(cp); setCategories(cc); setLoading(false)
+        } catch { }
+      } else {
+        setLoading(true)
+      }
+    }
     try {
       const [prodsRes, catsRes] = await Promise.all([
         api.get('/products?slim=1'),
         api.get('/admin/categories'),
       ])
+      const cats = catsRes.data.map((c) => c.name).sort()
       setProducts(prodsRes.data)
-      setCategories(catsRes.data.map((c) => c.name).sort())
+      setCategories(cats)
+      localStorage.setItem('kasir_products_cache', JSON.stringify({ products: prodsRes.data, categories: cats, ts: Date.now() }))
     } catch { }
-    if (!silent) setLoading(false)
+    setLoading(false)
   }, [])
 
   const loadOrders = useCallback(async () => {
@@ -818,15 +831,27 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
 
   async function checkout(later = false) {
     if (!later && payMethod === 'CASH' && paid < total) return alert('Uang bayar kurang')
+    // Optimistic: langsung tampil sukses
+    const optimisticTx = {
+      id: `opt_${Date.now()}`,
+      invoiceNo: `BK-${Date.now()}`,
+      total, change: payMethod === 'CASH' && !later ? paid - total : 0,
+      payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
+      payMethod, status: later ? 'PENDING' : 'COMPLETED',
+      servedAt: null, createdAt: new Date().toISOString(),
+      customerName, note,
+      cashier: { name: '' },
+      items: cart.map((i) => ({ qty: i.qty, price: i.product.price, subtotal: i.product.price * i.qty, product: { name: i.product.name, imageUrl: i.product.imageUrl } })),
+    }
+    if (!existingOrderId) setTx(optimisticTx)
     setLoading(true)
     try {
       if (existingOrderId) {
-        await api.patch(`/transactions/${existingOrderId}`, {
+        const res = await api.patch(`/transactions/${existingOrderId}`, {
           payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
-          payMethod,
-          total,
+          payMethod, total,
         })
-        setTx({ invoiceNo: existingOrderId, total, change: payMethod === 'CASH' ? paid - total : 0 })
+        setTx({ ...optimisticTx, invoiceNo: existingOrderId, ...res.data })
       } else {
         const items = cart.map((i) => {
           const o = { qty: i.qty, price: i.product.price }
@@ -837,14 +862,12 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
         const res = await api.post('/transactions', {
           items,
           payment: later ? 0 : (payMethod === 'CASH' ? paid : total),
-          payMethod,
-          payLater: later,
-          customerName,
-          note,
+          payMethod, payLater: later, customerName, note,
         })
         setTx(res.data)
       }
     } catch (e) {
+      setTx(null)
       alert(e.response?.data?.message || 'Gagal menyimpan transaksi')
     } finally { setLoading(false) }
   }
@@ -986,9 +1009,9 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 onClick={() => checkout(false)}
-                disabled={loading || (payMethod === 'CASH' && !payLater && paid < total) || payLater}
-                style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', opacity: (loading || (payMethod === 'CASH' && paid < total) || payLater) ? 0.5 : 1 }}>
-                {loading ? 'Memproses...' : `Bayar Rp ${fmt(total)}`}
+                disabled={(payMethod === 'CASH' && !payLater && paid < total) || payLater}
+                style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', opacity: ((payMethod === 'CASH' && paid < total) || payLater) ? 0.5 : 1 }}>
+                {`Bayar Rp ${fmt(total)}`}
               </button>
               <button
                 onClick={() => checkout(true)}
