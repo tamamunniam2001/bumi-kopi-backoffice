@@ -63,6 +63,7 @@ export async function POST(req) {
     const productByCode = Object.fromEntries(products.filter(p => p.code).map(p => [p.code.toLowerCase(), p]))
     const productByName = Object.fromEntries(products.map(p => [p.name.toLowerCase(), p]))
 
+    const batchId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     const validRows = []
 
     for (let i = 0; i < dataLines.length; i++) {
@@ -121,7 +122,7 @@ export async function POST(req) {
       validRows.push({
         rowNum, date, qty, total, product,
         price: product ? product.price : (qty > 0 ? Math.round(total / qty) : 0),
-        invoiceNo: `HIST-${date.getTime()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        invoiceNo: `HIST-${batchId}-${i}`,
       })
     }
 
@@ -129,8 +130,8 @@ export async function POST(req) {
     const BATCH = 20
     for (let b = 0; b < validRows.length; b += BATCH) {
       const batch = validRows.slice(b, b + BATCH)
-      const results = await Promise.allSettled(batch.map(r =>
-        prisma.transaction.create({
+      const results = await Promise.allSettled(batch.map(async r => {
+        const tx = await prisma.transaction.create({
           data: {
             invoiceNo: r.invoiceNo,
             total: r.total,
@@ -142,16 +143,26 @@ export async function POST(req) {
             createdAt: r.date,
             customerName: '',
             note: 'Import historis',
-            items: r.product ? { create: [{ productId: r.product.id, qty: r.qty, price: r.price, subtotal: r.total }] } : undefined,
           },
         })
-      ))
+        if (r.product) {
+          await prisma.orderItem.create({
+            data: { transactionId: tx.id, productId: r.product.id, qty: r.qty, price: r.price, subtotal: r.total },
+          })
+        }
+        return tx
+      }))
       results.forEach((result, idx) => {
         if (result.status === 'fulfilled') {
           created++
         } else {
           const r = batch[idx]
-          errors.push(`Baris ${r.rowNum}: Gagal simpan — ${result.reason?.message || 'error tidak diketahui'}`)
+          const msg = result.reason?.message || 'error tidak diketahui'
+          if (msg.includes('Unique') || msg.includes('unique')) {
+            errors.push(`Baris ${r.rowNum}: Dilewati (data sudah ada)`)
+          } else {
+            errors.push(`Baris ${r.rowNum}: Gagal simpan — ${msg}`)
+          }
           skipped++
         }
       })
