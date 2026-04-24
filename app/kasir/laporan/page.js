@@ -5,7 +5,13 @@ import api from '@/lib/api'
 
 const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
 const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
-const isToday = (d) => new Date(d).toLocaleDateString('en-CA') === new Date().toLocaleDateString('en-CA')
+const isToday = (d) => {
+  const date = new Date(d)
+  const now = new Date()
+  return date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+}
 
 export default function LaporanHarianPage() {
   const [reports, setReports] = useState([])
@@ -97,14 +103,14 @@ export default function LaporanHarianPage() {
           </div>
         </div>
 
-        {selected && <DetailModal report={selected} onClose={() => setSelected(null)} fmt={fmt} fmtDate={fmtDate} totalPengeluaran={totalPengeluaran} kasAkhir={kasAkhir} onEdit={() => { setEditTarget(selected); setSelected(null) }} />}
+        {selected && <DetailModal report={selected} onClose={() => setSelected(null)} fmt={fmt} fmtDate={fmtDate} totalPengeluaran={totalPengeluaran} kasAkhir={kasAkhir} onEdit={() => { setEditTarget(selected); setSelected(null) }} onReopen={handleReopen} reopening={reopening} />}
         {editTarget && <EditModal report={editTarget} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); load() }} fmt={fmt} fmtDate={fmtDate} />}
       </main>
     </div>
   )
 }
 
-function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAkhir, onEdit }) {
+function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAkhir, onEdit, onReopen, reopening }) {
   const kAkhir = kasAkhir(r)
   const totPengeluaran = totalPengeluaran(r)
 
@@ -120,6 +126,12 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={onEdit} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#4A7CC7', fontSize: '12px', fontWeight: '600', padding: '5px 12px', fontFamily: 'inherit' }}>Edit</button>
+            {isToday(r.date) && (
+              <button onClick={() => onReopen(r)} disabled={reopening === r.id}
+                style={{ background: 'rgba(201,85,85,0.08)', border: '1px solid #FECACA', borderRadius: '8px', cursor: 'pointer', color: '#C95555', fontSize: '12px', fontWeight: '600', padding: '5px 12px', fontFamily: 'inherit' }}>
+                {reopening === r.id ? '...' : 'Buka Kembali'}
+              </button>
+            )}
             <button onClick={onClose} style={{ background: 'rgba(74,124,199,0.1)', border: '1px solid #C0D0E8', borderRadius: '8px', cursor: 'pointer', color: '#5A6E90', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
