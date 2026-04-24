@@ -259,6 +259,5 @@ export default function RekapProdukPage() {
         </div>
       </main>
     </div>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
   )
 }
