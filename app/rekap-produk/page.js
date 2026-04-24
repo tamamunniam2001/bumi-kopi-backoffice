@@ -67,6 +67,14 @@ export default function RekapProdukPage() {
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
 
+  async function handleDelete(id) {
+    if (!confirm('Hapus item ini?')) return
+    try {
+      await api.delete(`/admin/product-sales/${id}`)
+      setData(prev => ({ ...prev, rows: prev.rows.filter(r => r.id !== id), total: prev.total - 1 }))
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+  }
+
   async function exportCSV() {
     try {
       const params = new URLSearchParams({ page: 1, limit: 99999 })
@@ -202,6 +210,7 @@ export default function RekapProdukPage() {
                   <th>Nama Produk</th>
                   <th style={{ textAlign: 'center' }}>QTY</th>
                   <th style={{ textAlign: 'right' }}>Total</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -226,13 +235,19 @@ export default function RekapProdukPage() {
                       <span className="badge badge-purple">{r.qty}</span>
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent)' }}>{fmt(r.total)}</td>
+                    <td>
+                      <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }}
+                        onClick={() => handleDelete(r.id)}>
+                        Hapus
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
               {!loading && data.rows.length > 0 && (
                 <tfoot>
                   <tr style={{ background: '#FAFBFF' }}>
-                    <td colSpan={4} style={{ padding: '12px 18px', fontWeight: '700', color: 'var(--text2)', fontSize: '13px' }}>
+                    <td colSpan={5} style={{ padding: '12px 18px', fontWeight: '700', color: 'var(--text2)', fontSize: '13px' }}>
                       Total halaman ini
                     </td>
                     <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: '800', color: 'var(--text)' }}>{totalQty}</td>

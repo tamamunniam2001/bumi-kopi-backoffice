@@ -33,6 +33,8 @@ export async function GET(req) {
 
   return NextResponse.json({
     rows: rows.map(r => ({
+      id: r.id,
+      transactionId: r.transactionId,
       date: r.transaction.createdAt,
       code: r.product?.code || '-',
       category: r.product?.category?.name || '-',
