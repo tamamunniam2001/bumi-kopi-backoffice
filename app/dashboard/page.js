@@ -46,13 +46,18 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function DashboardPage() {
-  const [data, setData] = useState(null)
+  const [data, setData] = useState(() => {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem('dashboard_cache') || 'null') } catch { return null }
+  })
   const [time, setTime] = useState('')
   const pathname = usePathname()
 
   useEffect(() => {
-    setData(null)
-    api.get('/admin/dashboard').then((r) => setData(r.data)).catch(console.error)
+    api.get('/admin/dashboard').then((r) => {
+      setData(r.data)
+      localStorage.setItem('dashboard_cache', JSON.stringify(r.data))
+    }).catch(console.error)
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     const t = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
     return () => clearInterval(t)

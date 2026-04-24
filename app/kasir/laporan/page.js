@@ -22,16 +22,23 @@ export default function LaporanHarianPage() {
   const [reopening, setReopening] = useState(null)
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const res = await api.get('/daily-reports')
-      setReports(res.data.reports || [])
-    } catch { setReports([]) }
+      const reports = res.data.reports || []
+      setReports(reports)
+      localStorage.setItem('laporan_cache', JSON.stringify(reports))
+    } catch { }
     finally { setLoading(false) }
   }, [])
 
   const pathname = usePathname()
-  useEffect(() => { load() }, [load, pathname])
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('laporan_cache')
+      if (cached) { setReports(JSON.parse(cached)); setLoading(false) }
+    } catch { }
+    load()
+  }, [load, pathname])
 
   async function handleReopen(r) {
     if (!confirm('Batalkan closing dan buka kembali order list? Laporan ini akan dihapus.')) return
@@ -61,7 +68,7 @@ export default function LaporanHarianPage() {
 
         <div className="content">
           <div className="card" style={{ overflow: 'hidden' }}>
-            {loading ? (
+            {reports.length === 0 && loading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>Memuat...</div>
             ) : reports.length === 0 ? (
               <div style={{ padding: '48px', textAlign: 'center', color: '#94A3B8' }}>
