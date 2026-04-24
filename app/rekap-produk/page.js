@@ -2,10 +2,15 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
-import * as XLSX from 'xlsx'
 
 const fmt = (n) => 'Rp ' + Number(n).toLocaleString('id-ID')
-const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+const fmtDate = (d) => {
+  const date = new Date(d)
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yyyy = date.getFullYear()
+  return `${dd}/${mm}/${yyyy}`
+}
 
 export default function RekapProdukPage() {
   const [data, setData] = useState({ rows: [], total: 0, totalPages: 1 })
@@ -31,22 +36,33 @@ export default function RekapProdukPage() {
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
 
-  async function exportExcel() {
-    // Fetch semua data tanpa pagination untuk export
+  async function exportCSV() {
     try {
       const params = new URLSearchParams({ page: 1, limit: 99999 })
       if (from) params.append('from', from)
       if (to) params.append('to', to)
       const res = await api.get(`/admin/product-sales?${params}`)
       const rows = res.data.rows || []
-      const ws = XLSX.utils.aoa_to_sheet([
-        ['Tanggal', 'Kode Produk', 'Kategori', 'Nama Produk', 'QTY', 'Total'],
-        ...rows.map(r => [fmtDate(r.date), r.code, r.category, r.name, r.qty, r.total]),
-      ])
-      ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 28 }, { wch: 8 }, { wch: 16 }]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Rekap Produk')
-      XLSX.writeFile(wb, `rekap-produk${from ? `-${from}` : ''}${to ? `-sd-${to}` : ''}.xlsx`)
+      const header = ['Tanggal', 'Kode Produk', 'Kategori', 'Nama Produk', 'QTY', 'Total']
+      const lines = [
+        header.join(','),
+        ...rows.map(r => [
+          fmtDate(r.date),
+          r.code,
+          `"${r.category}"`,
+          `"${r.name}"`,
+          r.qty,
+          r.total,
+        ].join(','))
+      ]
+      // BOM agar Excel bisa baca UTF-8
+      const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `rekap-produk${from ? `-${from}` : ''}${to ? `-sd-${to}` : ''}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch { alert('Gagal export') }
   }
 
@@ -63,9 +79,9 @@ export default function RekapProdukPage() {
             <div className="topbar-title">Rekap Transaksi Produk</div>
             <div className="topbar-sub">{data.total} item terjual</div>
           </div>
-          <button className="btn btn-ghost" onClick={exportExcel}>
+          <button className="btn btn-ghost" onClick={exportCSV}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export Excel
+            Export CSV
           </button>
         </div>
 
