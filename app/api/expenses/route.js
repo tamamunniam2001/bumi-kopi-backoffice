@@ -11,6 +11,7 @@ export async function POST(req) {
   const details = items.map(i => ({
     expenseItemId: i.expenseItemId || null,
     name: i.name,
+    category: i.category || '',
     keterangan: i.keterangan || '',
     satuan: i.satuan || '',
     harga: Number(i.harga),

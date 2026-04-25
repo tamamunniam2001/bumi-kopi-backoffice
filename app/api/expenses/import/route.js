@@ -80,7 +80,7 @@ export async function POST(req) {
       errors.push(`Baris ${rowNum}: Tanggal tidak valid "${dateStr}"`); skipped++; continue
     }
 
-    let name, satuan, expenseItemId = null
+    let name, satuan, category = '', expenseItemId = null
     if (codeStr) {
       const found = itemByCode[codeStr.toLowerCase()]
       if (!found) {
@@ -88,14 +88,13 @@ export async function POST(req) {
       }
       name = found.name
       satuan = found.satuan || ''
+      category = found.category || ''
       expenseItemId = found.id
       // kategori otomatis dari DB, abaikan kolom kategori CSV
     } else {
-      if (!nameRaw || !nameRaw.trim()) {
-        errors.push(`Baris ${rowNum}: Nama wajib diisi jika kode kosong`); skipped++; continue
-      }
-      name = nameRaw.trim()
+      name = nameRaw?.trim() || ''
       satuan = satuanRaw || ''
+      category = kategoriRaw || ''
     }
 
     if (harga <= 0) {
@@ -104,14 +103,14 @@ export async function POST(req) {
 
     const dateKey = date.toISOString().slice(0, 10)
     if (!byDate[dateKey]) byDate[dateKey] = []
-    byDate[dateKey].push({ expenseItemId, name, keterangan: keterangan || '', satuan, harga, qty })
+    byDate[dateKey].push({ expenseItemId, name, category, keterangan: keterangan || '', satuan, harga, qty })
   }
 
   // Create one Expense per date
   for (const [dateKey, items] of Object.entries(byDate)) {
     const details = items.map(i => ({
       expenseItemId: i.expenseItemId,
-      name: i.name, keterangan: i.keterangan, satuan: i.satuan,
+      name: i.name, category: i.category, keterangan: i.keterangan, satuan: i.satuan,
       harga: i.harga, qty: i.qty, subtotal: i.harga * i.qty,
     }))
     const total = details.reduce((s, d) => s + d.subtotal, 0)

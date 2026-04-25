@@ -232,13 +232,13 @@ export default function RekapPengeluaranPage() {
                   ) : data.rows.map((r, i) => (
                     <tr key={i}>
                       <td style={{ fontSize: '12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
-                      <td>{r.category ? <span className="badge badge-blue">{r.category}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                      <td>{r.category ? <span className="badge badge-blue">{r.category}</span> : null}</td>
                       <td>
                         <div style={{ fontWeight: '600', color: 'var(--text)' }}>{r.name}</div>
                         {r.keterangan && <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{r.keterangan}</div>}
                       </td>
-                      <td>{r.satuan ? <span className="badge badge-gray">{r.satuan}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-                      <td>{r.code ? <span className="badge badge-gray" style={{ fontFamily: 'monospace' }}>{r.code}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                      <td>{r.satuan ? <span className="badge badge-gray">{r.satuan}</span> : null}</td>
+                      <td>{r.code ? <span className="badge badge-gray" style={{ fontFamily: 'monospace' }}>{r.code}</span> : null}</td>
                       <td style={{ textAlign: 'right', color: 'var(--text2)' }}>{fmt(r.harga)}</td>
                       <td style={{ textAlign: 'center' }}><span className="badge badge-purple">{r.qty}</span></td>
                       <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--red)' }}>{fmt(r.subtotal)}</td>
