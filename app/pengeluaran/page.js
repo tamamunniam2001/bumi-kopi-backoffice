@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
@@ -17,6 +17,11 @@ export default function PengeluaranPage() {
   const [manualOpen, setManualOpen] = useState(false)
   const [manual, setManual] = useState({ name: '', keterangan: '', satuan: '', kategori: '', harga: '', qty: 1 })
   const [activeCategory, setActiveCategory] = useState('Semua')
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
+  const [importResult, setImportResult] = useState(null)
+  const fileRef = useRef(null)
+  const [editCartItem, setEditCartItem] = useState(null) // { itemId, harga, qty, keterangan }
 
   useEffect(() => {
     api.get('/admin/expense-items').then(r => setItems(r.data)).catch(() => {})
@@ -42,6 +47,45 @@ export default function PengeluaranPage() {
 
   function removeFromCart(itemId) {
     setCart(prev => { const next = { ...prev }; delete next[itemId]; return next })
+  }
+
+  function downloadTemplate() {
+    const header = 'Tanggal,Nama,Keterangan,Satuan,Harga,Qty'
+    const contoh = [
+      '23/04/2025,Gula Pasir,Merk X,kg,50000,2',
+      '23/04/2025,Kopi Robusta,,kg,120000,1',
+      '24/04/2025,Listrik,Bulan April,,350000,1',
+    ].join('\n')
+    const blob = new Blob(['\uFEFF' + header + '\n' + contoh], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'template-import-pengeluaran.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null); setImportProgress(0)
+    const progressInterval = setInterval(() => {
+      setImportProgress(prev => {
+        if (prev >= 90) { clearInterval(progressInterval); return prev }
+        return prev + Math.random() * 8
+      })
+    }, 400)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/expenses/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      clearInterval(progressInterval)
+      setImportProgress(100)
+      setTimeout(() => { setImportResult(res.data); setImporting(false); setImportProgress(0) }, 400)
+    } catch (err) {
+      clearInterval(progressInterval)
+      setImportProgress(0)
+      setImportResult({ error: err.response?.data?.message || 'Gagal import' })
+      setImporting(false)
+    } finally { fileRef.current.value = '' }
   }
 
   function addManual(e) {
@@ -125,11 +169,47 @@ export default function PengeluaranPage() {
             <div className="topbar-title">Pengeluaran</div>
             <div className="topbar-sub">Catat pengeluaran harian</div>
           </div>
-          <button className="btn btn-ghost" onClick={() => setManualOpen(true)} style={{ gap: '7px' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Input Manual
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" onClick={downloadTemplate}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Template
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
+            <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
+              onClick={() => fileRef.current.click()} disabled={importing}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import CSV
+            </button>
+            <button className="btn btn-ghost" onClick={() => setManualOpen(true)} style={{ gap: '7px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Input Manual
+            </button>
+          </div>
         </div>
+
+        {/* Progress Bar Import */}
+        {importing && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
+            <div style={{ height: '3px', background: '#E2E8F0' }}>
+              <div style={{ height: '100%', width: `${importProgress}%`, background: 'linear-gradient(90deg, #10B981, #34D399)', transition: 'width 0.2s ease', borderRadius: '0 2px 2px 0' }} />
+            </div>
+          </div>
+        )}
+        {importing && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(4px)' }}>
+            <div className="card fade-in" style={{ padding: '32px 40px', textAlign: 'center', minWidth: '320px' }}>
+              <div style={{ width: '56px', height: '56px', background: '#F0FDF4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '2px solid #A7F3D0' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)', marginBottom: '6px' }}>Mengimpor Data...</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '20px' }}>Mohon tunggu, sedang memproses file CSV</div>
+              <div style={{ background: '#F1F5F9', borderRadius: '99px', height: '8px', overflow: 'hidden', marginBottom: '8px' }}>
+                <div style={{ height: '100%', width: `${importProgress}%`, background: 'linear-gradient(90deg, #10B981, #34D399)', borderRadius: '99px', transition: 'width 0.2s ease' }} />
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#10B981' }}>{Math.round(importProgress)}%</div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
@@ -289,7 +369,13 @@ export default function PengeluaranPage() {
                             {e.keterangan && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '1px' }}>{e.keterangan}</div>}
                             <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{fmt(harga)} × {qty}</div>
                           </div>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)', flexShrink: 0 }}>{fmt(harga * qty)}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)' }}>{fmt(harga * qty)}</div>
+                            <button onClick={() => setEditCartItem({ itemId: item.id, harga: String(harga), qty: String(qty), keterangan: e.keterangan || '' })}
+                              style={{ width: '24px', height: '24px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--accent-light)', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -384,6 +470,94 @@ export default function PengeluaranPage() {
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Tambah ke Daftar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Cart Item */}
+      {editCartItem && (() => {
+        const item = items.find(i => i.id === editCartItem.itemId)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(6px)' }}
+            onClick={e => { if (e.target === e.currentTarget) setEditCartItem(null) }}>
+            <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Edit Item</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>{item?.name}</div>
+                </div>
+                <button onClick={() => setEditCartItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label className="label">Keterangan</label>
+                  <input className="input" placeholder="Keterangan..." value={editCartItem.keterangan}
+                    onChange={e => setEditCartItem(p => ({ ...p, keterangan: e.target.value }))} autoFocus />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">Harga</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
+                      <input className="input" type="number" value={editCartItem.harga}
+                        onChange={e => setEditCartItem(p => ({ ...p, harga: e.target.value }))}
+                        style={{ paddingLeft: '32px' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Qty</label>
+                    <input className="input" type="number" min="1" value={editCartItem.qty}
+                      onChange={e => setEditCartItem(p => ({ ...p, qty: e.target.value }))}
+                      style={{ textAlign: 'center' }} />
+                  </div>
+                </div>
+                {Number(editCartItem.harga) > 0 && (
+                  <div style={{ padding: '10px 14px', background: 'var(--red-light)', borderRadius: '9px', border: '1px solid #FECACA', fontSize: '13px', fontWeight: '700', color: 'var(--red)', textAlign: 'center' }}>
+                    {fmt(Number(editCartItem.harga) * (Number(editCartItem.qty) || 1))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditCartItem(null)}>Batal</button>
+                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => {
+                    if (!Number(editCartItem.harga)) return alert('Isi harga terlebih dahulu')
+                    setCart(prev => ({ ...prev, [editCartItem.itemId]: { ...prev[editCartItem.itemId], harga: editCartItem.harga, qty: editCartItem.qty, keterangan: editCartItem.keterangan } }))
+                    setEditCartItem(null)
+                  }}>Simpan</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Hasil Import */}
+      {importResult && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 600, maxWidth: '380px', width: '100%' }}>
+          <div className="slide-down" style={{ padding: '14px 18px', borderRadius: '12px', border: `1px solid ${importResult.error ? '#FECACA' : '#A7F3D0'}`, background: importResult.error ? '#FEF2F2' : '#F0FDF4', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '16px', marginTop: '1px' }}>{importResult.error ? '❌' : '✅'}</span>
+              <div>
+                {importResult.error
+                  ? <div style={{ fontSize: '13px', fontWeight: '600', color: '#EF4444' }}>{importResult.error}</div>
+                  : <>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#10B981', marginBottom: '4px' }}>Import selesai</div>
+                      <div style={{ fontSize: '12px', color: '#4A5578', display: 'flex', gap: '16px', marginBottom: importResult.errors?.length > 0 ? '8px' : '0' }}>
+                        <span>✚ <b>{importResult.created}</b> berhasil</span>
+                        <span>⊘ <b>{importResult.skipped}</b> gagal</span>
+                      </div>
+                      {importResult.errors?.length > 0 && (
+                        <div style={{ maxHeight: '100px', overflowY: 'auto', background: '#FEF2F2', borderRadius: '6px', padding: '8px 10px', border: '1px solid #FECACA' }}>
+                          {importResult.errors.map((e, i) => (
+                            <div key={i} style={{ fontSize: '11px', color: '#EF4444', marginBottom: i < importResult.errors.length - 1 ? '3px' : '0' }}>{e}</div>
+                          ))}
+                        </div>
+                      )}
+                    </>}
+              </div>
+            </div>
+            <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
       )}

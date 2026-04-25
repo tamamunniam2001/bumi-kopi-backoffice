@@ -1,0 +1,111 @@
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { verifyAuth } from '@/lib/auth'
+
+function parseDate(str) {
+  if (!str) return null
+  const s = String(str).trim()
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]))
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+function parseLine(line, sep) {
+  if (sep === '\t') return line.split('\t').map(c => c.trim())
+  const result = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+      else inQuotes = !inQuotes
+    } else if (ch === sep && !inQuotes) {
+      result.push(current.trim()); current = ''
+    } else { current += ch }
+  }
+  result.push(current.trim())
+  return result
+}
+
+export async function POST(req) {
+  const { error, user } = verifyAuth(req)
+  if (error) return error
+
+  const formData = await req.formData()
+  const file = formData.get('file')
+  if (!file) return NextResponse.json({ message: 'File tidak ditemukan' }, { status: 400 })
+
+  const text = await file.text()
+  const clean = text.replace(/^\uFEFF/, '')
+  const lines = clean.split(/\r?\n/)
+  const dataLines = lines.slice(1)
+
+  if (dataLines.filter(l => l.trim()).length === 0)
+    return NextResponse.json({ message: 'File kosong atau tidak valid' }, { status: 400 })
+
+  const header = lines[0] || ''
+  const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ','
+
+  let created = 0, skipped = 0
+  const errors = []
+
+  // Group rows by date
+  const byDate = {}
+  for (let i = 0; i < dataLines.length; i++) {
+    const line = dataLines[i].trim()
+    if (!line) continue
+    const rowNum = i + 2
+    let cols
+    try { cols = parseLine(line, sep) } catch {
+      errors.push(`Baris ${rowNum}: Gagal parse`); skipped++; continue
+    }
+    if (cols.length < 4) {
+      errors.push(`Baris ${rowNum}: Kolom tidak lengkap (${cols.length} kolom)`); skipped++; continue
+    }
+
+    // Format: Tanggal, Nama, Keterangan, Satuan, Harga, Qty
+    const [dateStr, name, keterangan, satuan, hargaStr, qtyStr] = cols
+    const date = parseDate(dateStr)
+    const harga = parseInt(String(hargaStr || '0').replace(/[^0-9]/g, '')) || 0
+    const qty = parseInt(String(qtyStr || '1').replace(/[^0-9]/g, '')) || 1
+
+    if (!date || isNaN(date.getTime())) {
+      errors.push(`Baris ${rowNum}: Tanggal tidak valid "${dateStr}"`); skipped++; continue
+    }
+    if (!name || !name.trim()) {
+      errors.push(`Baris ${rowNum}: Nama kosong`); skipped++; continue
+    }
+    if (harga <= 0) {
+      errors.push(`Baris ${rowNum}: Harga tidak valid "${hargaStr}"`); skipped++; continue
+    }
+
+    const dateKey = date.toISOString().slice(0, 10)
+    if (!byDate[dateKey]) byDate[dateKey] = []
+    byDate[dateKey].push({ name: name.trim(), keterangan: keterangan || '', satuan: satuan || '', harga, qty })
+  }
+
+  // Create one Expense per date
+  for (const [dateKey, items] of Object.entries(byDate)) {
+    const details = items.map(i => ({
+      name: i.name, keterangan: i.keterangan, satuan: i.satuan,
+      harga: i.harga, qty: i.qty, subtotal: i.harga * i.qty,
+    }))
+    const total = details.reduce((s, d) => s + d.subtotal, 0)
+    try {
+      await prisma.expense.create({
+        data: {
+          date: new Date(dateKey), total, catatan: 'Import CSV', cashierId: user.id,
+          items: { create: details },
+        },
+      })
+      created += items.length
+    } catch (e) {
+      errors.push(`Tanggal ${dateKey}: ${e.message}`)
+      skipped += items.length
+    }
+  }
+
+  return NextResponse.json({ created, skipped, total: created + skipped, errors }, { status: 201 })
+}
