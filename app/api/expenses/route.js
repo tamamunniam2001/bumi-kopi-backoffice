@@ -5,7 +5,7 @@ import { verifyAuth } from '@/lib/auth'
 export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
-  const { items, catatan } = await req.json()
+  const { items, catatan, date } = await req.json()
   if (!items?.length) return NextResponse.json({ message: 'Items tidak boleh kosong' }, { status: 400 })
 
   const details = items.map(i => ({
@@ -22,6 +22,7 @@ export async function POST(req) {
   const expense = await prisma.expense.create({
     data: {
       total, catatan: catatan || '', cashierId: user.id,
+      ...(date ? { date: new Date(date) } : {}),
       items: { create: details },
     },
     include: { items: true, cashier: { select: { name: true } } },

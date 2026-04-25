@@ -9,7 +9,9 @@ export default function PengeluaranPage() {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState({})
+  const today = new Date().toISOString().slice(0, 10)
   const [catatan, setCatatan] = useState('')
+  const [tanggal, setTanggal] = useState(today)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(null)
   const [manualOpen, setManualOpen] = useState(false)
@@ -60,7 +62,7 @@ export default function PengeluaranPage() {
     setSaving(true)
     try {
       const res = await api.post('/expenses', {
-        catatan,
+        catatan, date: tanggal,
         items: cartItems.map(i => ({
           expenseItemId: i.isManual ? null : i.id,
           name: i.name,
@@ -258,7 +260,9 @@ export default function PengeluaranPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #EBF1FB, #F5F8FE)' }}>
               <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text2)', marginBottom: '2px' }}>Ringkasan</div>
               <div style={{ fontSize: '22px', fontWeight: '900', color: total > 0 ? 'var(--red)' : 'var(--muted)', letterSpacing: '-0.5px' }}>{fmt(total)}</div>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{cartItems.length} item dipilih</div>
+              <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '8px', marginBottom: '6px' }}>Tanggal</div>
+              <input type="date" className="input" value={tanggal} onChange={e => setTanggal(e.target.value)}
+                style={{ fontSize: '12px', padding: '7px 11px', background: '#fff' }} />
             </div>
 
             {/* Cart items */}
