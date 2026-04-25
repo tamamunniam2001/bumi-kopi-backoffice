@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
-const empty = { code: '', name: '', category: '' }
+const empty = { code: '', name: '', category: '', satuan: '' }
 
 export default function ExpenseSettingsPage() {
   const [items, setItems] = useState([])
@@ -56,6 +56,9 @@ export default function ExpenseSettingsPage() {
                 <label className="label">Nama Item</label>
                 <input className="input" placeholder="Air Isi Ulang" value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })} required style={{ marginBottom: '12px' }} />
+                <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <input className="input" placeholder="pcs, kg, liter..." value={form.satuan}
+                  onChange={e => setForm({ ...form, satuan: e.target.value })} style={{ marginBottom: '12px' }} />
                 <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                 <input className="input" placeholder="Persediaan, Operasional..." value={form.category}
                   onChange={e => setForm({ ...form, category: e.target.value })} style={{ marginBottom: '16px' }}
@@ -75,17 +78,18 @@ export default function ExpenseSettingsPage() {
             {/* List */}
             <div className="card" style={{ overflow: 'hidden' }}>
               <table className="table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Kategori</th><th>Aksi</th></tr></thead>
                 <tbody>
                   {items.map(item => (
                     <tr key={item.id}>
                       <td><span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code || '—'}</span></td>
                       <td style={{ fontWeight: '600' }}>{item.name}</td>
+                      <td><span className="badge badge-gray">{item.satuan || '—'}</span></td>
                       <td><span className="badge badge-gray">{item.category || '—'}</span></td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button className="btn" style={{ background: '#EFF4FF', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 12px', fontSize: '12px' }}
-                            onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '' }); setEditId(item.id) }}>Edit</button>
+                            onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '' }); setEditId(item.id) }}>Edit</button>
                           <button className="btn btn-danger" style={{ padding: '5px 12px', fontSize: '12px' }}
                             onClick={() => handleDelete(item.id)}>Hapus</button>
                         </div>

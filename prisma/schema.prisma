@@ -161,6 +161,7 @@ model ExpenseItem {
   code      String?         @unique
   name      String
   category  String?         @default("")
+  satuan    String?         @default("")
   isActive  Boolean         @default(true)
   createdAt DateTime        @default(now())
   details   ExpenseDetail[]

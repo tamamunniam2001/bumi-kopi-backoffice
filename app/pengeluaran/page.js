@@ -193,11 +193,18 @@ export default function PengeluaranPage() {
                           </div>
                           <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text)', marginTop: '4px' }}>{item.name}</div>
                           {item.code && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>#{item.code}</div>}
-                          {!item.isManual && item.avgHarga && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                              <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Rata-rata: <strong style={{ color: 'var(--text2)' }}>{fmt(item.avgHarga)}</strong></span>
-                              <span style={{ fontSize: '10px', color: 'var(--muted)' }}>({item.totalPembelian}× beli)</span>
+                          {!item.isManual && (item.avgHarga || item.satuan) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
+                              {item.satuan && (
+                                <span style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-light)', padding: '1px 8px', borderRadius: '20px', border: '1px solid rgba(74,124,199,0.2)', fontWeight: '600' }}>{item.satuan}</span>
+                              )}
+                              {item.avgHarga && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Rata-rata: <strong style={{ color: 'var(--text2)' }}>{fmt(item.avgHarga)}</strong></span>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted)' }}>({item.totalPembelian}× beli)</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
