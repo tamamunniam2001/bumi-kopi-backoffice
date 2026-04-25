@@ -89,7 +89,6 @@ export async function POST(req) {
         category = found.category || ''
         expenseItemId = found.id
       } else {
-        // Kode tidak ditemukan di DB — pakai data CSV apa adanya
         name = nameRaw?.trim() || ''
         satuan = satuanRaw || ''
         category = kategoriRaw || ''
@@ -100,7 +99,9 @@ export async function POST(req) {
       category = kategoriRaw || ''
     }
 
-    if (harga <= 0) {
+    if (!name) {
+      errors.push(`Baris ${rowNum}: Nama item kosong (kode "${codeStr}" tidak ditemukan di database)`); skipped++; continue
+    }
       errors.push(`Baris ${rowNum}: Harga tidak valid "${hargaStr}"`); skipped++; continue
     }
 
