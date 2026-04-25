@@ -3,7 +3,12 @@ import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
-const fmt = (n) => 'Rp ' + Number(n).toLocaleString('id-ID')
+const fmt = (n) => {
+  const num = Number(n)
+  if (isNaN(num)) return 'Rp 0'
+  const hasDecimal = num % 1 !== 0
+  return 'Rp ' + num.toLocaleString('id-ID', hasDecimal ? { minimumFractionDigits: 1, maximumFractionDigits: 2 } : {})
+}
 
 export default function PengeluaranPage() {
   const [items, setItems] = useState([])
@@ -313,11 +318,11 @@ export default function PengeluaranPage() {
                             style={{ flex: 1, fontSize: '12px', padding: '7px 11px' }} />
                           <div style={{ position: 'relative', flexShrink: 0 }}>
                             <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
-                            <input className="input" type="number" placeholder={item.avgHarga ? String(item.avgHarga) : 'Harga'} value={entry.harga || ''}
+                            <input className="input" type="number" step="any" placeholder={item.avgHarga ? String(item.avgHarga) : 'Harga'} value={entry.harga || ''}
                               onChange={e => updateCart(item.id, 'harga', e.target.value)}
                               style={{ width: '120px', paddingLeft: '30px', fontSize: '12px', padding: '7px 11px 7px 28px' }} />
                           </div>
-                          <input className="input" type="number" min="1" value={entry.qty || 1}
+                          <input className="input" type="number" step="any" min="0" value={entry.qty || 1}
                             onChange={e => updateCart(item.id, 'qty', e.target.value)}
                             style={{ width: '56px', textAlign: 'center', fontSize: '12px', padding: '7px 8px', flexShrink: 0 }} />
                           <button onClick={() => addToCart(item)}
@@ -448,14 +453,14 @@ export default function PengeluaranPage() {
                   <label className="label">Harga Total</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
-                    <input className="input" type="number" placeholder="0" value={manual.harga}
+                    <input className="input" type="number" step="any" placeholder="0" value={manual.harga}
                       onChange={e => setManual({ ...manual, harga: e.target.value })}
                       style={{ paddingLeft: '32px' }} required />
                   </div>
                 </div>
                 <div>
                   <label className="label">Qty</label>
-                  <input className="input" type="number" min="1" value={manual.qty}
+                  <input className="input" type="number" step="any" min="0" value={manual.qty}
                     onChange={e => setManual({ ...manual, qty: e.target.value })} />
                 </div>
               </div>
@@ -499,14 +504,14 @@ export default function PengeluaranPage() {
                     <label className="label">Harga</label>
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
-                      <input className="input" type="number" value={editCartItem.harga}
+                      <input className="input" type="number" step="any" value={editCartItem.harga}
                         onChange={e => setEditCartItem(p => ({ ...p, harga: e.target.value }))}
                         style={{ paddingLeft: '32px' }} />
                     </div>
                   </div>
                   <div>
                     <label className="label">Qty</label>
-                    <input className="input" type="number" min="1" value={editCartItem.qty}
+                    <input className="input" type="number" step="any" min="0" value={editCartItem.qty}
                       onChange={e => setEditCartItem(p => ({ ...p, qty: e.target.value }))}
                       style={{ textAlign: 'center' }} />
                   </div>

@@ -176,7 +176,7 @@ model ExpenseCategory {
 model Expense {
   id        String        @id @default(cuid())
   date      DateTime      @default(now())
-  total     Int
+  total     Float
   catatan   String?       @default("")
   cashierId String
   cashier   User          @relation(fields: [cashierId], references: [id])
@@ -197,9 +197,9 @@ model ExpenseDetail {
   category     String?     @default("")
   keterangan   String?     @default("")
   satuan       String?     @default("")
-  harga        Int
-  qty          Int         @default(1)
-  subtotal     Int
+  harga        Float
+  qty          Float       @default(1)
+  subtotal     Float
 
   @@index([expenseId])
 }

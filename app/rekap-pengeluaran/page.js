@@ -3,7 +3,12 @@ import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
-const fmt = (n) => 'Rp ' + Number(n).toLocaleString('id-ID')
+const fmt = (n) => {
+  const num = Number(n)
+  if (isNaN(num)) return 'Rp 0'
+  const hasDecimal = num % 1 !== 0
+  return 'Rp ' + num.toLocaleString('id-ID', hasDecimal ? { minimumFractionDigits: 1, maximumFractionDigits: 2 } : {})
+}
 const fmtDate = (d) => { const dt = new Date(d); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}` }
 const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 
@@ -206,30 +211,33 @@ export default function RekapPengeluaranPage() {
               {byKategoriLoading ? (
                 <div style={{ color: 'var(--muted)', fontSize: '13px' }}>Memuat...</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {byKategori.map((k, i) => {
-                    const pct = Math.round((k.total / maxKategori) * 100)
-                    const sharePct = totalKategori > 0 ? ((k.total / totalKategori) * 100).toFixed(1) : '0'
-                    return (
-                      <div key={i}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{k.category}</span>
-                            <span style={{ fontSize: '11px', color: 'var(--muted)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '1px 7px', borderRadius: '10px' }}>{sharePct}%</span>
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(byKategori.length, 12)}, 1fr)`, gap: '8px' }}>
+                    {byKategori.map((k, i) => {
+                      const pct = Math.round((k.total / maxKategori) * 100)
+                      const isTop = i === 0
+                      return (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '100%', height: '60px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: '1px solid var(--border)' }}>
+                            <div style={{ width: '100%', height: `${Math.max(pct, k.total > 0 ? 4 : 0)}%`, background: isTop ? 'var(--red)' : '#FCA5A5', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)' }}>{fmt(k.total)}</span>
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: k.total > 0 ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
+                            {fmt(k.total)}
+                          </div>
+                          <div style={{ fontSize: '11px', fontWeight: isTop ? '700' : '500', color: isTop ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                            {k.category}
+                          </div>
                         </div>
-                        <div style={{ height: '7px', background: 'var(--surface2)', borderRadius: '99px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: k.category === '(Tanpa Kategori)' ? '#CBD5E1' : 'var(--red)', borderRadius: '99px', transition: 'width 0.5s ease', opacity: 0.75 + (i === 0 ? 0.25 : 0) }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                  <div style={{ marginTop: '4px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{byKategori.length} kategori</span>
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--red)' }}>{fmt(totalKategori)}</span>
+                      )
+                    })}
                   </div>
-                </div>
+                  {totalKategori > 0 && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '24px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total: <span style={{ fontWeight: '800', color: 'var(--red)', fontSize: '13px' }}>{fmt(totalKategori)}</span></div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Terbesar: <span style={{ fontWeight: '700', color: 'var(--text)' }}>{byKategori[0]?.category}</span></div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -413,11 +421,11 @@ export default function RekapPengeluaranPage() {
                       style={{ width: '70px', fontSize: '12px' }} />
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
-                      <input className="input" type="number" value={item.harga}
+                      <input className="input" type="number" step="any" value={item.harga}
                         onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, harga: e.target.value } : it) }))}
                         style={{ width: '110px', paddingLeft: '28px', fontSize: '12px' }} />
                     </div>
-                    <input className="input" type="number" min="1" value={item.qty}
+                    <input className="input" type="number" step="any" min="0" value={item.qty}
                       onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, qty: e.target.value } : it) }))}
                       style={{ width: '56px', textAlign: 'center', fontSize: '12px' }} />
                   </div>
