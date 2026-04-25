@@ -49,25 +49,25 @@ export default function RekapPengeluaranPage() {
     catch { } finally { setMonthlyLoading(false) }
   }
 
-  async function load(p = page) {
+  async function load(p = page, f = from, t = to) {
     setLoading(true)
     try {
       const params = new URLSearchParams({ page: p })
-      if (from) params.append('from', from)
-      if (to) params.append('to', to)
+      if (f) params.append('from', f)
+      if (t) params.append('to', t)
       const res = await api.get(`/admin/expenses?${params}`)
       setData(res.data)
     } catch { } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [page])
+  useEffect(() => { load(page, from, to) }, [page])
   useEffect(() => { loadMonthly(); loadByKategori() }, [])
   useEffect(() => {
     api.get('/admin/expense-categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
   }, [])
 
-  function handleFilter() { setPage(1); load(1); loadByKategori(from, to) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => { load(1); loadByKategori('', '') }, 0) }
+  function handleFilter() { setPage(1); load(1, from, to); loadByKategori(from, to) }
+  function handleReset() { setFrom(''); setTo(''); setPage(1); load(1, '', ''); loadByKategori('', '') }
 
   async function handleDelete(expenseId) {
     if (!confirm('Hapus catatan pengeluaran ini beserta semua itemnya?')) return

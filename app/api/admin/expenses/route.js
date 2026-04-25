@@ -13,7 +13,11 @@ export async function GET(req) {
   const year = Number(searchParams.get('year') || new Date().getFullYear())
 
   const where = {}
-  if (from && to) where.date = { gte: new Date(from), lte: new Date(new Date(to).setHours(23, 59, 59, 999)) }
+  if (from || to) {
+    where.date = {}
+    if (from) where.date.gte = new Date(`${from}T00:00:00`)
+    if (to) where.date.lte = new Date(`${to}T23:59:59`)
+  }
 
   if (monthly) {
     const rows = await prisma.expense.findMany({
