@@ -46,7 +46,7 @@ export async function GET(req) {
         catatan: e.catatan || '',
         category: item.category || item.expenseItem?.category || '',
         name: item.name,
-        satuan: item.satuan || '',
+        satuan: item.satuan || item.expenseItem?.satuan || '',
         code: item.expenseItem?.code || '',
         keterangan: item.keterangan || '',
         harga: item.harga,

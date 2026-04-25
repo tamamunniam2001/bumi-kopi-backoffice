@@ -9,13 +9,22 @@ export default function ExpenseSettingsPage() {
   const [items, setItems] = useState([])
   const [form, setForm] = useState(empty)
   const [editId, setEditId] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [newCat, setNewCat] = useState('')
+  const [catSaving, setCatSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState('items') // 'items' | 'categories'
 
   async function load() {
     const res = await api.get('/admin/expense-items')
     setItems(res.data)
   }
 
-  useEffect(() => { load() }, [])
+  async function loadCategories() {
+    const res = await api.get('/admin/expense-categories')
+    setCategories(res.data)
+  }
+
+  useEffect(() => { load(); loadCategories() }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -29,11 +38,29 @@ export default function ExpenseSettingsPage() {
     await api.delete(`/admin/expense-items/${id}`); load()
   }
 
+  async function handleAddCategory(e) {
+    e.preventDefault()
+    if (!newCat.trim()) return
+    setCatSaving(true)
+    try {
+      await api.post('/admin/expense-categories', { name: newCat.trim() })
+      setNewCat(''); loadCategories()
+    } catch (err) { alert(err.response?.data?.message || 'Gagal menyimpan') }
+    finally { setCatSaving(false) }
+  }
+
+  async function handleDeleteCategory(id, name) {
+    if (!id) return alert(`Kategori "${name}" berasal dari item yang ada, hapus melalui edit item.`)
+    if (!confirm(`Hapus kategori "${name}"?`)) return
+    try { await api.delete(`/admin/expense-categories/${id}`); loadCategories() }
+    catch { alert('Gagal menghapus') }
+  }
+
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const fileRef = useRef(null)
 
-  const categories = [...new Set(items.map(i => i.category).filter(Boolean))]
+  const catNames = categories.map(c => c.name)
 
   function downloadTemplate() {
     const header = 'Kode,Nama,Kategori,Satuan'
@@ -119,66 +146,136 @@ export default function ExpenseSettingsPage() {
               </button>
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
-            {/* Form */}
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text)' }}>
-                {editId ? 'Edit Item' : 'Tambah Item'}
-              </div>
-              <form onSubmit={handleSubmit}>
-                <label className="label">Kode <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                <input className="input" placeholder="100" value={form.code}
-                  onChange={e => setForm({ ...form, code: e.target.value })} style={{ marginBottom: '12px' }} />
-                <label className="label">Nama Item</label>
-                <input className="input" placeholder="Air Isi Ulang" value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })} required style={{ marginBottom: '12px' }} />
-                <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                <input className="input" placeholder="pcs, kg, liter..." value={form.satuan}
-                  onChange={e => setForm({ ...form, satuan: e.target.value })} style={{ marginBottom: '12px' }} />
-                <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                <input className="input" placeholder="Persediaan, Operasional..." value={form.category}
-                  onChange={e => setForm({ ...form, category: e.target.value })} style={{ marginBottom: '16px' }}
-                  list="cat-list" />
-                <datalist id="cat-list">
-                  {categories.map(c => <option key={c} value={c} />)}
-                </datalist>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-                    {editId ? 'Simpan' : 'Tambah'}
-                  </button>
-                  {editId && <button type="button" className="btn btn-ghost" onClick={() => { setForm(empty); setEditId(null) }}>Batal</button>}
-                </div>
-              </form>
-            </div>
 
-            {/* List */}
-            <div className="card" style={{ overflow: 'hidden' }}>
-              <table className="table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Kategori</th><th>Aksi</th></tr></thead>
-                <tbody>
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td><span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code || '—'}</span></td>
-                      <td style={{ fontWeight: '600' }}>{item.name}</td>
-                      <td><span className="badge badge-gray">{item.satuan || '—'}</span></td>
-                      <td><span className="badge badge-gray">{item.category || '—'}</span></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn" style={{ background: '#EFF4FF', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 12px', fontSize: '12px' }}
-                            onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '' }); setEditId(item.id) }}>Edit</button>
-                          <button className="btn btn-danger" style={{ padding: '5px 12px', fontSize: '12px' }}
-                            onClick={() => handleDelete(item.id)}>Hapus</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr><td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Belum ada item</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'var(--surface2)', padding: '4px', borderRadius: '10px', width: 'fit-content', border: '1px solid var(--border)' }}>
+            {[['items', 'Daftar Item'], ['categories', 'Kategori']].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveTab(key)}
+                style={{ padding: '7px 20px', borderRadius: '7px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                  background: activeTab === key ? 'var(--surface)' : 'transparent',
+                  color: activeTab === key ? 'var(--accent)' : 'var(--muted)',
+                  boxShadow: activeTab === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                }}>
+                {label}
+                {key === 'items' && <span style={{ marginLeft: '6px', fontSize: '11px', background: 'var(--accent-light)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '10px' }}>{items.length}</span>}
+                {key === 'categories' && <span style={{ marginLeft: '6px', fontSize: '11px', background: 'var(--accent-light)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '10px' }}>{categories.length}</span>}
+              </button>
+            ))}
           </div>
+
+          {activeTab === 'items' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
+              {/* Form */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text)' }}>
+                  {editId ? 'Edit Item' : 'Tambah Item'}
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <label className="label">Kode <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="BHN-001" value={form.code}
+                    onChange={e => setForm({ ...form, code: e.target.value })} style={{ marginBottom: '12px' }} />
+                  <label className="label">Nama Item</label>
+                  <input className="input" placeholder="Air Isi Ulang" value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })} required style={{ marginBottom: '12px' }} />
+                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="pcs, kg, liter..." value={form.satuan}
+                    onChange={e => setForm({ ...form, satuan: e.target.value })} style={{ marginBottom: '12px' }} />
+                  <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="Pilih atau ketik kategori..." value={form.category}
+                    onChange={e => setForm({ ...form, category: e.target.value })} style={{ marginBottom: '16px' }}
+                    list="cat-list" />
+                  <datalist id="cat-list">
+                    {catNames.map(c => <option key={c} value={c} />)}
+                  </datalist>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                      {editId ? 'Simpan' : 'Tambah'}
+                    </button>
+                    {editId && <button type="button" className="btn btn-ghost" onClick={() => { setForm(empty); setEditId(null) }}>Batal</button>}
+                  </div>
+                </form>
+              </div>
+
+              {/* List */}
+              <div className="card" style={{ overflow: 'hidden' }}>
+                <table className="table">
+                  <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Kategori</th><th>Aksi</th></tr></thead>
+                  <tbody>
+                    {items.map(item => (
+                      <tr key={item.id}>
+                        <td>{item.code ? <span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code}</span> : null}</td>
+                        <td style={{ fontWeight: '600' }}>{item.name}</td>
+                        <td>{item.satuan ? <span className="badge badge-gray">{item.satuan}</span> : null}</td>
+                        <td>{item.category ? <span className="badge badge-blue">{item.category}</span> : null}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn" style={{ background: '#EFF4FF', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 12px', fontSize: '12px' }}
+                              onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '' }); setEditId(item.id) }}>Edit</button>
+                            <button className="btn btn-danger" style={{ padding: '5px 12px', fontSize: '12px' }}
+                              onClick={() => handleDelete(item.id)}>Hapus</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {items.length === 0 && (
+                      <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Belum ada item</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'categories' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
+              {/* Form tambah kategori */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text)' }}>Tambah Kategori</div>
+                <form onSubmit={handleAddCategory}>
+                  <label className="label">Nama Kategori</label>
+                  <input className="input" placeholder="Bahan Baku, Operasional..." value={newCat}
+                    onChange={e => setNewCat(e.target.value)} required style={{ marginBottom: '16px' }} autoFocus />
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={catSaving}>
+                    {catSaving ? 'Menyimpan...' : 'Tambah Kategori'}
+                  </button>
+                </form>
+                <div style={{ marginTop: '16px', padding: '12px 14px', background: 'var(--surface2)', borderRadius: '9px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Kategori yang ditambahkan di sini akan muncul sebagai pilihan saat menambah item pengeluaran dan saat input manual.
+                </div>
+              </div>
+
+              {/* List kategori */}
+              <div className="card" style={{ overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>
+                  {categories.length} Kategori
+                </div>
+                {categories.length === 0 ? (
+                  <div style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏷️</div>
+                    <div style={{ fontSize: '13px' }}>Belum ada kategori</div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {categories.map((cat, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface2)', borderRadius: '9px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{cat.name}</span>
+                          {!cat.id && <span style={{ fontSize: '10px', color: 'var(--muted)', background: 'var(--surface)', border: '1px solid var(--border)', padding: '1px 6px', borderRadius: '4px' }}>dari item</span>}
+                        </div>
+                        {cat.id && (
+                          <button onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                            style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid #FECACA', background: 'var(--red-light)', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

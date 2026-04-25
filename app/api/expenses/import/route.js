@@ -83,14 +83,17 @@ export async function POST(req) {
     let name, satuan, category = '', expenseItemId = null
     if (codeStr) {
       const found = itemByCode[codeStr.toLowerCase()]
-      if (!found) {
-        errors.push(`Baris ${rowNum}: Kode "${codeStr}" tidak ditemukan`); skipped++; continue
+      if (found) {
+        name = found.name
+        satuan = found.satuan || ''
+        category = found.category || ''
+        expenseItemId = found.id
+      } else {
+        // Kode tidak ditemukan di DB — pakai data CSV apa adanya
+        name = nameRaw?.trim() || ''
+        satuan = satuanRaw || ''
+        category = kategoriRaw || ''
       }
-      name = found.name
-      satuan = found.satuan || ''
-      category = found.category || ''
-      expenseItemId = found.id
-      // kategori otomatis dari DB, abaikan kolom kategori CSV
     } else {
       name = nameRaw?.trim() || ''
       satuan = satuanRaw || ''
