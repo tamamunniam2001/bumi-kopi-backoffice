@@ -72,9 +72,9 @@ export async function POST(req) {
     // Format: Tanggal, Kode, Kategori, Nama, Keterangan, Satuan, Harga, Qty
     const [dateStr, codeRaw, kategoriRaw, nameRaw, keterangan, satuanRaw, hargaStr, qtyStr] = cols
     const date = parseDate(dateStr)
-    const harga = parseFloat(String(hargaStr || '0').replace(/[^0-9.]/g, '')) || 0
-    const qty = parseFloat(String(qtyStr || '1').replace(/[^0-9.]/g, '')) || 1
-    const codeStr = codeRaw?.trim()
+    const harga = parseFloat(String(hargaStr || '0').replace(/[^0-9.,]/g, '').replace(',', '.')) || 0
+    const qty = parseFloat(String(qtyStr || '1').replace(/[^0-9.,]/g, '').replace(',', '.')) || 1
+    const codeStr = (codeRaw?.trim() === '-' || !codeRaw?.trim()) ? '' : codeRaw.trim()
 
     if (!date || isNaN(date.getTime())) {
       errors.push(`Baris ${rowNum}: Tanggal tidak valid "${dateStr}"`); skipped++; continue
