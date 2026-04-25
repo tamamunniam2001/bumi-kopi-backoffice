@@ -154,7 +154,7 @@ export default function RekapPengeluaranPage() {
                       <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isCurrent ? 'var(--red)' : m.total > 0 ? '#FCA5A5' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
                     </div>
                     <div style={{ fontSize: '10px', fontWeight: '700', color: m.total > 0 ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
-                      {m.total > 0 ? `${(m.total / 1000).toFixed(0)}K` : '-'}
+                      {m.total > 0 ? fmt(m.total) : '-'}
                     </div>
                     <div style={{ fontSize: '11px', fontWeight: isCurrent ? '700' : '500', color: isCurrent ? 'var(--red)' : 'var(--muted)' }}>{MONTHS[i]}</div>
                   </div>

@@ -29,7 +29,7 @@ export async function GET(req) {
   const [expenses, total] = await Promise.all([
     prisma.expense.findMany({
       where, orderBy: { date: 'desc' }, take: LIMIT, skip: (page - 1) * LIMIT,
-      include: { cashier: { select: { name: true } }, items: { include: { expenseItem: { select: { code: true, category: true } } } } },
+      include: { cashier: { select: { name: true } }, items: { include: { expenseItem: { select: { code: true, category: true, satuan: true } } } } },
     }),
     prisma.expense.count({ where }),
   ])
@@ -46,7 +46,7 @@ export async function GET(req) {
         catatan: e.catatan || '',
         category: item.expenseItem?.category || '',
         name: item.name,
-        satuan: item.satuan || '',
+        satuan: item.satuan || item.expenseItem?.satuan || '',
         code: item.expenseItem?.code || '',
         keterangan: item.keterangan || '',
         harga: item.harga,
