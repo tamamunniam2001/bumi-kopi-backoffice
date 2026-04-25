@@ -188,6 +188,7 @@ model ExpenseDetail {
   expenseItem  ExpenseItem? @relation(fields: [expenseItemId], references: [id])
   name         String
   keterangan   String?     @default("")
+  satuan       String?     @default("")
   harga        Int
   qty          Int         @default(1)
   subtotal     Int

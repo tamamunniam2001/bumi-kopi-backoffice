@@ -13,6 +13,8 @@ export default function PengeluaranPage() {
   const [catatan, setCatatan] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(null)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manual, setManual] = useState({ name: '', keterangan: '', satuan: '', harga: '', qty: 1 })
 
   useEffect(() => {
     api.get('/admin/expense-items').then(r => setItems(r.data)).catch(() => {})
@@ -26,7 +28,7 @@ export default function PengeluaranPage() {
   function updateCart(itemId, field, value) {
     setCart(prev => ({
       ...prev,
-      [itemId]: { harga: '', qty: 1, keterangan: '', ...prev[itemId], [field]: value }
+      [itemId]: { harga: '', qty: 1, keterangan: '', satuan: '', ...prev[itemId], [field]: value }
     }))
   }
 
@@ -40,8 +42,28 @@ export default function PengeluaranPage() {
     setCart(prev => { const next = { ...prev }; delete next[itemId]; return next })
   }
 
-  const cartItems = items.filter(i => cart[i.id]?.added)
-  const total = cartItems.reduce((s, i) => s + (Number(cart[i.id].harga) || 0) * (Number(cart[i.id].qty) || 1), 0)
+  function addManual(e) {
+    e.preventDefault()
+    if (!manual.name || !manual.harga) return
+    const id = `manual_${Date.now()}`
+    setCart(prev => ({
+      ...prev,
+      [id]: { ...manual, added: true, isManual: true }
+    }))
+    setItems(prev => [...prev, { id, name: manual.name, code: null, category: null, isManual: true }])
+    setManual({ name: '', keterangan: '', satuan: '', harga: '', qty: 1 })
+    setManualOpen(false)
+  }
+
+  const cartItems = [...items, ...Object.keys(cart)
+    .filter(id => cart[id]?.isManual && cart[id]?.added && !items.find(i => i.id === id))
+    .map(id => ({ id, name: cart[id].name, isManual: true }))
+  ].filter(i => cart[i.id]?.added)
+
+  const total = cartItems.reduce((s, i) => {
+    const e = cart[i.id]
+    return s + (Number(e.harga) || 0) * (Number(e.qty) || 1)
+  }, 0)
 
   async function handleSave() {
     if (!cartItems.length) return alert('Belum ada item pengeluaran')
@@ -50,15 +72,17 @@ export default function PengeluaranPage() {
       const res = await api.post('/expenses', {
         catatan,
         items: cartItems.map(i => ({
-          expenseItemId: i.id,
+          expenseItemId: i.isManual ? null : i.id,
           name: i.name,
           keterangan: cart[i.id].keterangan || '',
+          satuan: cart[i.id].satuan || '',
           harga: Number(cart[i.id].harga),
           qty: Number(cart[i.id].qty) || 1,
         })),
       })
       setSaved(res.data)
       setCart({}); setCatatan(''); setCartOpen(false)
+      setItems(prev => prev.filter(i => !i.isManual))
     } catch (e) {
       alert(e.response?.data?.message || 'Gagal menyimpan')
     } finally { setSaving(false) }
@@ -77,9 +101,16 @@ export default function PengeluaranPage() {
             <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '24px' }}>{saved.items?.length} item pengeluaran</div>
             <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px', marginBottom: '24px', textAlign: 'left', border: '1px solid var(--border)' }}>
               {saved.items?.map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < saved.items.length - 1 ? '1px solid var(--border)' : 'none', fontSize: '13px' }}>
-                  <span style={{ color: 'var(--text2)' }}>{item.name} {item.keterangan ? `(${item.keterangan})` : ''} ×{item.qty}</span>
-                  <span style={{ fontWeight: '600' }}>{fmt(item.subtotal)}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < saved.items.length - 1 ? '1px solid var(--border)' : 'none', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text2)' }}>{item.name}</span>
+                    {item.keterangan ? <span style={{ color: 'var(--muted)' }}> ({item.keterangan})</span> : null}
+                    <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                      {fmt(item.harga)} × {item.qty}{item.satuan ? ` ${item.satuan}` : ''}
+                      {item.qty > 1 ? ` = ${fmt(item.harga / item.qty)}/satuan` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontWeight: '600', flexShrink: 0, marginLeft: '12px' }}>{fmt(item.subtotal)}</span>
                 </div>
               ))}
             </div>
@@ -102,6 +133,10 @@ export default function PengeluaranPage() {
             <div className="topbar-title">Pengeluaran</div>
             <div className="topbar-sub">Catat pengeluaran harian</div>
           </div>
+          <button className="btn btn-ghost" onClick={() => setManualOpen(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Input Manual
+          </button>
         </div>
 
         {/* Search */}
@@ -126,20 +161,29 @@ export default function PengeluaranPage() {
             {filtered.map(item => {
               const entry = cart[item.id] || {}
               const isAdded = !!entry.added
+              const harga = Number(entry.harga) || 0
+              const qty = Number(entry.qty) || 1
+              const hargaPerSatuan = qty > 1 && harga > 0 ? Math.round(harga / qty) : null
+
               return (
                 <div key={item.id} className="card" style={{ padding: '16px 20px', border: isAdded ? '1.5px solid var(--accent)' : '1px solid var(--border)', background: isAdded ? 'var(--accent-light)' : 'var(--surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {item.category && <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '3px' }}>{item.category}</div>}
                       <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)' }}>{item.name}</div>
                       {item.code && <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>Kode: {item.code}</div>}
+                      {item.isManual && <span className="badge badge-orange" style={{ marginTop: '4px', fontSize: '10px' }}>Manual</span>}
                     </div>
 
                     {!isAdded ? (
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <input className="input" placeholder="Keterangan..." value={entry.keterangan || ''}
                           onChange={e => updateCart(item.id, 'keterangan', e.target.value)}
-                          style={{ width: '140px', fontSize: '13px' }} />
+                          style={{ width: '120px', fontSize: '13px' }} />
+                        <input className="input" placeholder="Satuan" value={entry.satuan || ''}
+                          onChange={e => updateCart(item.id, 'satuan', e.target.value)}
+                          style={{ width: '80px', fontSize: '13px' }} />
                         <div style={{ position: 'relative' }}>
                           <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
                           <input className="input" type="number" placeholder="Harga" value={entry.harga || ''}
@@ -157,8 +201,11 @@ export default function PengeluaranPage() {
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent)' }}>{fmt(Number(entry.harga) * (Number(entry.qty) || 1))}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{fmt(entry.harga)} × {entry.qty}</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent)' }}>{fmt(harga * qty)}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{fmt(harga)} × {qty}{entry.satuan ? ` ${entry.satuan}` : ''}</div>
+                          {hargaPerSatuan && (
+                            <div style={{ fontSize: '11px', color: 'var(--green)', fontWeight: '600' }}>{fmt(hargaPerSatuan)}/satuan</div>
+                          )}
                         </div>
                         <button onClick={() => removeFromCart(item.id)}
                           style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid #FECACA', background: 'var(--red-light)', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -187,6 +234,64 @@ export default function PengeluaranPage() {
         </div>
       </main>
 
+      {/* Modal Input Manual */}
+      {manualOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setManualOpen(false) }}>
+          <div className="card fade-in" style={{ width: '420px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>Input Manual</div>
+              <button onClick={() => setManualOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <form onSubmit={addManual} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="label">Nama Item</label>
+                <input className="input" placeholder="Nama barang..." value={manual.name}
+                  onChange={e => setManual({ ...manual, name: e.target.value })} required />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="label">Keterangan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="Keterangan..." value={manual.keterangan}
+                    onChange={e => setManual({ ...manual, keterangan: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="pcs, kg, liter..." value={manual.satuan}
+                    onChange={e => setManual({ ...manual, satuan: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="label">Harga Total</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--muted)', fontWeight: '600' }}>Rp</span>
+                    <input className="input" type="number" placeholder="0" value={manual.harga}
+                      onChange={e => setManual({ ...manual, harga: e.target.value })}
+                      style={{ paddingLeft: '32px' }} required />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Qty</label>
+                  <input className="input" type="number" min="1" value={manual.qty}
+                    onChange={e => setManual({ ...manual, qty: e.target.value })} />
+                </div>
+              </div>
+              {Number(manual.harga) > 0 && Number(manual.qty) > 1 && (
+                <div style={{ padding: '10px 14px', background: 'var(--green-light)', borderRadius: '8px', border: '1px solid #A7DFC8', fontSize: '13px', color: 'var(--green)', fontWeight: '600' }}>
+                  Harga per satuan: {fmt(Math.round(Number(manual.harga) / Number(manual.qty)))}
+                  {manual.satuan ? `/${manual.satuan}` : ''}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button type="button" className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setManualOpen(false)}>Batal</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Tambah</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Ringkasan Modal */}
       {cartOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
@@ -199,14 +304,27 @@ export default function PengeluaranPage() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {cartItems.map((item, i) => {
                 const e = cart[item.id]
+                const harga = Number(e.harga) || 0
+                const qty = Number(e.qty) || 1
+                const hargaPerSatuan = qty > 1 && harga > 0 ? Math.round(harga / qty) : null
                 return (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{item.name}</div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {item.name}
+                        {item.isManual && <span className="badge badge-orange" style={{ fontSize: '10px' }}>Manual</span>}
+                      </div>
                       {e.keterangan && <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{e.keterangan}</div>}
-                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{fmt(e.harga)} × {e.qty}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                        {fmt(harga)} × {qty}{e.satuan ? ` ${e.satuan}` : ''}
+                      </div>
+                      {hargaPerSatuan && (
+                        <div style={{ fontSize: '11px', color: 'var(--green)', fontWeight: '600' }}>
+                          {fmt(hargaPerSatuan)}/satuan
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--red)' }}>{fmt(Number(e.harga) * (Number(e.qty) || 1))}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--red)', flexShrink: 0, marginLeft: '12px' }}>{fmt(harga * qty)}</div>
                   </div>
                 )
               })}

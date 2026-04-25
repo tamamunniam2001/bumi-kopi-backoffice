@@ -12,6 +12,7 @@ export async function POST(req) {
     expenseItemId: i.expenseItemId || null,
     name: i.name,
     keterangan: i.keterangan || '',
+    satuan: i.satuan || '',
     harga: Number(i.harga),
     qty: Number(i.qty) || 1,
     subtotal: Number(i.harga) * (Number(i.qty) || 1),

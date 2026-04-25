@@ -4,21 +4,51 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 
-const allNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: <IconGrid />, roles: ['ADMIN', 'CASHIER'] },
-  { href: '/kasir', label: 'Kasir', icon: <IconCashier />, roles: ['ADMIN', 'CASHIER'] },
-  { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport />, roles: ['ADMIN', 'CASHIER'] },
-  { href: '/absensi', label: 'Absensi', icon: <IconAbsensi />, roles: ['ADMIN', 'CASHIER'] },
-  { href: '/pengeluaran', label: 'Pengeluaran', icon: <IconReceipt />, roles: ['ADMIN', 'CASHIER'] },
-  { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
-  { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
-  { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart />, roles: ['ADMIN'] },
-  { href: '/rekap-produk', label: 'Produk Terjual', icon: <IconBarChart />, roles: ['ADMIN'] },
-  { href: '/rekap-absensi', label: 'Rekap Absensi', icon: <IconClipboard />, roles: ['ADMIN'] },
-  { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },
-  { href: '/rekap-pengeluaran', label: 'Rekap Pengeluaran', icon: <IconMoney />, roles: ['ADMIN'] },
-  { href: '/expense-settings', label: 'Item Pengeluaran', icon: <IconTag />, roles: ['ADMIN'] },
-  { href: '/users', label: 'Pengguna', icon: <IconUsers />, roles: ['ADMIN'] },
+const allNavGroups = [
+  {
+    label: 'Utama',
+    roles: ['ADMIN', 'CASHIER'],
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: <IconGrid />, roles: ['ADMIN', 'CASHIER'] },
+    ]
+  },
+  {
+    label: 'Operasional',
+    roles: ['ADMIN', 'CASHIER'],
+    items: [
+      { href: '/kasir', label: 'Kasir', icon: <IconCashier />, roles: ['ADMIN', 'CASHIER'] },
+      { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport />, roles: ['ADMIN', 'CASHIER'] },
+      { href: '/absensi', label: 'Absensi', icon: <IconAbsensi />, roles: ['ADMIN', 'CASHIER'] },
+      { href: '/pengeluaran', label: 'Pengeluaran', icon: <IconReceipt />, roles: ['ADMIN', 'CASHIER'] },
+    ]
+  },
+  {
+    label: 'Produk & Bahan',
+    roles: ['ADMIN'],
+    items: [
+      { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
+      { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
+    ]
+  },
+  {
+    label: 'Laporan',
+    roles: ['ADMIN'],
+    items: [
+      { href: '/rekap-produk', label: 'Produk Terjual', icon: <IconBarChart />, roles: ['ADMIN'] },
+      { href: '/rekap-bahan', label: 'Rekap Bahan', icon: <IconChart />, roles: ['ADMIN'] },
+      { href: '/rekap-absensi', label: 'Rekap Absensi', icon: <IconClipboard />, roles: ['ADMIN'] },
+      { href: '/rekap-pengeluaran', label: 'Rekap Pengeluaran', icon: <IconMoney />, roles: ['ADMIN'] },
+    ]
+  },
+  {
+    label: 'Pengaturan',
+    roles: ['ADMIN'],
+    items: [
+      { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },
+      { href: '/expense-settings', label: 'Item Pengeluaran', icon: <IconTag />, roles: ['ADMIN'] },
+      { href: '/users', label: 'Pengguna', icon: <IconUsers />, roles: ['ADMIN'] },
+    ]
+  },
 ]
 
 export default function Sidebar() {
@@ -28,7 +58,10 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
   const role = user.role || 'CASHIER'
-  const navItems = allNavItems.filter(item => item.roles.includes(role))
+  const navGroups = allNavGroups
+    .filter(g => g.roles.includes(role))
+    .map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(role)) }))
+    .filter(g => g.items.length > 0)
 
   useEffect(() => {
     const saved = localStorage.getItem('sidebar_collapsed')
@@ -91,24 +124,35 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {!collapsed && <div className="sidebar-section-label">Menu</div>}
-          {navItems.map((item) => {
-            const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
-            return (
-              <div key={item.href} className="sidebar-tooltip-wrap">
-                <Link
-                  href={item.href}
-                  className={`sidebar-item${active ? ' active' : ''}`}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <span className="item-icon">{item.icon}</span>
-                  <span className="item-label">{item.label}</span>
-                  {active && <span className="item-dot" />}
-                </Link>
-                {collapsed && <span className="tooltip">{item.label}</span>}
-              </div>
-            )
-          })}
+          {navGroups.map((group, gi) => (
+            <div key={group.label} style={{ marginBottom: gi < navGroups.length - 1 ? '4px' : '0' }}>
+              {!collapsed && (
+                <div className="sidebar-section-label" style={{ marginTop: gi > 0 ? '12px' : '0' }}>
+                  {group.label}
+                </div>
+              )}
+              {collapsed && gi > 0 && (
+                <div style={{ height: '1px', background: 'var(--sidebar-border)', margin: '6px 8px' }} />
+              )}
+              {group.items.map((item) => {
+                const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
+                return (
+                  <div key={item.href} className="sidebar-tooltip-wrap">
+                    <Link
+                      href={item.href}
+                      className={`sidebar-item${active ? ' active' : ''}`}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <span className="item-icon">{item.icon}</span>
+                      <span className="item-label">{item.label}</span>
+                      {active && <span className="item-dot" />}
+                    </Link>
+                    {collapsed && <span className="tooltip">{item.label}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}
