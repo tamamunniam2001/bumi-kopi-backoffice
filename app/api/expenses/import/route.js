@@ -104,7 +104,7 @@ export async function POST(req) {
       errors.push(`Baris ${rowNum}: Harga tidak valid "${hargaStr}"`); skipped++; continue
     }
 
-    const dateKey = date.toISOString().slice(0, 10)
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
     if (!byDate[dateKey]) byDate[dateKey] = []
     byDate[dateKey].push({ expenseItemId, name, category, keterangan: keterangan || '', satuan, harga, qty })
   }
@@ -120,7 +120,7 @@ export async function POST(req) {
     try {
       await prisma.expense.create({
         data: {
-          date: new Date(dateKey), total, catatan: 'Import CSV', cashierId: user.id,
+          date: new Date(`${dateKey}T00:00:00`), total, catatan: 'Import CSV', cashierId: user.id,
           items: { create: details },
         },
       })
