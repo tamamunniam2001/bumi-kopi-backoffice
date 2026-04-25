@@ -50,11 +50,11 @@ export default function PengeluaranPage() {
   }
 
   function downloadTemplate() {
-    const header = 'Tanggal,Kode,Nama,Keterangan,Satuan,Harga,Qty'
+    const header = 'Tanggal,Kode,Kategori,Nama,Keterangan,Satuan,Harga,Qty'
     const contoh = [
-      '23/04/2025,EXP-001,,,, 50000,2',
-      '23/04/2025,,Kopi Robusta,,kg,120000,1',
-      '24/04/2025,,Listrik,Bulan April,,350000,1',
+      '23/04/2025,EXP-001,,,,,50000,2',
+      '23/04/2025,,Bahan Baku,Kopi Robusta,,kg,120000,1',
+      '24/04/2025,,Operasional,Listrik,Bulan April,,350000,1',
     ].join('\n')
     const blob = new Blob(['\uFEFF' + header + '\n' + contoh], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

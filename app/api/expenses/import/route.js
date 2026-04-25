@@ -49,7 +49,7 @@ export async function POST(req) {
   const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ','
 
   // Pre-load all expense items for code lookup
-  const expenseItems = await prisma.expenseItem.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true, satuan: true } })
+  const expenseItems = await prisma.expenseItem.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true, category: true, satuan: true } })
   const itemByCode = Object.fromEntries(expenseItems.filter(i => i.code).map(i => [i.code.trim().toLowerCase(), i]))
 
   let created = 0, skipped = 0
@@ -69,8 +69,8 @@ export async function POST(req) {
       errors.push(`Baris ${rowNum}: Kolom tidak lengkap (${cols.length} kolom)`); skipped++; continue
     }
 
-    // Format: Tanggal, Kode, Nama, Keterangan, Satuan, Harga, Qty
-    const [dateStr, codeRaw, nameRaw, keterangan, satuanRaw, hargaStr, qtyStr] = cols
+    // Format: Tanggal, Kode, Kategori, Nama, Keterangan, Satuan, Harga, Qty
+    const [dateStr, codeRaw, kategoriRaw, nameRaw, keterangan, satuanRaw, hargaStr, qtyStr] = cols
     const date = parseDate(dateStr)
     const harga = parseInt(String(hargaStr || '0').replace(/[^0-9]/g, '')) || 0
     const qty = parseInt(String(qtyStr || '1').replace(/[^0-9]/g, '')) || 1
@@ -89,6 +89,7 @@ export async function POST(req) {
       name = found.name
       satuan = found.satuan || ''
       expenseItemId = found.id
+      // kategori otomatis dari DB, abaikan kolom kategori CSV
     } else {
       if (!nameRaw || !nameRaw.trim()) {
         errors.push(`Baris ${rowNum}: Nama wajib diisi jika kode kosong`); skipped++; continue
