@@ -6,7 +6,14 @@ export async function GET(req) {
   const { error } = verifyAuth(req)
   if (error) return error
   const items = await prisma.expenseItem.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } })
-  return NextResponse.json(items)
+  const avgs = await prisma.expenseDetail.groupBy({
+    by: ['expenseItemId'],
+    where: { expenseItemId: { not: null } },
+    _avg: { harga: true },
+    _count: { id: true },
+  })
+  const avgMap = Object.fromEntries(avgs.map(a => [a.expenseItemId, { avg: Math.round(a._avg.harga || 0), count: a._count.id }]))
+  return NextResponse.json(items.map(i => ({ ...i, avgHarga: avgMap[i.id]?.avg || null, totalPembelian: avgMap[i.id]?.count || 0 })))
 }
 
 export async function POST(req) {

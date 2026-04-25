@@ -56,6 +56,7 @@ export default function Sidebar() {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [openGroups, setOpenGroups] = useState({})
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
   const role = user.role || 'CASHIER'
   const navGroups = allNavGroups
@@ -66,12 +67,23 @@ export default function Sidebar() {
   useEffect(() => {
     const saved = localStorage.getItem('sidebar_collapsed')
     if (saved !== null) setCollapsed(saved === 'true')
-  }, [])
+    // auto-open group yang berisi halaman aktif
+    const initial = {}
+    allNavGroups.forEach(g => {
+      if (g.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/')))
+        initial[g.label] = true
+    })
+    setOpenGroups(initial)
+  }, [pathname])
 
   function toggleCollapse() {
     const next = !collapsed
     setCollapsed(next)
     localStorage.setItem('sidebar_collapsed', String(next))
+  }
+
+  function toggleGroup(label) {
+    setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
   }
 
   function logout() {
@@ -124,35 +136,58 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {navGroups.map((group, gi) => (
-            <div key={group.label} style={{ marginBottom: gi < navGroups.length - 1 ? '4px' : '0' }}>
-              {!collapsed && (
-                <div className="sidebar-section-label" style={{ marginTop: gi > 0 ? '12px' : '0' }}>
-                  {group.label}
-                </div>
-              )}
-              {collapsed && gi > 0 && (
-                <div style={{ height: '1px', background: 'var(--sidebar-border)', margin: '6px 8px' }} />
-              )}
-              {group.items.map((item) => {
-                const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
-                return (
-                  <div key={item.href} className="sidebar-tooltip-wrap">
-                    <Link
-                      href={item.href}
-                      className={`sidebar-item${active ? ' active' : ''}`}
-                      onClick={() => setMobileOpen(false)}
+          {navGroups.map((group, gi) => {
+            const isOpen = !!openGroups[group.label]
+            const hasActive = group.items.some(i => pathname === i.href || (i.href !== '/kasir' && pathname.startsWith(i.href + '/')))
+            return (
+              <div key={group.label} style={{ marginBottom: gi < navGroups.length - 1 ? '2px' : '0' }}>
+                {collapsed ? (
+                  <>
+                    {gi > 0 && <div style={{ height: '1px', background: 'var(--sidebar-border)', margin: '6px 8px' }} />}
+                    {group.items.map((item) => {
+                      const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
+                      return (
+                        <div key={item.href} className="sidebar-tooltip-wrap">
+                          <Link href={item.href} className={`sidebar-item${active ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>
+                            <span className="item-icon">{item.icon}</span>
+                          </Link>
+                          <span className="tooltip">{item.label}</span>
+                        </div>
+                      )
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleGroup(group.label)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 10px', marginTop: gi > 0 ? '4px' : '0',
+                        background: 'none', border: 'none', cursor: 'pointer', borderRadius: '7px',
+                        color: hasActive ? 'var(--sidebar-accent)' : 'var(--sidebar-muted)',
+                        fontFamily: 'inherit',
+                      }}
                     >
-                      <span className="item-icon">{item.icon}</span>
-                      <span className="item-label">{item.label}</span>
-                      {active && <span className="item-dot" />}
-                    </Link>
-                    {collapsed && <span className="tooltip">{item.label}</span>}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+                      <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{group.label}</span>
+                      <span style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'flex' }}>
+                        <IconChevronDown />
+                      </span>
+                    </button>
+                    {isOpen && group.items.map((item) => {
+                      const active = pathname === item.href || (item.href !== '/kasir' && pathname.startsWith(item.href + '/'))
+                      return (
+                        <Link key={item.href} href={item.href} className={`sidebar-item${active ? ' active' : ''}`} onClick={() => setMobileOpen(false)}>
+                          <span className="item-icon">{item.icon}</span>
+                          <span className="item-label">{item.label}</span>
+                          {active && <span className="item-dot" />}
+                        </Link>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+            )
+          })}
         </nav>
 
         {/* Footer */}
@@ -182,6 +217,7 @@ function IconUsers() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function IconLogout() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> }
 function IconChevronLeft() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg> }
 function IconChevronRight() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg> }
+function IconChevronDown() { return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg> }
 function IconMenu() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg> }
 function IconAbsensi() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> }
 function IconClipboard() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg> }
