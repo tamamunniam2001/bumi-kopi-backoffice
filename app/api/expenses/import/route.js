@@ -48,6 +48,10 @@ export async function POST(req) {
   const header = lines[0] || ''
   const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ','
 
+  // Pre-load all expense items for code lookup
+  const expenseItems = await prisma.expenseItem.findMany({ where: { isActive: true }, select: { id: true, code: true, name: true, satuan: true } })
+  const itemByCode = Object.fromEntries(expenseItems.filter(i => i.code).map(i => [i.code.trim().toLowerCase(), i]))
+
   let created = 0, skipped = 0
   const errors = []
 
@@ -61,34 +65,51 @@ export async function POST(req) {
     try { cols = parseLine(line, sep) } catch {
       errors.push(`Baris ${rowNum}: Gagal parse`); skipped++; continue
     }
-    if (cols.length < 4) {
+    if (cols.length < 5) {
       errors.push(`Baris ${rowNum}: Kolom tidak lengkap (${cols.length} kolom)`); skipped++; continue
     }
 
-    // Format: Tanggal, Nama, Keterangan, Satuan, Harga, Qty
-    const [dateStr, name, keterangan, satuan, hargaStr, qtyStr] = cols
+    // Format: Tanggal, Kode, Nama, Keterangan, Satuan, Harga, Qty
+    const [dateStr, codeRaw, nameRaw, keterangan, satuanRaw, hargaStr, qtyStr] = cols
     const date = parseDate(dateStr)
     const harga = parseInt(String(hargaStr || '0').replace(/[^0-9]/g, '')) || 0
     const qty = parseInt(String(qtyStr || '1').replace(/[^0-9]/g, '')) || 1
+    const codeStr = codeRaw?.trim()
 
     if (!date || isNaN(date.getTime())) {
       errors.push(`Baris ${rowNum}: Tanggal tidak valid "${dateStr}"`); skipped++; continue
     }
-    if (!name || !name.trim()) {
-      errors.push(`Baris ${rowNum}: Nama kosong`); skipped++; continue
+
+    let name, satuan, expenseItemId = null
+    if (codeStr) {
+      const found = itemByCode[codeStr.toLowerCase()]
+      if (!found) {
+        errors.push(`Baris ${rowNum}: Kode "${codeStr}" tidak ditemukan`); skipped++; continue
+      }
+      name = found.name
+      satuan = found.satuan || ''
+      expenseItemId = found.id
+    } else {
+      if (!nameRaw || !nameRaw.trim()) {
+        errors.push(`Baris ${rowNum}: Nama wajib diisi jika kode kosong`); skipped++; continue
+      }
+      name = nameRaw.trim()
+      satuan = satuanRaw || ''
     }
+
     if (harga <= 0) {
       errors.push(`Baris ${rowNum}: Harga tidak valid "${hargaStr}"`); skipped++; continue
     }
 
     const dateKey = date.toISOString().slice(0, 10)
     if (!byDate[dateKey]) byDate[dateKey] = []
-    byDate[dateKey].push({ name: name.trim(), keterangan: keterangan || '', satuan: satuan || '', harga, qty })
+    byDate[dateKey].push({ expenseItemId, name, keterangan: keterangan || '', satuan, harga, qty })
   }
 
   // Create one Expense per date
   for (const [dateKey, items] of Object.entries(byDate)) {
     const details = items.map(i => ({
+      expenseItemId: i.expenseItemId,
       name: i.name, keterangan: i.keterangan, satuan: i.satuan,
       harga: i.harga, qty: i.qty, subtotal: i.harga * i.qty,
     }))
