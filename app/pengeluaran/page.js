@@ -550,6 +550,9 @@ export default function PengeluaranPage() {
                         <span>✚ <b>{importResult.created}</b> berhasil</span>
                         <span>⊘ <b>{importResult.skipped}</b> gagal</span>
                       </div>
+                      {importResult.debug?.length > 0 && (
+                        <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Tanggal diproses: {importResult.debug.join(', ')}</div>
+                      )}
                       {importResult.errors?.length > 0 && (
                         <div style={{ maxHeight: '100px', overflowY: 'auto', background: '#FEF2F2', borderRadius: '6px', padding: '8px 10px', border: '1px solid #FECACA' }}>
                           {importResult.errors.map((e, i) => (
