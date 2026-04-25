@@ -133,5 +133,5 @@ export async function POST(req) {
     }
   }
 
-  return NextResponse.json({ created, skipped, total: created + skipped, errors }, { status: 201 })
+  return NextResponse.json({ created, skipped, total: created + skipped, errors, debug: Object.keys(byDate) }, { status: 201 })
 }
