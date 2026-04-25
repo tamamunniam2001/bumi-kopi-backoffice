@@ -15,7 +15,7 @@ export async function PATCH(req, { params }) {
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
-  const { items, catatan } = await req.json()
+  const { items, catatan, date } = await req.json()
   if (!items?.length) return NextResponse.json({ message: 'Items kosong' }, { status: 400 })
 
   const details = items.map(i => ({
@@ -33,7 +33,7 @@ export async function PATCH(req, { params }) {
   await prisma.expenseDetail.deleteMany({ where: { expenseId: id } })
   const expense = await prisma.expense.update({
     where: { id },
-    data: { total, catatan: catatan || '', items: { create: details } },
+    data: { total, catatan: catatan || '', ...(date ? { date: new Date(date) } : {}), items: { create: details } },
     include: { items: true, cashier: { select: { name: true } } },
   })
   return NextResponse.json(expense)

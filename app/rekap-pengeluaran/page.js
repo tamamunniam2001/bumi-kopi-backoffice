@@ -16,13 +16,27 @@ export default function RekapPengeluaranPage() {
   const [monthly, setMonthly] = useState(Array.from({ length: 12 }, (_, m) => ({ month: m + 1, total: 0 })))
   const [year, setYear] = useState(new Date().getFullYear())
   const [monthlyLoading, setMonthlyLoading] = useState(true)
-  const [editModal, setEditModal] = useState(null) // expense object
-  const [editForm, setEditForm] = useState({ catatan: '', items: [] })
+  const [editModal, setEditModal] = useState(null)
+  const [editForm, setEditForm] = useState({ date: '', catatan: '', items: [] })
   const [saving, setSaving] = useState(false)
   const [exportModal, setExportModal] = useState(false)
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [byKategori, setByKategori] = useState([])
+  const [byKategoriLoading, setByKategoriLoading] = useState(true)
+  const [categories, setCategories] = useState([])
+
+  async function loadByKategori(f = from, t = to) {
+    setByKategoriLoading(true)
+    try {
+      const params = new URLSearchParams({ bykategori: 1 })
+      if (f) params.append('from', f)
+      if (t) params.append('to', t)
+      const res = await api.get(`/admin/expenses?${params}`)
+      setByKategori(res.data.byKategori)
+    } catch { } finally { setByKategoriLoading(false) }
+  }
 
   async function loadMonthly(y = year) {
     setMonthlyLoading(true)
@@ -42,10 +56,13 @@ export default function RekapPengeluaranPage() {
   }
 
   useEffect(() => { load() }, [page])
-  useEffect(() => { loadMonthly() }, [])
+  useEffect(() => { loadMonthly(); loadByKategori() }, [])
+  useEffect(() => {
+    api.get('/admin/expense-categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
+  }, [])
 
-  function handleFilter() { setPage(1); load(1) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
+  function handleFilter() { setPage(1); load(1); loadByKategori(from, to) }
+  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => { load(1); loadByKategori('', '') }, 0) }
 
   async function handleDelete(expenseId) {
     if (!confirm('Hapus catatan pengeluaran ini beserta semua itemnya?')) return
@@ -59,8 +76,17 @@ export default function RekapPengeluaranPage() {
     const expense = data.expenses.find(e => e.id === expenseId)
     if (!expense) return
     setEditForm({
+      date: new Date(expense.date).toISOString().slice(0, 10),
       catatan: expense.catatan || '',
-      items: expense.items.map(i => ({ ...i, harga: String(i.harga), qty: String(i.qty) })),
+      items: expense.items.map(i => ({
+        ...i,
+        name: i.name || '',
+        category: i.category || i.expenseItem?.category || '',
+        keterangan: i.keterangan || '',
+        satuan: i.satuan || i.expenseItem?.satuan || '',
+        harga: String(i.harga),
+        qty: String(i.qty),
+      })),
     })
     setEditModal(expense)
   }
@@ -70,11 +96,13 @@ export default function RekapPengeluaranPage() {
     setSaving(true)
     try {
       await api.patch(`/admin/expenses/${editModal.id}`, {
+        date: editForm.date,
         catatan: editForm.catatan,
         items: editForm.items.map(i => ({
           expenseItemId: i.expenseItemId || null,
-          name: i.name, keterangan: i.keterangan || '',
-          satuan: i.satuan || '', harga: Number(i.harga), qty: Number(i.qty) || 1,
+          name: i.name, category: i.category || '',
+          keterangan: i.keterangan || '', satuan: i.satuan || '',
+          harga: Number(i.harga), qty: Number(i.qty) || 1,
         })),
       })
       setEditModal(null); load(page); loadMonthly()
@@ -113,6 +141,8 @@ export default function RekapPengeluaranPage() {
   const grandTotal = data.rows.reduce((s, r) => s + r.subtotal, 0)
   const monthlyGrand = monthly.reduce((s, m) => s + m.total, 0)
   const maxMonthly = Math.max(...monthly.map(m => m.total), 1)
+  const maxKategori = Math.max(...byKategori.map(k => k.total), 1)
+  const totalKategori = byKategori.reduce((s, k) => s + k.total, 0)
 
   return (
     <div className="page">
@@ -168,6 +198,41 @@ export default function RekapPengeluaranPage() {
               </div>
             )}
           </div>
+
+          {/* Ringkasan Per Kategori */}
+          {(byKategoriLoading || byKategori.length > 0) && (
+            <div className="card" style={{ padding: '20px 24px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>Pengeluaran per Kategori</div>
+              {byKategoriLoading ? (
+                <div style={{ color: 'var(--muted)', fontSize: '13px' }}>Memuat...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {byKategori.map((k, i) => {
+                    const pct = Math.round((k.total / maxKategori) * 100)
+                    const sharePct = totalKategori > 0 ? ((k.total / totalKategori) * 100).toFixed(1) : '0'
+                    return (
+                      <div key={i}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{k.category}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--muted)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '1px 7px', borderRadius: '10px' }}>{sharePct}%</span>
+                          </div>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--red)' }}>{fmt(k.total)}</span>
+                        </div>
+                        <div style={{ height: '7px', background: 'var(--surface2)', borderRadius: '99px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: k.category === '(Tanpa Kategori)' ? '#CBD5E1' : 'var(--red)', borderRadius: '99px', transition: 'width 0.5s ease', opacity: 0.75 + (i === 0 ? 0.25 : 0) }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <div style={{ marginTop: '4px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{byKategori.length} kategori</span>
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--red)' }}>{fmt(totalKategori)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Filter */}
           <div className="card" style={{ padding: '18px 24px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -283,24 +348,62 @@ export default function RekapPengeluaranPage() {
       {editModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(6px)' }}
           onClick={e => { if (e.target === e.currentTarget) setEditModal(null) }}>
-          <div className="card fade-in" style={{ width: '560px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="card fade-in" style={{ width: '620px', maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Edit Pengeluaran</div>
-                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>{fmtDate(editModal.date)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>{editForm.items.length} item</div>
               </div>
               <button onClick={() => setEditModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+              {/* Tanggal + Catatan */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div>
+                  <label className="label">Tanggal</label>
+                  <input type="date" className="input" value={editForm.date}
+                    onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={{ fontSize: '13px' }} />
+                </div>
+                <div>
+                  <label className="label">Catatan</label>
+                  <input className="input" placeholder="Catatan pengeluaran..." value={editForm.catatan}
+                    onChange={e => setEditForm(f => ({ ...f, catatan: e.target.value }))} style={{ fontSize: '13px' }} />
+                </div>
+              </div>
+
+              {/* Items */}
               {editForm.items.map((item, i) => (
                 <div key={i} style={{ padding: '12px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ flex: 1, fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{item.name}</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ flex: 1, fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Item {i + 1}</div>
                     <button onClick={() => setEditForm(f => ({ ...f, items: f.items.filter((_, j) => j !== i) }))}
                       style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid #FECACA', background: 'var(--red-light)', color: 'var(--red)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
+
+                  {/* Baris 1: Nama + Kategori */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <label className="label">Nama</label>
+                      <input className="input" placeholder="Nama item..." value={item.name}
+                        onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, name: e.target.value } : it) }))}
+                        style={{ fontSize: '12px' }} />
+                    </div>
+                    <div>
+                      <label className="label">Kategori</label>
+                      <input className="input" placeholder="Kategori..." value={item.category || ''}
+                        onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, category: e.target.value } : it) }))}
+                        style={{ fontSize: '12px' }} list={`cat-edit-${i}`} />
+                      <datalist id={`cat-edit-${i}`}>
+                        {categories.map(c => <option key={c} value={c} />)}
+                      </datalist>
+                    </div>
+                  </div>
+
+                  {/* Baris 2: Keterangan + Satuan + Harga + Qty */}
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input className="input" placeholder="Keterangan" value={item.keterangan || ''}
                       onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, keterangan: e.target.value } : it) }))}
@@ -318,14 +421,27 @@ export default function RekapPengeluaranPage() {
                       onChange={e => setEditForm(f => ({ ...f, items: f.items.map((it, j) => j === i ? { ...it, qty: e.target.value } : it) }))}
                       style={{ width: '56px', textAlign: 'center', fontSize: '12px' }} />
                   </div>
+
+                  {/* Subtotal preview */}
+                  {Number(item.harga) > 0 && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: '700', color: 'var(--red)', textAlign: 'right' }}>
+                      {fmt(Number(item.harga) * (Number(item.qty) || 1))}
+                    </div>
+                  )}
                 </div>
               ))}
-              <div>
-                <label className="label">Catatan</label>
-                <textarea className="input" rows={2} value={editForm.catatan}
-                  onChange={e => setEditForm(f => ({ ...f, catatan: e.target.value }))} style={{ resize: 'none', fontSize: '13px' }} />
-              </div>
+
+              {/* Total preview */}
+              {editForm.items.length > 0 && (
+                <div style={{ padding: '10px 14px', background: 'var(--red-light)', borderRadius: '9px', border: '1px solid #FECACA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--red)' }}>Total</span>
+                  <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--red)' }}>
+                    {fmt(editForm.items.reduce((s, it) => s + Number(it.harga) * (Number(it.qty) || 1), 0))}
+                  </span>
+                </div>
+              )}
             </div>
+
             <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
               <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditModal(null)}>Batal</button>
               <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleSaveEdit} disabled={saving}>

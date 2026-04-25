@@ -25,6 +25,23 @@ export async function GET(req) {
     return NextResponse.json({ monthly: months })
   }
 
+  if (searchParams.get('bykategori')) {
+    const details = await prisma.expenseDetail.findMany({
+      where: { expense: { ...(Object.keys(where).length ? where : {}) } },
+      select: { category: true, subtotal: true, expenseItem: { select: { category: true } } },
+    })
+    const map = {}
+    details.forEach(d => {
+      const cat = d.category || d.expenseItem?.category || ''
+      const key = cat || '(Tanpa Kategori)'
+      map[key] = (map[key] || 0) + d.subtotal
+    })
+    const byKategori = Object.entries(map)
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total)
+    return NextResponse.json({ byKategori })
+  }
+
   const LIMIT = 50
   const [expenses, total] = await Promise.all([
     prisma.expense.findMany({
