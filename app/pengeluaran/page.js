@@ -13,7 +13,7 @@ export default function PengeluaranPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(null)
   const [manualOpen, setManualOpen] = useState(false)
-  const [manual, setManual] = useState({ name: '', keterangan: '', satuan: '', harga: '', qty: 1 })
+  const [manual, setManual] = useState({ name: '', keterangan: '', satuan: '', kategori: '', harga: '', qty: 1 })
   const [activeCategory, setActiveCategory] = useState('Semua')
 
   useEffect(() => {
@@ -47,8 +47,8 @@ export default function PengeluaranPage() {
     if (!manual.name || !manual.harga) return
     const id = `manual_${Date.now()}`
     setCart(prev => ({ ...prev, [id]: { ...manual, added: true, isManual: true } }))
-    setItems(prev => [...prev, { id, name: manual.name, code: null, category: null, isManual: true }])
-    setManual({ name: '', keterangan: '', satuan: '', harga: '', qty: 1 })
+    setItems(prev => [...prev, { id, name: manual.name, code: null, category: manual.kategori || null, isManual: true }])
+    setManual({ name: '', keterangan: '', satuan: '', kategori: '', harga: '', qty: 1 })
     setManualOpen(false)
   }
 
@@ -334,15 +334,24 @@ export default function PengeluaranPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
+                  <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="Operasional, Bahan..." value={manual.kategori}
+                    onChange={e => setManual({ ...manual, kategori: e.target.value })}
+                    list="manual-cat-list" />
+                  <datalist id="manual-cat-list">
+                    {categories.filter(c => c !== 'Semua').map(c => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+                <div>
                   <label className="label">Keterangan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="Misal: merek, toko..." value={manual.keterangan}
                     onChange={e => setManual({ ...manual, keterangan: e.target.value })} />
                 </div>
-                <div>
-                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <input className="input" placeholder="pcs, kg, liter..." value={manual.satuan}
-                    onChange={e => setManual({ ...manual, satuan: e.target.value })} />
-                </div>
+              </div>
+              <div>
+                <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <input className="input" placeholder="pcs, kg, liter..." value={manual.satuan}
+                  onChange={e => setManual({ ...manual, satuan: e.target.value })} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>

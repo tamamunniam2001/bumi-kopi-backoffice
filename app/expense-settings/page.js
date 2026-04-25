@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
@@ -29,7 +29,44 @@ export default function ExpenseSettingsPage() {
     await api.delete(`/admin/expense-items/${id}`); load()
   }
 
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileRef = useRef(null)
+
   const categories = [...new Set(items.map(i => i.category).filter(Boolean))]
+
+  function downloadTemplate() {
+    const header = 'Kode,Nama,Kategori,Satuan'
+    const contoh = [
+      'BHN-001,Gula Pasir,Bahan Baku,kg',
+      'BHN-002,Kopi Robusta,Bahan Baku,kg',
+      'OPS-001,Air Isi Ulang,Operasional,galon',
+      ',Plastik Kresek,Operasional,pcs',
+    ].join('\n')
+    const blob = new Blob(['\uFEFF' + header + '\n' + contoh], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'template-item-pengeluaran.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/admin/expense-items/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setImportResult(res.data)
+      load()
+    } catch (err) {
+      setImportResult({ error: err.response?.data?.message || 'Gagal import' })
+    } finally {
+      setImporting(false)
+      fileRef.current.value = ''
+    }
+  }
 
   return (
     <div className="page">
@@ -40,9 +77,48 @@ export default function ExpenseSettingsPage() {
             <div className="topbar-title">Item Pengeluaran</div>
             <div className="topbar-sub">Kelola daftar item pengeluaran</div>
           </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" onClick={downloadTemplate}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Template CSV
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
+            <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
+              onClick={() => fileRef.current.click()} disabled={importing}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {importing ? 'Mengimpor...' : 'Import CSV'}
+            </button>
+          </div>
         </div>
 
         <div className="content">
+          {importResult && (
+            <div className="slide-down" style={{ marginBottom: '16px', padding: '14px 18px', borderRadius: '12px', border: `1px solid ${importResult.error ? '#FECACA' : '#A7F3D0'}`, background: importResult.error ? '#FEF2F2' : '#F0FDF4', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '16px' }}>{importResult.error ? '❌' : '✅'}</span>
+                <div>
+                  {importResult.error
+                    ? <div style={{ fontSize: '13px', fontWeight: '600', color: '#EF4444' }}>{importResult.error}</div>
+                    : <>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#10B981', marginBottom: '4px' }}>Import selesai</div>
+                        <div style={{ fontSize: '12px', color: '#4A5578', display: 'flex', gap: '16px' }}>
+                          <span>✚ <b>{importResult.created}</b> berhasil</span>
+                          <span>⊘ <b>{importResult.skipped}</b> dilewati</span>
+                          <span>∑ <b>{importResult.total}</b> total</span>
+                        </div>
+                        {importResult.errors?.length > 0 && (
+                          <div style={{ marginTop: '8px', maxHeight: '100px', overflowY: 'auto', background: '#FEF2F2', borderRadius: '6px', padding: '8px 10px', border: '1px solid #FECACA' }}>
+                            {importResult.errors.map((e, i) => <div key={i} style={{ fontSize: '11px', color: '#EF4444' }}>{e}</div>)}
+                          </div>
+                        )}
+                      </>}
+                </div>
+              </div>
+              <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
             {/* Form */}
             <div className="card" style={{ padding: '24px' }}>
