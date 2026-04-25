@@ -31,6 +31,8 @@ export default function RekapPengeluaranPage() {
   const [byKategori, setByKategori] = useState([])
   const [byKategoriLoading, setByKategoriLoading] = useState(true)
   const [categories, setCategories] = useState([])
+  const [selected, setSelected] = useState(new Set())
+  const [massDeleting, setMassDeleting] = useState(false)
 
   async function loadByKategori(f = from, t = to) {
     setByKategoriLoading(true)
@@ -66,15 +68,35 @@ export default function RekapPengeluaranPage() {
     api.get('/admin/expense-categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
   }, [])
 
-  function handleFilter() { setPage(1); load(1, from, to); loadByKategori(from, to) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); load(1, '', ''); loadByKategori('', '') }
+  function handleFilter() { setPage(1); setSelected(new Set()); load(1, from, to); loadByKategori(from, to) }
+  function handleReset() { setFrom(''); setTo(''); setPage(1); setSelected(new Set()); load(1, '', ''); loadByKategori('', '') }
 
   async function handleDelete(expenseId) {
     if (!confirm('Hapus catatan pengeluaran ini beserta semua itemnya?')) return
     try {
       await api.delete(`/admin/expenses/${expenseId}`)
-      load(page); loadMonthly()
+      setSelected(s => { const n = new Set(s); n.delete(expenseId); return n })
+      load(page, from, to); loadMonthly()
     } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+  }
+
+  async function handleMassDelete() {
+    if (!selected.size) return
+    if (!confirm(`Hapus ${selected.size} catatan pengeluaran yang dipilih?`)) return
+    setMassDeleting(true)
+    try {
+      await api.delete('/admin/expenses', { data: { ids: [...selected] } })
+      setSelected(new Set())
+      load(1, from, to); loadMonthly(); loadByKategori(from, to)
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+    finally { setMassDeleting(false) }
+  }
+
+  const pageExpenseIds = [...new Set(data.rows.map(r => r.expenseId))]
+  const allPageSelected = pageExpenseIds.length > 0 && pageExpenseIds.every(id => selected.has(id))
+  function toggleSelectAll() {
+    if (allPageSelected) setSelected(s => { const n = new Set(s); pageExpenseIds.forEach(id => n.delete(id)); return n })
+    else setSelected(s => { const n = new Set(s); pageExpenseIds.forEach(id => n.add(id)); return n })
   }
 
   function openEdit(expenseId) {
@@ -159,6 +181,13 @@ export default function RekapPengeluaranPage() {
             <div className="topbar-sub">{data.total} catatan pengeluaran</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
+            {selected.size > 0 && (
+              <button className="btn btn-danger" onClick={handleMassDelete} disabled={massDeleting}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                {massDeleting ? 'Menghapus...' : `Hapus ${selected.size} dipilih`}
+              </button>
+            )}
             <button className="btn btn-ghost" onClick={() => { setExportFrom(from); setExportTo(to); setExportModal(true) }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export CSV
@@ -283,6 +312,10 @@ export default function RekapPengeluaranPage() {
               <table className="table" style={{ minWidth: '900px' }}>
                 <thead>
                   <tr>
+                    <th style={{ width: '36px', textAlign: 'center' }}>
+                      <input type="checkbox" checked={allPageSelected} onChange={toggleSelectAll}
+                        style={{ cursor: 'pointer', width: '15px', height: '15px' }} />
+                    </th>
                     <th>Tanggal</th>
                     <th>Kategori</th>
                     <th>Item</th>
@@ -296,14 +329,19 @@ export default function RekapPengeluaranPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Memuat...</td></tr>
+                    <tr><td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Memuat...</td></tr>
                   ) : data.rows.length === 0 ? (
-                    <tr><td colSpan={9} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
+                    <tr><td colSpan={10} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
                       <div style={{ fontSize: '32px', marginBottom: '8px' }}>💸</div>
                       <div>Belum ada data pengeluaran</div>
                     </td></tr>
                   ) : data.rows.map((r, i) => (
-                    <tr key={i}>
+                    <tr key={i} style={{ background: selected.has(r.expenseId) ? 'var(--accent-light)' : undefined }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input type="checkbox" checked={selected.has(r.expenseId)} onChange={() => {
+                          setSelected(s => { const n = new Set(s); n.has(r.expenseId) ? n.delete(r.expenseId) : n.add(r.expenseId); return n })
+                        }} style={{ cursor: 'pointer', width: '15px', height: '15px' }} />
+                      </td>
                       <td style={{ fontSize: '12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
                       <td>{r.category ? <span className="badge badge-blue">{r.category}</span> : null}</td>
                       <td>
@@ -326,9 +364,10 @@ export default function RekapPengeluaranPage() {
                     </tr>
                   ))}
                 </tbody>
-                {!loading && data.rows.length > 0 && (
+{!loading && data.rows.length > 0 && (
                   <tfoot>
                     <tr style={{ background: '#FAFBFF' }}>
+                      <td />
                       <td colSpan={7} style={{ padding: '12px 18px', fontWeight: '700', color: 'var(--text2)', fontSize: '13px' }}>Total halaman ini</td>
                       <td style={{ padding: '12px 18px', textAlign: 'right', fontWeight: '800', color: 'var(--red)' }}>{fmt(grandTotal)}</td>
                       <td />

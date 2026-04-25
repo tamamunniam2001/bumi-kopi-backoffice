@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 
+export async function DELETE(req) {
+  const { error } = verifyAuth(req)
+  if (error) return error
+  const { ids } = await req.json()
+  if (!ids?.length) return NextResponse.json({ message: 'Tidak ada ID' }, { status: 400 })
+  await prisma.expenseDetail.deleteMany({ where: { expenseId: { in: ids } } })
+  await prisma.expense.deleteMany({ where: { id: { in: ids } } })
+  return NextResponse.json({ success: true, deleted: ids.length })
+}
+
 export async function GET(req) {
   const { error } = verifyAuth(req)
   if (error) return error
