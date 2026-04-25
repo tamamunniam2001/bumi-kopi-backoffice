@@ -102,6 +102,7 @@ export async function POST(req) {
     if (!name) {
       errors.push(`Baris ${rowNum}: Nama item kosong (kode "${codeStr}" tidak ditemukan di database)`); skipped++; continue
     }
+    if (harga <= 0) {
       errors.push(`Baris ${rowNum}: Harga tidak valid "${hargaStr}"`); skipped++; continue
     }
 
