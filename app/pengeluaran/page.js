@@ -28,8 +28,11 @@ export default function PengeluaranPage() {
   const fileRef = useRef(null)
   const [editCartItem, setEditCartItem] = useState(null) // { itemId, harga, qty, keterangan }
 
+  const [expenseCategories, setExpenseCategories] = useState([])
+
   useEffect(() => {
     api.get('/admin/expense-items').then(r => setItems(r.data)).catch(() => {})
+    api.get('/admin/expense-categories').then(r => setExpenseCategories(r.data.map(c => c.name))).catch(() => {})
   }, [])
 
   const categories = ['Semua', ...Array.from(new Set(items.filter(i => !i.isManual && i.category).map(i => i.category)))]
@@ -109,7 +112,7 @@ export default function PengeluaranPage() {
     e.preventDefault()
     if (!manual.name || !manual.harga) return
     const id = `manual_${Date.now()}`
-    setCart(prev => ({ ...prev, [id]: { ...manual, added: true, isManual: true } }))
+    setCart(prev => ({ ...prev, [id]: { harga: manual.harga, qty: manual.qty, keterangan: manual.keterangan, satuan: manual.satuan, category: manual.kategori || '', added: true, isManual: true } }))
     setItems(prev => [...prev, { id, name: manual.name, code: null, category: manual.kategori || null, isManual: true }])
     setManual({ name: '', keterangan: '', satuan: '', kategori: '', harga: '', qty: 1 })
     setManualOpen(false)
@@ -127,6 +130,7 @@ export default function PengeluaranPage() {
         items: cartItems.map(i => ({
           expenseItemId: i.isManual ? null : i.id,
           name: i.name,
+          category: cart[i.id].category || '',
           keterangan: cart[i.id].keterangan || '',
           satuan: cart[i.id].satuan || '',
           harga: Number(cart[i.id].harga),
@@ -495,7 +499,7 @@ export default function PengeluaranPage() {
                     onChange={e => setManual({ ...manual, kategori: e.target.value })}
                     list="manual-cat-list" />
                   <datalist id="manual-cat-list">
-                    {categories.filter(c => c !== 'Semua').map(c => <option key={c} value={c} />)}
+                    {expenseCategories.map(c => <option key={c} value={c} />)}
                   </datalist>
                 </div>
                 <div>
