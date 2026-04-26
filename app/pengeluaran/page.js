@@ -59,10 +59,15 @@ export default function PengeluaranPage() {
 
   function addToCart(item) {
     const entry = cart[item.id] || {}
-    const harga = computedHarga(entry)
-    if (!harga) return alert('Isi harga terlebih dahulu')
-    const finalHarga = entry.modeSatuan ? harga : Number(entry.harga)
-    setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], harga: String(finalHarga), added: true } }))
+    if (entry.modeSatuan) {
+      const hargaTotal = Number(entry.hargaTotal)
+      if (!hargaTotal) return alert('Isi harga total terlebih dahulu')
+      if (!Number(entry.isi)) return alert('Isi jumlah isi (gram/pcs) terlebih dahulu')
+      setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], harga: String(hargaTotal), added: true } }))
+    } else {
+      if (!Number(entry.harga)) return alert('Isi harga terlebih dahulu')
+      setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], added: true } }))
+    }
   }
 
   function removeFromCart(itemId) {
@@ -332,7 +337,6 @@ export default function PengeluaranPage() {
                         const hargaTotal = Number(entry.hargaTotal) || 0
                         const isi = Number(entry.isi) || 0
                         const hargaPerSatuan = modeSatuan && isi > 0 && hargaTotal > 0 ? hargaTotal / isi : 0
-                        const totalHarga = modeSatuan ? hargaPerSatuan * qty : harga * qty
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {/* Toggle mode */}
@@ -390,7 +394,7 @@ export default function PengeluaranPage() {
                                 Harga/{item.satuan || 'satuan'}: <strong style={{ color: 'var(--accent)' }}>
                                   Rp {hargaPerSatuan.toLocaleString('id-ID', { maximumFractionDigits: 10 })}
                                 </strong>
-                                {qty > 1 && <> · Total: <strong style={{ color: 'var(--red)' }}>{fmt(totalHarga)}</strong></>}
+                                {qty > 1 && <> · Total: <strong style={{ color: 'var(--red)' }}>{fmt(hargaTotal * qty)}</strong></>}
                               </div>
                             )}
                           </div>
