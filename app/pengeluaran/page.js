@@ -41,13 +41,25 @@ export default function PengeluaranPage() {
   })
 
   function updateCart(itemId, field, value) {
-    setCart(prev => ({ ...prev, [itemId]: { harga: '', qty: 1, keterangan: '', ...prev[itemId], [field]: value } }))
+    setCart(prev => ({ ...prev, [itemId]: { harga: '', qty: 1, keterangan: '', isi: '', modeSatuan: false, ...prev[itemId], [field]: value } }))
+  }
+
+  function computedHarga(entry) {
+    if (entry.modeSatuan) {
+      const isi = Number(entry.isi)
+      const total = Number(entry.hargaTotal)
+      if (isi > 0 && total > 0) return total / isi
+      return 0
+    }
+    return Number(entry.harga) || 0
   }
 
   function addToCart(item) {
-    const entry = cart[item.id]
-    if (!Number(entry?.harga)) return alert('Isi harga terlebih dahulu')
-    setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], added: true } }))
+    const entry = cart[item.id] || {}
+    const harga = computedHarga(entry)
+    if (!harga) return alert('Isi harga terlebih dahulu')
+    const finalHarga = entry.modeSatuan ? harga : Number(entry.harga)
+    setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], harga: String(finalHarga), added: true } }))
   }
 
   function removeFromCart(itemId) {
@@ -288,7 +300,7 @@ export default function PengeluaranPage() {
                               {item.avgHarga && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Rata-rata: <strong style={{ color: 'var(--text2)' }}>{fmt(item.avgHarga)}</strong></span>
+                                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Rata-rata: <strong style={{ color: 'var(--text2)' }}>{Number(item.avgHarga).toLocaleString('id-ID', { maximumFractionDigits: 10 })}</strong></span>
                                   <span style={{ fontSize: '10px', color: 'var(--muted)' }}>({item.totalPembelian}× beli)</span>
                                 </div>
                               )}
@@ -311,26 +323,75 @@ export default function PengeluaranPage() {
                       </div>
 
                       {/* Input row */}
-                      {!isAdded && (
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <input className="input" placeholder="Keterangan" value={entry.keterangan || ''}
-                            onChange={e => updateCart(item.id, 'keterangan', e.target.value)}
-                            style={{ flex: 1, fontSize: '12px', padding: '7px 11px' }} />
-                          <div style={{ position: 'relative', flexShrink: 0 }}>
-                            <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
-                            <input className="input" type="number" step="any" placeholder={item.avgHarga ? String(item.avgHarga) : 'Harga'} value={entry.harga || ''}
-                              onChange={e => updateCart(item.id, 'harga', e.target.value)}
-                              style={{ width: '120px', paddingLeft: '30px', fontSize: '12px', padding: '7px 11px 7px 28px' }} />
+                      {!isAdded && (() => {
+                        const modeSatuan = !!entry.modeSatuan
+                        const hargaTotal = Number(entry.hargaTotal) || 0
+                        const isi = Number(entry.isi) || 0
+                        const hargaPerSatuan = modeSatuan && isi > 0 && hargaTotal > 0 ? hargaTotal / isi : 0
+                        const totalHarga = modeSatuan ? hargaPerSatuan * qty : harga * qty
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {/* Toggle mode */}
+                            <div style={{ display: 'flex', gap: '4px', background: 'var(--surface2)', borderRadius: '8px', padding: '3px', border: '1px solid var(--border)', alignSelf: 'flex-start' }}>
+                              {['biasa', 'satuan'].map(mode => (
+                                <button key={mode} onClick={() => updateCart(item.id, 'modeSatuan', mode === 'satuan')}
+                                  style={{ padding: '3px 10px', borderRadius: '6px', border: 'none', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                                    background: (modeSatuan ? 'satuan' : 'biasa') === mode ? 'var(--accent)' : 'transparent',
+                                    color: (modeSatuan ? 'satuan' : 'biasa') === mode ? '#fff' : 'var(--muted)' }}>
+                                  {mode === 'biasa' ? 'Harga/satuan' : 'Harga total ÷ isi'}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <input className="input" placeholder="Keterangan" value={entry.keterangan || ''}
+                                onChange={e => updateCart(item.id, 'keterangan', e.target.value)}
+                                style={{ flex: 1, fontSize: '12px', padding: '7px 11px' }} />
+
+                              {modeSatuan ? (
+                                <>
+                                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                                    <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
+                                    <input className="input" type="number" step="any" placeholder="Harga total" value={entry.hargaTotal || ''}
+                                      onChange={e => updateCart(item.id, 'hargaTotal', e.target.value)}
+                                      style={{ width: '110px', fontSize: '12px', padding: '7px 11px 7px 28px' }} />
+                                  </div>
+                                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                                    <input className="input" type="number" step="any" placeholder={`Isi (${item.satuan || 'gram'})`} value={entry.isi || ''}
+                                      onChange={e => updateCart(item.id, 'isi', e.target.value)}
+                                      style={{ width: '80px', fontSize: '12px', padding: '7px 8px', textAlign: 'center' }} />
+                                  </div>
+                                </>
+                              ) : (
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                  <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
+                                  <input className="input" type="number" step="any" placeholder={item.avgHarga ? String(item.avgHarga) : 'Harga'} value={entry.harga || ''}
+                                    onChange={e => updateCart(item.id, 'harga', e.target.value)}
+                                    style={{ width: '120px', fontSize: '12px', padding: '7px 11px 7px 28px' }} />
+                                </div>
+                              )}
+
+                              <input className="input" type="number" step="any" min="0" value={entry.qty || 1}
+                                onChange={e => updateCart(item.id, 'qty', e.target.value)}
+                                style={{ width: '56px', textAlign: 'center', fontSize: '12px', padding: '7px 8px', flexShrink: 0 }} />
+                              <button onClick={() => addToCart(item)}
+                                style={{ width: '34px', height: '34px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(74,124,199,0.35)' }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                              </button>
+                            </div>
+
+                            {/* Preview harga per satuan */}
+                            {modeSatuan && hargaPerSatuan > 0 && (
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '2px' }}>
+                                Harga/{item.satuan || 'satuan'}: <strong style={{ color: 'var(--accent)' }}>
+                                  Rp {hargaPerSatuan.toLocaleString('id-ID', { maximumFractionDigits: 10 })}
+                                </strong>
+                                {qty > 1 && <> · Total: <strong style={{ color: 'var(--red)' }}>{fmt(totalHarga)}</strong></>}
+                              </div>
+                            )}
                           </div>
-                          <input className="input" type="number" step="any" min="0" value={entry.qty || 1}
-                            onChange={e => updateCart(item.id, 'qty', e.target.value)}
-                            style={{ width: '56px', textAlign: 'center', fontSize: '12px', padding: '7px 8px', flexShrink: 0 }} />
-                          <button onClick={() => addToCart(item)}
-                            style={{ width: '34px', height: '34px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(74,124,199,0.35)' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                          </button>
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
                   )
                 })}
