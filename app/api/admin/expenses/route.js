@@ -58,7 +58,14 @@ export async function GET(req) {
 
   const LIMIT = 50
   const kategori = searchParams.get('kategori')
-  if (kategori) where['items'] = { some: { category: kategori } }
+  if (kategori) where['items'] = {
+    some: {
+      OR: [
+        { category: kategori },
+        { category: '', expenseItem: { category: kategori } },
+      ]
+    }
+  }
   const [expenses, total] = await Promise.all([
     prisma.expense.findMany({
       where, orderBy: { date: 'desc' }, take: LIMIT, skip: (page - 1) * LIMIT,

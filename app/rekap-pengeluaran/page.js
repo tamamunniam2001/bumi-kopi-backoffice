@@ -70,15 +70,24 @@ export default function RekapPengeluaranPage() {
     api.get('/admin/expense-categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
   }, [])
 
-  function handleFilter() { setPage(1); setSelected(new Set()); load(1, from, to, activeKategori); loadByKategori(from, to) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setActiveKategori(''); setSelected(new Set()); load(1, '', '', ''); loadByKategori('', '') }
+  function handleFilter() {
+    setPage(1); setSelected(new Set())
+    load(1, from, to, activeKategori)
+    loadByKategori(from, to)
+  }
+  function handleReset() {
+    setFrom(''); setTo(''); setPage(1); setActiveKategori(''); setSelected(new Set())
+    load(1, '', '', '')
+    loadByKategori('', '')
+  }
 
   function handleClickMonth(i) {
     const f = `${year}-${String(i + 1).padStart(2, '0')}-01`
     const lastDay = new Date(year, i + 1, 0).getDate()
     const t = `${year}-${String(i + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     setFrom(f); setTo(t); setPage(1); setActiveKategori(''); setSelected(new Set())
-    load(1, f, t, ''); loadByKategori(f, t)
+    load(1, f, t, '')
+    loadByKategori(f, t)  // pakai f,t langsung bukan state
   }
 
   function handleClickKategori(kat) {
