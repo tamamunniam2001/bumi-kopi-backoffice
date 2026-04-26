@@ -33,6 +33,7 @@ export default function RekapPengeluaranPage() {
   const [categories, setCategories] = useState([])
   const [selected, setSelected] = useState(new Set())
   const [massDeleting, setMassDeleting] = useState(false)
+  const [activeKategori, setActiveKategori] = useState('')
 
   async function loadByKategori(f = from, t = to) {
     setByKategoriLoading(true)
@@ -51,25 +52,40 @@ export default function RekapPengeluaranPage() {
     catch { } finally { setMonthlyLoading(false) }
   }
 
-  async function load(p = page, f = from, t = to) {
+  async function load(p = page, f = from, t = to, kat = activeKategori) {
     setLoading(true)
     try {
       const params = new URLSearchParams({ page: p })
       if (f) params.append('from', f)
       if (t) params.append('to', t)
+      if (kat) params.append('kategori', kat)
       const res = await api.get(`/admin/expenses?${params}`)
       setData(res.data)
     } catch { } finally { setLoading(false) }
   }
 
-  useEffect(() => { load(page, from, to) }, [page])
+  useEffect(() => { load(page, from, to, activeKategori) }, [page])
   useEffect(() => { loadMonthly(); loadByKategori() }, [])
   useEffect(() => {
     api.get('/admin/expense-categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
   }, [])
 
-  function handleFilter() { setPage(1); setSelected(new Set()); load(1, from, to); loadByKategori(from, to) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setSelected(new Set()); load(1, '', ''); loadByKategori('', '') }
+  function handleFilter() { setPage(1); setSelected(new Set()); load(1, from, to, activeKategori); loadByKategori(from, to) }
+  function handleReset() { setFrom(''); setTo(''); setPage(1); setActiveKategori(''); setSelected(new Set()); load(1, '', '', ''); loadByKategori('', '') }
+
+  function handleClickMonth(i) {
+    const f = `${year}-${String(i + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(year, i + 1, 0).getDate()
+    const t = `${year}-${String(i + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    setFrom(f); setTo(t); setPage(1); setActiveKategori(''); setSelected(new Set())
+    load(1, f, t, ''); loadByKategori(f, t)
+  }
+
+  function handleClickKategori(kat) {
+    const newKat = activeKategori === kat ? '' : kat
+    setActiveKategori(newKat); setPage(1); setSelected(new Set())
+    load(1, from, to, newKat)
+  }
 
   async function handleDelete(expenseId) {
     if (!confirm('Hapus catatan pengeluaran ini beserta semua itemnya?')) return
@@ -212,15 +228,17 @@ export default function RekapPengeluaranPage() {
               {monthly.map((m, i) => {
                 const pct = Math.round((m.total / maxMonthly) * 100)
                 const isCurrent = new Date().getFullYear() === year && new Date().getMonth() === i
+                const isActive = from === `${year}-${String(i+1).padStart(2,'0')}-01`
                 return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '100%', height: '60px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: '1px solid var(--border)' }}>
-                      <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isCurrent ? 'var(--red)' : m.total > 0 ? '#FCA5A5' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
+                  <div key={i} onClick={() => m.total > 0 && handleClickMonth(i)}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: m.total > 0 ? 'pointer' : 'default' }}>
+                    <div style={{ width: '100%', height: '60px', background: isActive ? '#FEE2E2' : 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: `1px solid ${isActive ? 'var(--red)' : 'var(--border)'}`, transition: 'border 0.15s' }}>
+                      <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isActive ? 'var(--red)' : isCurrent ? 'var(--red)' : m.total > 0 ? '#FCA5A5' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
                     </div>
                     <div style={{ fontSize: '10px', fontWeight: '700', color: m.total > 0 ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
                       {m.total > 0 ? fmt(m.total) : '-'}
                     </div>
-                    <div style={{ fontSize: '11px', fontWeight: isCurrent ? '700' : '500', color: isCurrent ? 'var(--red)' : 'var(--muted)' }}>{MONTHS[i]}</div>
+                    <div style={{ fontSize: '11px', fontWeight: isActive || isCurrent ? '700' : '500', color: isActive ? 'var(--red)' : isCurrent ? 'var(--red)' : 'var(--muted)' }}>{MONTHS[i]}</div>
                   </div>
                 )
               })}
@@ -245,15 +263,17 @@ export default function RekapPengeluaranPage() {
                     {byKategori.map((k, i) => {
                       const pct = Math.round((k.total / maxKategori) * 100)
                       const isTop = i === 0
+                      const isActive = activeKategori === k.category
                       return (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '100%', height: '60px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: '1px solid var(--border)' }}>
-                            <div style={{ width: '100%', height: `${Math.max(pct, k.total > 0 ? 4 : 0)}%`, background: isTop ? 'var(--red)' : '#FCA5A5', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
+                        <div key={i} onClick={() => handleClickKategori(k.category)}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <div style={{ width: '100%', height: '60px', background: isActive ? '#FEE2E2' : 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: `1px solid ${isActive ? 'var(--red)' : 'var(--border)'}`, transition: 'border 0.15s' }}>
+                            <div style={{ width: '100%', height: `${Math.max(pct, k.total > 0 ? 4 : 0)}%`, background: isActive ? 'var(--red)' : isTop ? 'var(--red)' : '#FCA5A5', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
                           </div>
                           <div style={{ fontSize: '10px', fontWeight: '700', color: k.total > 0 ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
                             {fmt(k.total)}
                           </div>
-                          <div style={{ fontSize: '11px', fontWeight: isTop ? '700' : '500', color: isTop ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                          <div style={{ fontSize: '11px', fontWeight: isActive || isTop ? '700' : '500', color: isActive ? 'var(--red)' : isTop ? 'var(--red)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>
                             {k.category}
                           </div>
                         </div>
@@ -285,7 +305,8 @@ export default function RekapPengeluaranPage() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Filter
             </button>
-            {(from || to) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            {(from || to || activeKategori) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            {activeKategori && <span style={{ fontSize: '12px', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', border: '1px solid #C7D4F0', fontWeight: '600' }}>Kategori: {activeKategori}</span>}
           </div>
 
           {/* Summary */}

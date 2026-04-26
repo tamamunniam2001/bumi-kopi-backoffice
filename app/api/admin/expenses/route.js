@@ -57,6 +57,8 @@ export async function GET(req) {
   }
 
   const LIMIT = 50
+  const kategori = searchParams.get('kategori')
+  if (kategori) where['items'] = { some: { category: kategori } }
   const [expenses, total] = await Promise.all([
     prisma.expense.findMany({
       where, orderBy: { date: 'desc' }, take: LIMIT, skip: (page - 1) * LIMIT,
@@ -68,7 +70,9 @@ export async function GET(req) {
   // Flatten ke per-item rows
   const rows = []
   expenses.forEach(e => {
-    e.items.forEach(item => {
+    e.items
+      .filter(item => !kategori || (item.category || item.expenseItem?.category || '') === kategori)
+      .forEach(item => {
       rows.push({
         expenseId: e.id,
         detailId: item.id,
