@@ -61,9 +61,13 @@ export default function PengeluaranPage() {
     const entry = cart[item.id] || {}
     if (entry.modeSatuan) {
       const hargaTotal = Number(entry.hargaTotal)
+      const isi = Number(entry.isi)
+      const qty = Number(entry.qty) || 1
       if (!hargaTotal) return alert('Isi harga total terlebih dahulu')
-      if (!Number(entry.isi)) return alert('Isi jumlah isi (gram/pcs) terlebih dahulu')
-      setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], harga: String(hargaTotal), added: true } }))
+      if (!isi) return alert('Isi jumlah isi (gram/pcs) terlebih dahulu')
+      const hargaPerSatuan = hargaTotal / isi
+      const totalQty = isi * qty
+      setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], harga: String(hargaPerSatuan), qty: String(totalQty), added: true } }))
     } else {
       if (!Number(entry.harga)) return alert('Isi harga terlebih dahulu')
       setCart(prev => ({ ...prev, [item.id]: { ...prev[item.id], added: true } }))
@@ -388,13 +392,14 @@ export default function PengeluaranPage() {
                               </button>
                             </div>
 
-                            {/* Preview harga per satuan */}
+                            {/* Preview */}
                             {modeSatuan && hargaPerSatuan > 0 && (
                               <div style={{ fontSize: '11px', color: 'var(--muted)', paddingLeft: '2px' }}>
                                 Harga/{item.satuan || 'satuan'}: <strong style={{ color: 'var(--accent)' }}>
                                   Rp {hargaPerSatuan.toLocaleString('id-ID', { maximumFractionDigits: 10 })}
                                 </strong>
-                                {qty > 1 && <> · Total: <strong style={{ color: 'var(--red)' }}>{fmt(hargaTotal * qty)}</strong></>}
+                                {' · '}QTY: <strong style={{ color: 'var(--accent)' }}>{isi * qty} {item.satuan || ''}</strong>
+                                {' · '}Total: <strong style={{ color: 'var(--red)' }}>{fmt(hargaTotal * qty)}</strong>
                               </div>
                             )}
                           </div>
