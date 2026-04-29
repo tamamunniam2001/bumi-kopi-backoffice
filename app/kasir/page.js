@@ -893,8 +893,14 @@ function CheckoutModal({ cart, total, onClose, onSuccess, existingOrderId }) {
       } else {
         const items = cart.map((i) => {
           const o = { qty: i.qty, price: i.product.price }
-          if (i.product.id.startsWith('manual_')) o.name = i.product.name
-          else o.productId = i.product.id
+          if (i.product.id.startsWith('manual_')) {
+            o.name = i.product.name
+            o.category = i.product.category?.name || ''
+          } else {
+            o.productId = i.product.id
+            o.name = i.product.name
+            o.category = i.product.category?.name || ''
+          }
           return o
         })
         const res = await api.post('/transactions', {

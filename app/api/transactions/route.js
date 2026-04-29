@@ -60,7 +60,13 @@ export async function POST(req) {
 
     const orderItems = items.map((item) => {
       const price = item.price || 0
-      return { productId: item.productId || null, qty: item.qty, price, subtotal: price * item.qty }
+      return {
+        productId: item.productId || null,
+        name: item.name || '',
+        code: item.code || '',
+        category: item.category || '',
+        qty: item.qty, price, subtotal: price * item.qty,
+      }
     })
     const total = orderItems.reduce((s, i) => s + i.subtotal, 0)
     const actualPayment = payLater ? 0 : (payment || 0)
@@ -75,7 +81,7 @@ export async function POST(req) {
         status: payLater ? 'PENDING' : 'COMPLETED',
         customerName: customerName || '',
         note: note || '',
-        items: { create: orderItems.filter(i => i.productId) },
+        items: { create: orderItems },
       },
       select: { id: true, invoiceNo: true, total: true, change: true, payment: true, payMethod: true, status: true, servedAt: true, createdAt: true, customerName: true, note: true },
     })
