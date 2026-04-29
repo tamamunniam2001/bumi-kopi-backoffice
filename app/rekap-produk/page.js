@@ -24,9 +24,10 @@ export default function RekapProdukPage() {
   const [selected, setSelected] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef(null)
-  const [editModal, setEditModal] = useState(null) // row yang sedang diedit
+  const [editModal, setEditModal] = useState(null)
   const [editForm, setEditForm] = useState({})
   const [editSaving, setEditSaving] = useState(false)
+  const [categories, setCategories] = useState([])
   const [exportModal, setExportModal] = useState(false)
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
@@ -59,6 +60,9 @@ export default function RekapProdukPage() {
 
   useEffect(() => { load() }, [page])
   useEffect(() => { loadMonthly() }, [])
+  useEffect(() => {
+    api.get('/admin/categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
+  }, [])
 
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
@@ -82,7 +86,7 @@ export default function RekapProdukPage() {
 
   // ── Delete single ──
   function openEdit(r) {
-    setEditForm({ name: r.name, category: r.category === '-' ? '' : r.category, qty: r.qty, total: r.total })
+    setEditForm({ name: r.name, category: r.category === '-' ? '' : r.category, code: r.code === '-' ? '' : r.code, qty: r.qty, total: r.total })
     setEditModal(r)
   }
 
@@ -90,7 +94,7 @@ export default function RekapProdukPage() {
     setEditSaving(true)
     try {
       await api.patch(`/admin/product-sales/${editModal.id}`, editForm)
-      setData(prev => ({ ...prev, rows: prev.rows.map(r => r.id === editModal.id ? { ...r, ...editForm, total: Number(editForm.total), qty: Number(editForm.qty) } : r) }))
+      setData(prev => ({ ...prev, rows: prev.rows.map(r => r.id === editModal.id ? { ...r, ...editForm, code: editForm.code || '-', category: editForm.category || '-', total: Number(editForm.total), qty: Number(editForm.qty) } : r) }))
       setEditModal(null)
       loadMonthly()
     } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
@@ -490,8 +494,13 @@ export default function RekapProdukPage() {
                 <input className="input" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div>
+                <label className="label">Kode Produk</label>
+                <input className="input" value={editForm.code} onChange={e => setEditForm(f => ({ ...f, code: e.target.value }))} placeholder="KP-001 atau kosongkan" />
+              </div>
+              <div>
                 <label className="label">Kategori</label>
-                <input className="input" value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
+                <input className="input" value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} list="edit-cat-list" placeholder="Pilih atau ketik kategori" />
+                <datalist id="edit-cat-list">{categories.map(c => <option key={c} value={c} />)}</datalist>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>

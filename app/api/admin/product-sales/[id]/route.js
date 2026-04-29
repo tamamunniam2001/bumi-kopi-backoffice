@@ -8,12 +8,13 @@ export async function PATCH(req, { params }) {
   const denied = adminOnly(user)
   if (denied) return denied
   const { id } = await params
-  const { name, category, qty, total } = await req.json()
+  const { name, category, code, qty, total } = await req.json()
   const item = await prisma.orderItem.update({
     where: { id },
     data: {
       name: name ?? undefined,
       category: category ?? undefined,
+      code: code ?? undefined,
       qty: qty != null ? Number(qty) : undefined,
       subtotal: total != null ? Number(total) : undefined,
       price: qty != null && total != null ? Math.round(Number(total) / Number(qty)) : undefined,
