@@ -179,6 +179,11 @@ export default function KasirPage() {
   const ordersToday = orders.length
   const ordersServed = orders.filter((o) => o.servedAt).length
   const ordersPending = ordersToday - ordersServed
+  const completedOrders = orders.filter(o => o.status === 'COMPLETED')
+  const totalPendapatan = completedOrders.reduce((s, o) => s + o.total, 0)
+  const totalCash = completedOrders.filter(o => o.payMethod === 'CASH').reduce((s, o) => s + o.total, 0)
+  const totalQris = completedOrders.filter(o => o.payMethod === 'QRIS').reduce((s, o) => s + o.total, 0)
+  const totalTransfer = completedOrders.filter(o => o.payMethod === 'TRANSFER' || o.payMethod === 'NONTUNAI').reduce((s, o) => s + o.total, 0)
 
   return (
     <div className="page">
@@ -221,20 +226,41 @@ export default function KasirPage() {
           {/* ── Order List ── */}
           <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {/* Header */}
-            <div onClick={() => setOrdersExpanded(!ordersExpanded)}
-              style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Order Hari Ini</span>
-              <span style={{ fontSize: '11px', fontWeight: '700', background: '#EFF4FF', color: 'var(--accent)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #C7D4F0' }}>{ordersToday} order</span>
-              {ordersPending > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--orange-light)', color: 'var(--orange)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FDE68A' }}>{ordersPending} belum disajikan</span>}
-              {orders.filter(o => o.status !== 'COMPLETED').length > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FECACA' }}>{orders.filter(o => o.status !== 'COMPLETED').length} belum bayar</span>}
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button onClick={(e) => { e.stopPropagation(); loadOrders() }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: '2px' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                </button>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: '#94A3B8', transition: 'transform 0.2s', transform: ordersExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+            <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: ordersExpanded ? '1px solid var(--border)' : 'none' }}>
+              {/* Kiri: toggle order list */}
+              <div onClick={() => setOrdersExpanded(!ordersExpanded)}
+                style={{ flex: 1, padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Order Hari Ini</span>
+                <span style={{ fontSize: '11px', fontWeight: '700', background: '#EFF4FF', color: 'var(--accent)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #C7D4F0' }}>{ordersToday} order</span>
+                {ordersPending > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--orange-light)', color: 'var(--orange)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FDE68A' }}>{ordersPending} belum disajikan</span>}
+                {orders.filter(o => o.status !== 'COMPLETED').length > 0 && <span style={{ fontSize: '11px', fontWeight: '700', background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: '20px', border: '1px solid #FECACA' }}>{orders.filter(o => o.status !== 'COMPLETED').length} belum bayar</span>}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button onClick={(e) => { e.stopPropagation(); loadOrders() }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: '2px' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: '#94A3B8', transition: 'transform 0.2s', transform: ordersExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </div>
+              {/* Kanan: ringkasan pendapatan */}
+              <div style={{ borderLeft: '1px solid var(--border)', padding: '8px 20px', display: 'flex', gap: '16px', alignItems: 'center', background: '#FAFBFF', flexShrink: 0 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Total</div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(totalPendapatan)}</div>
+                </div>
+                <div style={{ width: '1px', background: 'var(--border)', alignSelf: 'stretch' }} />
+                {[
+                  { label: 'Cash', value: totalCash, color: '#2A9D6E' },
+                  { label: 'QRIS', value: totalQris, color: '#6B5BAF' },
+                  { label: 'Transfer', value: totalTransfer, color: '#C47D1A' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: value > 0 ? color : 'var(--muted)' }}>Rp {fmt(value)}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
