@@ -15,7 +15,7 @@ const PALETTE = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4
 const DualTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: '#0F1729', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', minWidth: '200px' }}>
+    <div style={{ background: '#0F1729', borderRadius: '12px', padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', minWidth: '220px' }}>
       <p style={{ fontSize: '11px', color: '#8896B3', marginBottom: '8px', fontWeight: '600' }}>{label}</p>
       {payload.map((p, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: i < payload.length - 1 ? '5px' : 0 }}>
@@ -28,89 +28,67 @@ const DualTooltip = ({ active, payload, label }) => {
   )
 }
 
-function FilterTabs({ options, value, onChange }) {
-  return (
-    <div style={{ display: 'flex', gap: '4px', background: '#F1F5F9', borderRadius: '10px', padding: '3px' }}>
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          style={{
-            padding: '5px 12px', borderRadius: '7px', border: 'none', cursor: 'pointer',
-            fontSize: '12px', fontWeight: '600', fontFamily: 'inherit',
-            background: value === opt.value ? '#fff' : 'transparent',
-            color: value === opt.value ? '#0F1729' : '#8896B3',
-            boxShadow: value === opt.value ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-            transition: 'all 0.15s',
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function CategoryTable({ title, data, colorStart }) {
+function CategoryTable({ data, colorStart }) {
   const total = data.reduce((s, d) => s + (d.total || 0), 0)
+  if (data.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '40px 0', color: '#8896B3', fontSize: '13px' }}>Belum ada data</div>
+  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {data.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#8896B3', fontSize: '13px' }}>Belum ada data</div>
-      ) : (
-        <>
-          {data.map((item, i) => {
-            const pct = total > 0 ? Math.round((item.total / total) * 100) : 0
-            const color = PALETTE[(i + colorStart) % PALETTE.length]
-            return (
-              <div key={i}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, flexShrink: 0 }} />
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1E2A3B' }}>{item.category}</span>
-                    {item.qty != null && (
-                      <span style={{ fontSize: '11px', color: '#8896B3', background: '#F1F5F9', padding: '1px 7px', borderRadius: '20px' }}>{item.qty} item</span>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F1729' }}>{fmt(item.total)}</span>
-                    <span style={{ fontSize: '11px', color: '#8896B3', marginLeft: '6px' }}>{pct}%</span>
-                  </div>
-                </div>
-                <div style={{ height: '6px', background: '#F1F5F9', borderRadius: '99px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '99px', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
-                </div>
+      {data.map((item, i) => {
+        const pct = total > 0 ? Math.round((item.total / total) * 100) : 0
+        const color = PALETTE[(i + colorStart) % PALETTE.length]
+        return (
+          <div key={i}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, flexShrink: 0 }} />
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1E2A3B' }}>{item.category}</span>
+                {item.qty != null && (
+                  <span style={{ fontSize: '11px', color: '#8896B3', background: '#F1F5F9', padding: '1px 7px', borderRadius: '20px' }}>{item.qty} item</span>
+                )}
               </div>
-            )
-          })}
-          <div style={{ paddingTop: '14px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: '#8896B3' }}>Total</span>
-            <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F1729' }}>{fmt(total)}</span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F1729' }}>{fmt(item.total)}</span>
+                <span style={{ fontSize: '11px', color: '#8896B3', marginLeft: '6px' }}>{pct}%</span>
+              </div>
+            </div>
+            <div style={{ height: '6px', background: '#F1F5F9', borderRadius: '99px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '99px', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+            </div>
           </div>
-        </>
-      )}
+        )
+      })}
+      <div style={{ paddingTop: '14px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: '12px', fontWeight: '600', color: '#8896B3' }}>Total</span>
+        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F1729' }}>{fmt(total)}</span>
+      </div>
     </div>
   )
 }
 
 export default function DashboardPage() {
   const [data, setData] = useState(null)
+  const [catData, setCatData] = useState(null)
   const [time, setTime] = useState('')
-  const [salesFilter, setSalesFilter] = useState(null)   // null = bulan ini, 'year' = tahunan, 0-11 = bulan
+  const [salesFilter, setSalesFilter] = useState(null)
   const [expFilter, setExpFilter] = useState(null)
   const pathname = usePathname()
 
   useEffect(() => {
-    const load = () => api.get('/admin/dashboard').then(r => {
+    // Load chart utama dulu (cepat)
+    api.get('/admin/dashboard').then(r => {
       setData(r.data)
       setSalesFilter(r.data.currentMonthIndex)
       setExpFilter(r.data.currentMonthIndex)
     }).catch(console.error)
-    load()
-    const tData = setInterval(load, 30000)
+
+    // Load rekap kategori setelah (lazy)
+    api.get('/admin/dashboard-categories').then(r => setCatData(r.data)).catch(console.error)
+
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     const tTime = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
-    return () => { clearInterval(tData); clearInterval(tTime) }
+    return () => clearInterval(tTime)
   }, [pathname])
 
   if (!data) return (
@@ -126,21 +104,24 @@ export default function DashboardPage() {
   const monthlyChart = data.monthlyChart || []
   const months = data.months || []
   const year = data.currentYear || new Date().getFullYear()
-
-  // Data rekap kategori berdasarkan filter
-  const salesData = salesFilter === 'year' ? (data.salesByYear || []) : (data.salesByMonth?.[salesFilter] || [])
-  const expData = expFilter === 'year' ? (data.expenseByYear || []) : (data.expenseByMonth?.[expFilter] || [])
-
-  // Total pengeluaran bulan ini untuk summary chart
   const totalExpMonth = dailyChart.reduce((s, d) => s + (d.expense || 0), 0)
 
-  // Opsi filter: semua bulan + tahunan
+  const salesData = salesFilter === 'year'
+    ? (catData?.salesByYear || [])
+    : (catData?.salesByMonth?.[salesFilter] || [])
+  const expData = expFilter === 'year'
+    ? (catData?.expenseByYear || [])
+    : (catData?.expenseByMonth?.[expFilter] || [])
+
   const filterOptions = [
     ...months.map((m, i) => ({ label: m, value: i })),
     { label: `${year}`, value: 'year' },
   ]
 
-  const cardStyle = { background: '#fff', borderRadius: '20px', padding: '28px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', marginBottom: '20px' }
+  const cardStyle = {
+    background: '#fff', borderRadius: '20px', padding: '28px',
+    border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', marginBottom: '20px'
+  }
 
   return (
     <div className="page">
@@ -159,7 +140,7 @@ export default function DashboardPage() {
 
         <div className="content">
 
-          {/* ── 1. Area Chart Pendapatan vs Pengeluaran Bulan Ini ── */}
+          {/* ── 1. Area Chart Harian ── */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
               <div>
@@ -195,7 +176,7 @@ export default function DashboardPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0F4FF" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8896B3' }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis tickFormatter={fmt} tick={{ fontSize: 10, fill: '#8896B3' }} axisLine={false} tickLine={false} width={90} />
+                <YAxis tickFormatter={fmt} tick={{ fontSize: 10, fill: '#8896B3' }} axisLine={false} tickLine={false} width={100} />
                 <Tooltip content={<DualTooltip />} />
                 <Area type="monotone" dataKey="revenue" name="Pendapatan" stroke="#6366F1" strokeWidth={2.5} fill="url(#gRev)" dot={false} activeDot={{ r: 5, fill: '#6366F1', stroke: '#fff', strokeWidth: 2 }} />
                 <Area type="monotone" dataKey="expense" name="Pengeluaran" stroke="#EF4444" strokeWidth={2} fill="url(#gExp)" dot={false} activeDot={{ r: 5, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }} />
@@ -223,7 +204,7 @@ export default function DashboardPage() {
               <BarChart data={monthlyChart} margin={{ top: 5, right: 5, bottom: 0, left: 10 }} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0F4FF" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#8896B3' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={fmt} tick={{ fontSize: 10, fill: '#8896B3' }} axisLine={false} tickLine={false} width={90} />
+                <YAxis tickFormatter={fmt} tick={{ fontSize: 10, fill: '#8896B3' }} axisLine={false} tickLine={false} width={100} />
                 <Tooltip content={<DualTooltip />} cursor={{ fill: 'rgba(99,102,241,0.04)' }} />
                 <Bar dataKey="revenue" name="Pendapatan" fill="#6366F1" radius={[6, 6, 0, 0]} maxBarSize={28} />
                 <Bar dataKey="expense" name="Pengeluaran" fill="#F97316" radius={[6, 6, 0, 0]} maxBarSize={28} />
@@ -236,70 +217,60 @@ export default function DashboardPage() {
 
             {/* Rekap Penjualan */}
             <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan per Kategori</h2>
-                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
-                    {salesFilter === 'year' ? `Tahun ${year}` : `${months[salesFilter]} ${year}`}
-                  </p>
-                </div>
+              <div style={{ marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan per Kategori</h2>
+                <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
+                  {salesFilter === 'year' ? `Tahun ${year}` : `${months[salesFilter]} ${year}`}
+                </p>
               </div>
-              {/* Filter scroll */}
               <div style={{ overflowX: 'auto', marginBottom: '20px', paddingBottom: '4px' }}>
                 <div style={{ display: 'flex', gap: '6px', width: 'max-content' }}>
                   {filterOptions.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setSalesFilter(opt.value)}
-                      style={{
-                        padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
-                        borderColor: salesFilter === opt.value ? '#6366F1' : '#E2E8F8',
-                        background: salesFilter === opt.value ? '#6366F1' : '#fff',
-                        color: salesFilter === opt.value ? '#fff' : '#8896B3',
-                        fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                        fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
+                    <button key={opt.value} onClick={() => setSalesFilter(opt.value)} style={{
+                      padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
+                      borderColor: salesFilter === opt.value ? '#6366F1' : '#E2E8F8',
+                      background: salesFilter === opt.value ? '#6366F1' : '#fff',
+                      color: salesFilter === opt.value ? '#fff' : '#8896B3',
+                      fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                    }}>{opt.label}</button>
                   ))}
                 </div>
               </div>
-              <CategoryTable data={salesData} colorStart={0} />
+              {!catData ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>
+              ) : (
+                <CategoryTable data={salesData} colorStart={0} />
+              )}
             </div>
 
             {/* Rekap Pengeluaran */}
             <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Pengeluaran per Kategori</h2>
-                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
-                    {expFilter === 'year' ? `Tahun ${year}` : `${months[expFilter]} ${year}`}
-                  </p>
-                </div>
+              <div style={{ marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Pengeluaran per Kategori</h2>
+                <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
+                  {expFilter === 'year' ? `Tahun ${year}` : `${months[expFilter]} ${year}`}
+                </p>
               </div>
-              {/* Filter scroll */}
               <div style={{ overflowX: 'auto', marginBottom: '20px', paddingBottom: '4px' }}>
                 <div style={{ display: 'flex', gap: '6px', width: 'max-content' }}>
                   {filterOptions.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setExpFilter(opt.value)}
-                      style={{
-                        padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
-                        borderColor: expFilter === opt.value ? '#F97316' : '#E2E8F8',
-                        background: expFilter === opt.value ? '#F97316' : '#fff',
-                        color: expFilter === opt.value ? '#fff' : '#8896B3',
-                        fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                        fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
+                    <button key={opt.value} onClick={() => setExpFilter(opt.value)} style={{
+                      padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
+                      borderColor: expFilter === opt.value ? '#F97316' : '#E2E8F8',
+                      background: expFilter === opt.value ? '#F97316' : '#fff',
+                      color: expFilter === opt.value ? '#fff' : '#8896B3',
+                      fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                    }}>{opt.label}</button>
                   ))}
                 </div>
               </div>
-              <CategoryTable data={expData} colorStart={3} />
+              {!catData ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>
+              ) : (
+                <CategoryTable data={expData} colorStart={3} />
+              )}
             </div>
 
           </div>
