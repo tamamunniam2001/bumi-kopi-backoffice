@@ -1,16 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import {
-  AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
-} from 'recharts'
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
 const fmt = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
-const PALETTE = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316', '#EC4899']
+const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 
 const DualTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -28,40 +24,185 @@ const DualTooltip = ({ active, payload, label }) => {
   )
 }
 
-function CategoryTable({ data, colorStart }) {
-  const total = data.reduce((s, d) => s + (d.total || 0), 0)
-  if (data.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '40px 0', color: '#8896B3', fontSize: '13px' }}>Belum ada data</div>
+// ── Tabel Rekap ──
+function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeMode, year, currentMonthIndex }) {
+  if (!catData) return (
+    <div style={{ background: '#fff', borderRadius: '20px', padding: '40px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', textAlign: 'center', color: '#8896B3', fontSize: '13px' }}>
+      Memuat rekap...
+    </div>
   )
+
+  const { cols, salesTable, expTable, salesTotals, expTotals } = catData
+
+  // Total per kolom
+  const grandSalesTotal = Object.values(salesTotals).reduce((s, v) => s + v, 0)
+  const grandExpTotal = Object.values(expTotals).reduce((s, v) => s + v, 0)
+  const grandLaba = grandSalesTotal - grandExpTotal
+
+  const colLabels = cols.map(c => c.label)
+  const colKeys = cols.map(c => c.key)
+
+  const thBase = { padding: '9px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'right', whiteSpace: 'nowrap', border: '1px solid #E2E8F8' }
+  const tdBase = { padding: '8px 12px', fontSize: '12px', textAlign: 'right', border: '1px solid #F1F5F9', whiteSpace: 'nowrap' }
+  const tdCat = { padding: '8px 12px', fontSize: '12px', fontWeight: '500', color: '#374151', border: '1px solid #F1F5F9', whiteSpace: 'nowrap' }
+
+  function cellVal(cols, key) {
+    const v = cols[key] || 0
+    return v > 0 ? <span style={{ color: '#2563EB', fontWeight: '600' }}>{fmt(v)}</span> : <span style={{ color: '#CBD5E1' }}>-</span>
+  }
+
+  function labaCell(sales, exp) {
+    const laba = (sales || 0) - (exp || 0)
+    if (laba === 0) return <span style={{ color: '#CBD5E1' }}>-</span>
+    return <span style={{ color: laba >= 0 ? '#10B981' : '#EF4444', fontWeight: '700' }}>{fmt(laba)}</span>
+  }
+
+  const periodLabel = filterMode === 'year' ? `Tahun ${year}` : `${MONTHS[filterMonth]} ${year}`
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {data.map((item, i) => {
-        const pct = total > 0 ? Math.round((item.total / total) * 100) : 0
-        const color = PALETTE[(i + colorStart) % PALETTE.length]
-        return (
-          <div key={i}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1E2A3B' }}>{item.category}</span>
-                {item.qty != null && (
-                  <span style={{ fontSize: '11px', color: '#8896B3', background: '#F1F5F9', padding: '1px 7px', borderRadius: '20px' }}>{item.qty} item</span>
-                )}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F1729' }}>{fmt(item.total)}</span>
-                <span style={{ fontSize: '11px', color: '#8896B3', marginLeft: '6px' }}>{pct}%</span>
-              </div>
-            </div>
-            <div style={{ height: '6px', background: '#F1F5F9', borderRadius: '99px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '99px', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
-            </div>
-          </div>
-        )
-      })}
-      <div style={{ paddingTop: '14px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '12px', fontWeight: '600', color: '#8896B3' }}>Total</span>
-        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F1729' }}>{fmt(total)}</span>
+    <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', overflow: 'hidden' }}>
+      {/* Header kontrol */}
+      <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
+        <div>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan & Pengeluaran</h2>
+          <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>{periodLabel}</p>
+        </div>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <select
+            value={filterMode === 'year' ? '' : filterMonth}
+            onChange={e => { onChangeMode('month'); onChangeMonth(Number(e.target.value)) }}
+            style={{
+              padding: '6px 28px 6px 10px', borderRadius: '9px',
+              border: '1.5px solid', borderColor: filterMode !== 'year' ? '#6366F1' : '#E2E8F8',
+              background: filterMode !== 'year' ? '#F0F0FF' : '#F8FAFF',
+              color: filterMode !== 'year' ? '#6366F1' : '#8896B3',
+              fontSize: '12px', fontWeight: '600', fontFamily: 'inherit',
+              cursor: 'pointer', outline: 'none',
+              WebkitAppearance: 'none', appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236366F1' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
+            }}
+          >
+            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
+          <button
+            onClick={() => onChangeMode(filterMode === 'year' ? 'month' : 'year')}
+            style={{
+              padding: '6px 14px', borderRadius: '9px', border: '1.5px solid',
+              borderColor: filterMode === 'year' ? '#6366F1' : '#E2E8F8',
+              background: filterMode === 'year' ? '#6366F1' : '#F8FAFF',
+              color: filterMode === 'year' ? '#fff' : '#8896B3',
+              fontSize: '12px', fontWeight: '600', fontFamily: 'inherit',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >{year}</button>
+        </div>
+      </div>
+
+      {/* Tabel */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr>
+              <th style={{ ...thBase, textAlign: 'left', background: '#4A7CC7', color: '#fff', width: '160px' }}>KATEGORI</th>
+              {colLabels.map((l, i) => (
+                <th key={i} style={{ ...thBase, background: '#1E2A3B', color: '#E2E8F8' }}>{l}</th>
+              ))}
+              <th style={{ ...thBase, background: '#1E2A3B', color: '#F59E0B' }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* ── PEMASUKAN ── */}
+            <tr>
+              <td colSpan={colKeys.length + 2} style={{ padding: '8px 12px', fontWeight: '800', fontSize: '12px', background: '#EFF4FF', color: '#2563EB', border: '1px solid #E2E8F8', letterSpacing: '0.3px' }}>
+                PEMASUKAN (MASUK)
+              </td>
+            </tr>
+            {salesTable.length === 0 ? (
+              <tr><td colSpan={colKeys.length + 2} style={{ ...tdBase, textAlign: 'center', color: '#CBD5E1', padding: '20px' }}>Belum ada data</td></tr>
+            ) : salesTable.map((row, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFBFF' }}>
+                <td style={{ ...tdCat, color: '#4A7CC7' }}>{row.cat}</td>
+                {colKeys.map(k => <td key={k} style={tdBase}>{cellVal(row.cols, k)}</td>)}
+                <td style={{ ...tdBase, fontWeight: '700', color: '#2563EB', background: '#F8FAFF' }}>{row.total > 0 ? fmt(row.total) : <span style={{ color: '#CBD5E1' }}>-</span>}</td>
+              </tr>
+            ))}
+            {/* Total Pemasukan */}
+            <tr style={{ background: '#EFF4FF' }}>
+              <td style={{ ...tdCat, fontWeight: '800', color: '#1E2A3B' }}>TOTAL PEMASUKAN</td>
+              {colKeys.map(k => (
+                <td key={k} style={{ ...tdBase, fontWeight: '800', color: '#2563EB' }}>
+                  {salesTotals[k] > 0 ? fmt(salesTotals[k]) : <span style={{ color: '#CBD5E1' }}>-</span>}
+                </td>
+              ))}
+              <td style={{ ...tdBase, fontWeight: '800', color: '#2563EB', background: '#DBEAFE' }}>{fmt(grandSalesTotal)}</td>
+            </tr>
+
+            {/* Spacer */}
+            <tr><td colSpan={colKeys.length + 2} style={{ height: '6px', background: '#F8FAFF', border: 'none' }} /></tr>
+
+            {/* ── PENGELUARAN ── */}
+            <tr>
+              <td colSpan={colKeys.length + 2} style={{ padding: '8px 12px', fontWeight: '800', fontSize: '12px', background: '#FEF2F2', color: '#EF4444', border: '1px solid #E2E8F8', letterSpacing: '0.3px' }}>
+                PENGELUARAN (KELUAR)
+              </td>
+            </tr>
+            {expTable.length === 0 ? (
+              <tr><td colSpan={colKeys.length + 2} style={{ ...tdBase, textAlign: 'center', color: '#CBD5E1', padding: '20px' }}>Belum ada data</td></tr>
+            ) : expTable.map((row, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FFFBFB' }}>
+                <td style={{ ...tdCat, color: '#EF4444' }}>{row.cat}</td>
+                {colKeys.map(k => <td key={k} style={tdBase}>{cellVal(row.cols, k)}</td>)}
+                <td style={{ ...tdBase, fontWeight: '700', color: '#EF4444', background: '#FFF8F8' }}>{row.total > 0 ? fmt(row.total) : <span style={{ color: '#CBD5E1' }}>-</span>}</td>
+              </tr>
+            ))}
+            {/* Total Pengeluaran */}
+            <tr style={{ background: '#FEF2F2' }}>
+              <td style={{ ...tdCat, fontWeight: '800', color: '#1E2A3B' }}>TOTAL PENGELUARAN</td>
+              {colKeys.map(k => (
+                <td key={k} style={{ ...tdBase, fontWeight: '800', color: '#EF4444' }}>
+                  {expTotals[k] > 0 ? fmt(expTotals[k]) : <span style={{ color: '#CBD5E1' }}>-</span>}
+                </td>
+              ))}
+              <td style={{ ...tdBase, fontWeight: '800', color: '#EF4444', background: '#FEE2E2' }}>{fmt(grandExpTotal)}</td>
+            </tr>
+
+            {/* Spacer */}
+            <tr><td colSpan={colKeys.length + 2} style={{ height: '6px', background: '#F8FAFF', border: 'none' }} /></tr>
+
+            {/* ── LABA BERSIH ── */}
+            <tr style={{ background: grandLaba >= 0 ? '#ECFDF5' : '#FEF2F2' }}>
+              <td style={{ ...tdCat, fontWeight: '800', color: '#0F1729', fontSize: '13px' }}>LABA BERSIH</td>
+              {colKeys.map(k => (
+                <td key={k} style={{ ...tdBase, fontWeight: '800' }}>
+                  {labaCell(salesTotals[k], expTotals[k])}
+                </td>
+              ))}
+              <td style={{ ...tdBase, fontWeight: '800', fontSize: '13px', background: grandLaba >= 0 ? '#D1FAE5' : '#FEE2E2', color: grandLaba >= 0 ? '#10B981' : '#EF4444' }}>
+                {fmt(grandLaba)}
+              </td>
+            </tr>
+            {/* Net Margin */}
+            {grandSalesTotal > 0 && (
+              <tr style={{ background: '#F8FAFF' }}>
+                <td style={{ ...tdCat, color: '#8896B3', fontSize: '11px' }}>Net Margin %</td>
+                {colKeys.map(k => {
+                  const s = salesTotals[k] || 0
+                  const e = expTotals[k] || 0
+                  const m = s > 0 ? Math.round(((s - e) / s) * 100) : null
+                  return (
+                    <td key={k} style={{ ...tdBase, fontSize: '11px', color: m === null ? '#CBD5E1' : m >= 20 ? '#10B981' : '#EF4444', fontWeight: '600' }}>
+                      {m === null ? '-' : `${m}%`}
+                    </td>
+                  )
+                })}
+                <td style={{ ...tdBase, fontSize: '11px', fontWeight: '700', color: grandSalesTotal > 0 ? (Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100) >= 20 ? '#10B981' : '#EF4444') : '#CBD5E1' }}>
+                  {grandSalesTotal > 0 ? `${Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100)}%` : '-'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -70,21 +211,29 @@ function CategoryTable({ data, colorStart }) {
 export default function DashboardPage() {
   const [data, setData] = useState(null)
   const [catData, setCatData] = useState(null)
+  const [catLoading, setCatLoading] = useState(false)
   const [time, setTime] = useState('')
-  const [salesFilter, setSalesFilter] = useState(null)
-  const [expFilter, setExpFilter] = useState(null)
+  const [filterMonth, setFilterMonth] = useState(null)
+  const [filterMode, setFilterMode] = useState('month')
   const pathname = usePathname()
 
+  const loadCat = useCallback((month, mode, year) => {
+    setCatLoading(true)
+    setCatData(null)
+    api.get(`/admin/dashboard-categories?month=${month}&mode=${mode}&year=${year}`)
+      .then(r => setCatData(r.data))
+      .catch(console.error)
+      .finally(() => setCatLoading(false))
+  }, [])
+
   useEffect(() => {
-    // Load chart utama dulu (cepat)
     api.get('/admin/dashboard').then(r => {
       setData(r.data)
-      setSalesFilter(r.data.currentMonthIndex)
-      setExpFilter(r.data.currentMonthIndex)
+      const m = r.data.currentMonthIndex
+      const y = r.data.currentYear
+      setFilterMonth(m)
+      loadCat(m, 'month', y)
     }).catch(console.error)
-
-    // Load rekap kategori setelah (lazy)
-    api.get('/admin/dashboard-categories').then(r => setCatData(r.data)).catch(console.error)
 
     setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
     const tTime = setInterval(() => setTime(new Date().toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })), 60000)
@@ -102,26 +251,19 @@ export default function DashboardPage() {
 
   const dailyChart = data.dailyChart || []
   const monthlyChart = data.monthlyChart || []
-  const months = data.months || []
   const year = data.currentYear || new Date().getFullYear()
   const totalExpMonth = dailyChart.reduce((s, d) => s + (d.expense || 0), 0)
 
-  const salesData = salesFilter === 'year'
-    ? (catData?.salesByYear || [])
-    : (catData?.salesByMonth?.[salesFilter] || [])
-  const expData = expFilter === 'year'
-    ? (catData?.expenseByYear || [])
-    : (catData?.expenseByMonth?.[expFilter] || [])
-
-  const filterOptions = [
-    ...months.map((m, i) => ({ label: m, value: i })),
-    { label: `${year}`, value: 'year' },
-  ]
-
-  const cardStyle = {
-    background: '#fff', borderRadius: '20px', padding: '28px',
-    border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', marginBottom: '20px'
+  function handleChangeMonth(m) {
+    setFilterMonth(m)
+    loadCat(m, 'month', year)
   }
+  function handleChangeMode(mode) {
+    setFilterMode(mode)
+    loadCat(filterMonth, mode, year)
+  }
+
+  const cardStyle = { background: '#fff', borderRadius: '20px', padding: '28px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', marginBottom: '20px' }
 
   return (
     <div className="page">
@@ -212,74 +354,17 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* ── 3. Rekap Kategori ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {/* ── 3. Tabel Rekap ── */}
+          <RekapTable
+            catData={catLoading ? null : catData}
+            filterMonth={filterMonth ?? data.currentMonthIndex}
+            filterMode={filterMode}
+            onChangeMonth={handleChangeMonth}
+            onChangeMode={handleChangeMode}
+            year={year}
+            currentMonthIndex={data.currentMonthIndex}
+          />
 
-            {/* Rekap Penjualan */}
-            <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan</h2>
-                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>per Kategori</p>
-                </div>
-                <select
-                  value={salesFilter ?? ''}
-                  onChange={e => setSalesFilter(e.target.value === 'year' ? 'year' : Number(e.target.value))}
-                  style={{
-                    padding: '7px 32px 7px 12px', borderRadius: '10px',
-                    border: '1.5px solid #E2E8F8', background: '#F8FAFF',
-                    color: '#1E2A3B', fontSize: '12px', fontWeight: '600',
-                    fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-                    WebkitAppearance: 'none', appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238896B3' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
-                  }}
-                >
-                  {filterOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              {!catData ? (
-                <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>
-              ) : (
-                <CategoryTable data={salesData} colorStart={0} />
-              )}
-            </div>
-
-            {/* Rekap Pengeluaran */}
-            <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Pengeluaran</h2>
-                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>per Kategori</p>
-                </div>
-                <select
-                  value={expFilter ?? ''}
-                  onChange={e => setExpFilter(e.target.value === 'year' ? 'year' : Number(e.target.value))}
-                  style={{
-                    padding: '7px 32px 7px 12px', borderRadius: '10px',
-                    border: '1.5px solid #E2E8F8', background: '#F8FAFF',
-                    color: '#1E2A3B', fontSize: '12px', fontWeight: '600',
-                    fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-                    WebkitAppearance: 'none', appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238896B3' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
-                  }}
-                >
-                  {filterOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              {!catData ? (
-                <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>
-              ) : (
-                <CategoryTable data={expData} colorStart={3} />
-              )}
-            </div>
-
-          </div>
         </div>
       </main>
     </div>
