@@ -27,7 +27,7 @@ export async function GET(req) {
   const rangeStart = mode === 'year' ? yearStart : monthStart
   const rangeEnd = mode === 'year' ? yearEnd : monthEnd
 
-  const [salesRaw, expRaw] = await Promise.all([
+  const [salesRaw, expRaw, kasData] = await Promise.all([
     prisma.orderItem.findMany({
       where: { transaction: { status: 'COMPLETED', createdAt: { gte: rangeStart, lte: rangeEnd } } },
       select: {
@@ -44,6 +44,7 @@ export async function GET(req) {
         expenseItem: { select: { category: true } },
       },
     }),
+    prisma.monthlyKas.findMany({ where: { year } }),
   ])
 
   // Tentukan minggu ke-berapa dalam bulan (1-4+)
@@ -104,12 +105,18 @@ export async function GET(req) {
     return totals
   }
 
+  // Kas awal untuk bulan/mode yang diminta
+  const kasAwal = mode === 'year'
+    ? kasData.reduce((s, k) => s + k.kasAwal, 0)
+    : (kasData.find(k => k.month === month)?.kasAwal || 0)
+
   return NextResponse.json({
     cols,
     salesTable,
     expTable,
     salesTotals: colTotals(salesTable),
     expTotals: colTotals(expTable),
+    kasAwal,
     mode,
     month,
     year,

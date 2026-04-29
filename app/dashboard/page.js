@@ -26,18 +26,23 @@ const DualTooltip = ({ active, payload, label }) => {
 
 // ── Tabel Rekap ──
 function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeMode, year, currentMonthIndex }) {
+  const [editKas, setEditKas] = useState(false)
+  const [kasInput, setKasInput] = useState('')
+  const [savingKas, setSavingKas] = useState(false)
+
   if (!catData) return (
     <div style={{ background: '#fff', borderRadius: '20px', padding: '40px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', textAlign: 'center', color: '#8896B3', fontSize: '13px' }}>
       Memuat rekap...
     </div>
   )
 
-  const { cols, salesTable, expTable, salesTotals, expTotals } = catData
+  const { cols, salesTable, expTable, salesTotals, expTotals, kasAwal = 0 } = catData
 
   // Total per kolom
   const grandSalesTotal = Object.values(salesTotals).reduce((s, v) => s + v, 0)
   const grandExpTotal = Object.values(expTotals).reduce((s, v) => s + v, 0)
   const grandLaba = grandSalesTotal - grandExpTotal
+  const kasAkhir = kasAwal + grandSalesTotal - grandExpTotal
 
   const colLabels = cols.map(c => c.label)
   const colKeys = cols.map(c => c.key)
@@ -55,6 +60,16 @@ function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeM
     const laba = (sales || 0) - (exp || 0)
     if (laba === 0) return <span style={{ color: '#CBD5E1' }}>-</span>
     return <span style={{ color: laba >= 0 ? '#10B981' : '#EF4444', fontWeight: '700' }}>{fmt(laba)}</span>
+  }
+
+  async function saveKas() {
+    setSavingKas(true)
+    try {
+      await api.put('/admin/monthly-kas', { year, month: filterMonth, kasAwal: Number(kasInput.replace(/\D/g, '')) })
+      catData.kasAwal = Number(kasInput.replace(/\D/g, ''))
+      setEditKas(false)
+    } catch { alert('Gagal menyimpan') }
+    finally { setSavingKas(false) }
   }
 
   const periodLabel = filterMode === 'year' ? `Tahun ${year}` : `${MONTHS[filterMonth]} ${year}`
@@ -182,25 +197,70 @@ function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeM
                 {fmt(grandLaba)}
               </td>
             </tr>
-            {/* Net Margin */}
-            {grandSalesTotal > 0 && (
-              <tr style={{ background: '#F8FAFF' }}>
-                <td style={{ ...tdCat, color: '#8896B3', fontSize: '11px' }}>Net Margin %</td>
-                {colKeys.map(k => {
-                  const s = salesTotals[k] || 0
-                  const e = expTotals[k] || 0
-                  const m = s > 0 ? Math.round(((s - e) / s) * 100) : null
-                  return (
-                    <td key={k} style={{ ...tdBase, fontSize: '11px', color: m === null ? '#CBD5E1' : m >= 20 ? '#10B981' : '#EF4444', fontWeight: '600' }}>
-                      {m === null ? '-' : `${m}%`}
-                    </td>
-                  )
-                })}
-                <td style={{ ...tdBase, fontSize: '11px', fontWeight: '700', color: grandSalesTotal > 0 ? (Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100) >= 20 ? '#10B981' : '#EF4444') : '#CBD5E1' }}>
-                  {grandSalesTotal > 0 ? `${Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100)}%` : '-'}
-                </td>
-              </tr>
-            )}
+            {/* ── KAS BULANAN ── */}
+            <tr><td colSpan={colKeys.length + 2} style={{ height: '6px', background: '#F8FAFF', border: 'none' }} /></tr>
+            <tr style={{ background: '#F0FDF4' }}>
+              <td style={{ ...tdCat, fontWeight: '700', color: '#0F1729' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Kas Awal Bulan
+                  {filterMode !== 'year' && (
+                    editKas ? (
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <input
+                          autoFocus
+                          value={kasInput}
+                          onChange={e => setKasInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveKas(); if (e.key === 'Escape') setEditKas(false) }}
+                          style={{ width: '120px', padding: '3px 8px', borderRadius: '6px', border: '1.5px solid #6366F1', fontSize: '12px', fontFamily: 'inherit', outline: 'none' }}
+                          placeholder="0"
+                        />
+                        <button onClick={saveKas} disabled={savingKas} style={{ padding: '3px 8px', borderRadius: '6px', background: '#6366F1', color: '#fff', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {savingKas ? '...' : 'OK'}
+                        </button>
+                        <button onClick={() => setEditKas(false)} style={{ padding: '3px 6px', borderRadius: '6px', background: '#F1F5F9', color: '#8896B3', border: 'none', fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setKasInput(String(kasAwal)); setEditKas(true) }} style={{ padding: '2px 8px', borderRadius: '6px', background: '#EFF4FF', color: '#6366F1', border: '1px solid #C7D4F0', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
+                    )
+                  )}
+                </div>
+              </td>
+              {colKeys.map(k => <td key={k} style={tdBase} />)}
+              <td style={{ ...tdBase, fontWeight: '700', color: '#10B981', background: '#ECFDF5' }}>{kasAwal > 0 ? fmt(kasAwal) : <span style={{ color: '#CBD5E1' }}>-</span>}</td>
+            </tr>
+            <tr style={{ background: '#F0FDF4' }}>
+              <td style={{ ...tdCat, fontWeight: '700', color: '#0F1729' }}>Total Penjualan</td>
+              {colKeys.map(k => <td key={k} style={tdBase} />)}
+              <td style={{ ...tdBase, fontWeight: '700', color: '#2563EB', background: '#EFF4FF' }}>{grandSalesTotal > 0 ? fmt(grandSalesTotal) : <span style={{ color: '#CBD5E1' }}>-</span>}</td>
+            </tr>
+            <tr style={{ background: '#FEF2F2' }}>
+              <td style={{ ...tdCat, fontWeight: '700', color: '#0F1729' }}>Total Pengeluaran</td>
+              {colKeys.map(k => <td key={k} style={tdBase} />)}
+              <td style={{ ...tdBase, fontWeight: '700', color: '#EF4444', background: '#FEE2E2' }}>{grandExpTotal > 0 ? fmt(grandExpTotal) : <span style={{ color: '#CBD5E1' }}>-</span>}</td>
+            </tr>
+            <tr style={{ background: kasAkhir >= 0 ? '#ECFDF5' : '#FEF2F2', borderTop: '2px solid #E2E8F8' }}>
+              <td style={{ ...tdCat, fontWeight: '800', color: '#0F1729', fontSize: '13px' }}>KAS AKHIR BULAN</td>
+              {colKeys.map(k => <td key={k} style={tdBase} />)}
+              <td style={{ ...tdBase, fontWeight: '800', fontSize: '13px', background: kasAkhir >= 0 ? '#D1FAE5' : '#FEE2E2', color: kasAkhir >= 0 ? '#10B981' : '#EF4444' }}>
+                {fmt(kasAkhir)}
+              </td>
+            </tr>
+            <tr style={{ background: '#F8FAFF' }}>
+              <td style={{ ...tdCat, color: '#8896B3', fontSize: '11px' }}>Net Margin %</td>
+              {colKeys.map(k => {
+                const s = salesTotals[k] || 0
+                const e = expTotals[k] || 0
+                const m = s > 0 ? Math.round(((s - e) / s) * 100) : null
+                return (
+                  <td key={k} style={{ ...tdBase, fontSize: '11px', color: m === null ? '#CBD5E1' : m >= 20 ? '#10B981' : '#EF4444', fontWeight: '600' }}>
+                    {m === null ? '-' : `${m}%`}
+                  </td>
+                )
+              })}
+              <td style={{ ...tdBase, fontSize: '11px', fontWeight: '700', color: grandSalesTotal > 0 ? (Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100) >= 20 ? '#10B981' : '#EF4444') : '#CBD5E1' }}>
+                {grandSalesTotal > 0 ? `${Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100)}%` : '-'}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -354,7 +414,35 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* ── 3. Tabel Rekap ── */}
+          {/* ── 3. Kas Bulanan Summary ── */}
+          {catData && filterMode === 'month' && (() => {
+            const { kasAwal = 0, salesTotals = {}, expTotals = {} } = catData
+            const totalSales = Object.values(salesTotals).reduce((s, v) => s + v, 0)
+            const totalExp = Object.values(expTotals).reduce((s, v) => s + v, 0)
+            const kasAkhir = kasAwal + totalSales - totalExp
+            return (
+              <div style={{ background: '#fff', borderRadius: '20px', padding: '20px 24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729', marginBottom: '16px' }}>
+                  Kas Bulanan — {MONTHS[filterMonth ?? data.currentMonthIndex]} {year}
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  {[
+                    { label: 'Kas Awal Bulan', value: kasAwal, color: '#10B981', bg: '#ECFDF5' },
+                    { label: 'Total Penjualan', value: totalSales, color: '#6366F1', bg: '#EFF4FF' },
+                    { label: 'Total Pengeluaran', value: totalExp, color: '#EF4444', bg: '#FEF2F2' },
+                    { label: 'Kas Akhir Bulan', value: kasAkhir, color: kasAkhir >= 0 ? '#10B981' : '#EF4444', bg: kasAkhir >= 0 ? '#ECFDF5' : '#FEF2F2' },
+                  ].map(({ label, value, color, bg }) => (
+                    <div key={label} style={{ background: bg, borderRadius: '14px', padding: '16px 18px' }}>
+                      <div style={{ fontSize: '11px', color: '#8896B3', fontWeight: '600', marginBottom: '6px' }}>{label}</div>
+                      <div style={{ fontSize: '16px', fontWeight: '800', color }}>{fmt(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── 4. Tabel Rekap ── */}
           <RekapTable
             catData={catLoading ? null : catData}
             filterMonth={filterMonth ?? data.currentMonthIndex}
