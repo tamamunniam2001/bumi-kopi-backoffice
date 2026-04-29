@@ -217,25 +217,28 @@ export default function DashboardPage() {
 
             {/* Rekap Penjualan */}
             <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan per Kategori</h2>
-                <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
-                  {salesFilter === 'year' ? `Tahun ${year}` : `${months[salesFilter]} ${year}`}
-                </p>
-              </div>
-              <div style={{ overflowX: 'auto', marginBottom: '20px', paddingBottom: '4px' }}>
-                <div style={{ display: 'flex', gap: '6px', width: 'max-content' }}>
-                  {filterOptions.map(opt => (
-                    <button key={opt.value} onClick={() => setSalesFilter(opt.value)} style={{
-                      padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
-                      borderColor: salesFilter === opt.value ? '#6366F1' : '#E2E8F8',
-                      background: salesFilter === opt.value ? '#6366F1' : '#fff',
-                      color: salesFilter === opt.value ? '#fff' : '#8896B3',
-                      fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                    }}>{opt.label}</button>
-                  ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                <div>
+                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Penjualan</h2>
+                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>per Kategori</p>
                 </div>
+                <select
+                  value={salesFilter ?? ''}
+                  onChange={e => setSalesFilter(e.target.value === 'year' ? 'year' : Number(e.target.value))}
+                  style={{
+                    padding: '7px 32px 7px 12px', borderRadius: '10px',
+                    border: '1.5px solid #E2E8F8', background: '#F8FAFF',
+                    color: '#1E2A3B', fontSize: '12px', fontWeight: '600',
+                    fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+                    WebkitAppearance: 'none', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238896B3' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
+                  }}
+                >
+                  {filterOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               {!catData ? (
                 <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>
@@ -246,25 +249,28 @@ export default function DashboardPage() {
 
             {/* Rekap Pengeluaran */}
             <div style={{ background: '#fff', borderRadius: '20px', padding: '24px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Pengeluaran per Kategori</h2>
-                <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>
-                  {expFilter === 'year' ? `Tahun ${year}` : `${months[expFilter]} ${year}`}
-                </p>
-              </div>
-              <div style={{ overflowX: 'auto', marginBottom: '20px', paddingBottom: '4px' }}>
-                <div style={{ display: 'flex', gap: '6px', width: 'max-content' }}>
-                  {filterOptions.map(opt => (
-                    <button key={opt.value} onClick={() => setExpFilter(opt.value)} style={{
-                      padding: '5px 12px', borderRadius: '20px', border: '1.5px solid',
-                      borderColor: expFilter === opt.value ? '#F97316' : '#E2E8F8',
-                      background: expFilter === opt.value ? '#F97316' : '#fff',
-                      color: expFilter === opt.value ? '#fff' : '#8896B3',
-                      fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                      fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.15s',
-                    }}>{opt.label}</button>
-                  ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                <div>
+                  <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0F1729' }}>Rekap Pengeluaran</h2>
+                  <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>per Kategori</p>
                 </div>
+                <select
+                  value={expFilter ?? ''}
+                  onChange={e => setExpFilter(e.target.value === 'year' ? 'year' : Number(e.target.value))}
+                  style={{
+                    padding: '7px 32px 7px 12px', borderRadius: '10px',
+                    border: '1.5px solid #E2E8F8', background: '#F8FAFF',
+                    color: '#1E2A3B', fontSize: '12px', fontWeight: '600',
+                    fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+                    WebkitAppearance: 'none', appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238896B3' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
+                  }}
+                >
+                  {filterOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               {!catData ? (
                 <div style={{ textAlign: 'center', padding: '30px 0', color: '#8896B3', fontSize: '13px' }}>Memuat rekap...</div>

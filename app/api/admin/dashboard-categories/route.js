@@ -7,8 +7,12 @@ export async function GET(req) {
   if (error) return error
 
   const now = new Date()
+  const TZ_OFFSET = 7 * 60 * 60 * 1000
+  const toWIB = (d) => new Date(new Date(d).getTime() + TZ_OFFSET)
   const yearStart = new Date(now.getFullYear(), 0, 1)
+  yearStart.setTime(yearStart.getTime() - TZ_OFFSET)
   const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+  yearEnd.setTime(yearEnd.getTime() - TZ_OFFSET)
 
   const [salesRaw, expRaw] = await Promise.all([
     prisma.orderItem.findMany({
@@ -51,10 +55,10 @@ export async function GET(req) {
   }
 
   const salesByMonth = Array.from({ length: 12 }, (_, m) =>
-    buildSalesCat(salesRaw.filter(i => new Date(i.transaction.createdAt).getMonth() === m))
+    buildSalesCat(salesRaw.filter(i => toWIB(i.transaction.createdAt).getUTCMonth() === m))
   )
   const expenseByMonth = Array.from({ length: 12 }, (_, m) =>
-    buildExpCat(expRaw.filter(i => new Date(i.expense.date).getMonth() === m))
+    buildExpCat(expRaw.filter(i => toWIB(i.expense.date).getUTCMonth() === m))
   )
 
   return NextResponse.json({

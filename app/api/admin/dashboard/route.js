@@ -7,13 +7,23 @@ export async function GET(req) {
   if (error) return error
 
   const now = new Date()
+  const TZ_OFFSET = 7 * 60 * 60 * 1000 // WIB UTC+7
+  const toWIB = (d) => new Date(new Date(d).getTime() + TZ_OFFSET)
+
+  // Semua range pakai UTC tapi geser -7 jam agar mencakup data WIB penuh
   const today = new Date(now); today.setHours(0, 0, 0, 0)
+  today.setTime(today.getTime() - TZ_OFFSET)
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  thisMonthStart.setTime(thisMonthStart.getTime() - TZ_OFFSET)
   const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+  thisMonthEnd.setTime(thisMonthEnd.getTime() - TZ_OFFSET)
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  lastMonth.setTime(lastMonth.getTime() - TZ_OFFSET)
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+  lastMonthEnd.setTime(lastMonthEnd.getTime() - TZ_OFFSET)
   const yearStart = new Date(now.getFullYear(), 0, 1)
+  yearStart.setTime(yearStart.getTime() - TZ_OFFSET)
 
   const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 
@@ -43,14 +53,14 @@ export async function GET(req) {
   const daysInMonth = thisMonthEnd.getDate()
   const dailyChart = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1
-    const rev = monthlyTxRaw.filter(t => new Date(t.createdAt).getDate() === d).reduce((s, t) => s + t.total, 0)
-    const exp = monthlyExpRaw.filter(e => new Date(e.date).getDate() === d).reduce((s, e) => s + e.total, 0)
+    const rev = monthlyTxRaw.filter(t => toWIB(t.createdAt).getUTCDate() === d).reduce((s, t) => s + t.total, 0)
+    const exp = monthlyExpRaw.filter(e => toWIB(e.date).getUTCDate() === d).reduce((s, e) => s + e.total, 0)
     return { label: `${d}`, revenue: rev, expense: exp }
   })
 
   const monthlyChart = Array.from({ length: 12 }, (_, m) => {
-    const rev = yearlyTxRaw.filter(t => new Date(t.createdAt).getMonth() === m).reduce((s, t) => s + t.total, 0)
-    const exp = yearlyExpRaw.filter(e => new Date(e.date).getMonth() === m).reduce((s, e) => s + e.total, 0)
+    const rev = yearlyTxRaw.filter(t => toWIB(t.createdAt).getUTCMonth() === m).reduce((s, t) => s + t.total, 0)
+    const exp = yearlyExpRaw.filter(e => toWIB(e.date).getUTCMonth() === m).reduce((s, e) => s + e.total, 0)
     return { month: MONTHS[m], revenue: rev, expense: exp }
   })
 
