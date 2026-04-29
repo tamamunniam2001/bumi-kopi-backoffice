@@ -225,3 +225,17 @@ enum SopType {
   OPENING
   CLOSING
 }
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  name      String
+  qty       Float    @default(0)
+  satuan    String?  @default("")
+  category  String?  @default("")
+  imageUrl  String?
+  note      String?  @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
