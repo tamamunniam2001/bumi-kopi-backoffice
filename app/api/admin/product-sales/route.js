@@ -34,7 +34,10 @@ export async function GET(req) {
   }
 
   const txWhere = { status: 'COMPLETED' }
-  if (from && to) txWhere.createdAt = { gte: new Date(from), lte: new Date(new Date(to).setHours(23, 59, 59, 999)) }
+  if (from && to) txWhere.createdAt = {
+    gte: new Date(`${from}T00:00:00+07:00`),
+    lte: new Date(`${to}T23:59:59.999+07:00`),
+  }
 
   const [rows, total] = await Promise.all([
     prisma.orderItem.findMany({
