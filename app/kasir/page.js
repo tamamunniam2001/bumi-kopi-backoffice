@@ -423,6 +423,7 @@ export default function KasirPage() {
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
+          products={products}
           onClose={() => setSelectedOrder(null)}
           onToggleServed={() => toggleServed(selectedOrder.id, selectedOrder.servedAt)}
           onPayNow={(order) => { setSelectedOrder(null); setPendingOrder(order) }}
@@ -448,7 +449,7 @@ export default function KasirPage() {
 }
 
 // ── Order Detail Modal ──
-function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh }) {
+function OrderDetailModal({ order, products = [], onClose, onToggleServed, onPayNow, onRefresh }) {
   const [printing, setPrinting] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -456,6 +457,9 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
   const [editName, setEditName] = useState(order.customerName || '')
   const [editNote, setEditNote] = useState(order.note || '')
   const [editItems, setEditItems] = useState(order.items.map(i => ({ productId: i.productId || null, name: i.product?.name || i.name || '', category: i.category || '', code: i.code || '', qty: i.qty, price: i.price })))
+  const [productSearch, setProductSearch] = useState('')
+  const [showPicker, setShowPicker] = useState(false)
+  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.code || '').toLowerCase().includes(productSearch.toLowerCase()))
   const served = !!order.servedAt
   const paid = order.status === 'COMPLETED'
   const editTotal = editItems.reduce((s, i) => s + i.price * i.qty, 0)
@@ -550,10 +554,37 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
                     </button>
                   </div>
                 ))}
-                <button onClick={() => setEditItems(prev => [...prev, { productId: null, name: '', category: '', code: '', qty: 1, price: 0 }])}
+                <button onClick={() => setShowPicker(!showPicker)}
                   style={{ padding: '7px', border: '1px dashed var(--border)', borderRadius: '8px', background: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: '600', fontFamily: 'inherit' }}>
                   + Tambah Item
                 </button>
+                {showPicker && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
+                    <input className="input" style={{ borderRadius: 0, borderLeft: 'none', borderRight: 'none', borderTop: 'none', fontSize: '12px' }}
+                      placeholder="Cari produk..." value={productSearch} onChange={e => setProductSearch(e.target.value)} autoFocus />
+                    <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                      <div onClick={() => { setEditItems(prev => [...prev, { productId: null, name: '', category: '', code: '', qty: 1, price: 0 }]); setShowPicker(false); setProductSearch('') }}
+                        style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontStyle: 'italic' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#F1F5F9'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        + Item manual (kosong)
+                      </div>
+                      {filteredProducts.map(p => (
+                        <div key={p.id} onClick={() => { setEditItems(prev => [...prev, { productId: p.id, name: p.name, category: p.category?.name || '', code: p.code || '', qty: 1, price: p.price }]); setShowPicker(false); setProductSearch('') }}
+                          style={{ padding: '8px 12px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#F1F5F9'}
+                          onMouseLeave={e => e.currentTarget.style.background = ''}>
+                          <div>
+                            <div style={{ fontWeight: '600', color: 'var(--text)' }}>{p.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{p.category?.name || ''}{p.code ? ` · ${p.code}` : ''}</div>
+                          </div>
+                          <span style={{ fontWeight: '700', color: 'var(--accent)', fontSize: '12px' }}>Rp {fmt(p.price)}</span>
+                        </div>
+                      ))}
+                      {filteredProducts.length === 0 && <div style={{ padding: '12px', fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>Tidak ada produk</div>}
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700' }}>
                 <span>Total Baru</span>
