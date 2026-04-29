@@ -451,8 +451,14 @@ export default function KasirPage() {
 function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh }) {
   const [printing, setPrinting] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editName, setEditName] = useState(order.customerName || '')
+  const [editNote, setEditNote] = useState(order.note || '')
+  const [editItems, setEditItems] = useState(order.items.map(i => ({ productId: i.productId || null, name: i.product?.name || i.name || '', category: i.category || '', code: i.code || '', qty: i.qty, price: i.price })))
   const served = !!order.servedAt
   const paid = order.status === 'COMPLETED'
+  const editTotal = editItems.reduce((s, i) => s + i.price * i.qty, 0)
 
   async function handlePrint() {
     setPrinting(true)
@@ -466,6 +472,25 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
     setTimeout(() => setToggling(false), 500)
   }
 
+  async function handleSaveEdit() {
+    if (!editItems.length) return alert('Item pesanan tidak boleh kosong')
+    setSaving(true)
+    try {
+      await api.patch(`/transactions/${order.id}`, {
+        customerName: editName,
+        note: editNote,
+        items: editItems,
+      })
+      setEditing(false)
+      onRefresh()
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    finally { setSaving(false) }
+  }
+
+  function updateItem(i, field, val) {
+    setEditItems(prev => prev.map((it, n) => n === i ? { ...it, [field]: field === 'qty' || field === 'price' ? Number(val) || 0 : val } : it))
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -473,12 +498,16 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
         {/* Header */}
         <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>
-              {order.customerName || '(Tanpa Nama)'}
-            </div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>{order.customerName || '(Tanpa Nama)'}</div>
             <div style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace', marginTop: '2px' }}>{order.invoiceNo} · {fmtTime(order.createdAt)}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => setEditing(!editing)}
+              style={{ fontSize: '12px', fontWeight: '700', padding: '5px 12px', borderRadius: '7px', border: `1px solid ${editing ? '#FECACA' : 'var(--border)'}`, background: editing ? '#FEF2F2' : 'var(--surface2)', color: editing ? 'var(--red)' : 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {editing ? 'Batal' : '✏️ Edit'}
+            </button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
@@ -494,66 +523,113 @@ function OrderDetailModal({ order, onClose, onToggleServed, onPayNow, onRefresh 
             </div>
           </div>
 
-          {/* Catatan */}
-          {order.note && (
-            <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400E', marginBottom: '3px' }}>CATATAN</div>
-              <div style={{ fontSize: '13px', color: '#78350F' }}>{order.note}</div>
-            </div>
-          )}
-
-          {/* Items */}
-          <div style={{ marginBottom: '14px' }}>
-            <div className="section-label">Item Pesanan</div>
-            <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              {order.items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: i < order.items.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{item.product?.name || 'Item Manual'}</div>
-                    <div style={{ fontSize: '11px', color: '#94A3B8' }}>{item.qty} × Rp {fmt(item.price)}</div>
-                  </div>
-                  <div style={{ fontSize: '13px', fontWeight: '700' }}>Rp {fmt(item.subtotal)}</div>
+          {editing ? (
+            <>
+              {/* Edit nama & catatan */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                <div>
+                  <label className="label">Nama Pembeli</label>
+                  <input className="input" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Nama pelanggan" />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Total */}
-          <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border)', marginBottom: paid ? '0' : '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: paid && order.payment > 0 ? '6px' : '0' }}>
-              <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
-              <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(order.total)}</span>
-            </div>
-            {paid && order.payment > 0 && <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text2)', marginBottom: '4px' }}>
-                <span>Bayar ({order.payMethod})</span><span>Rp {fmt(order.payment)}</span>
+                <div>
+                  <label className="label">Catatan</label>
+                  <input className="input" value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Catatan..." />
+                </div>
               </div>
-              {order.change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: 'var(--green)' }}>
-                <span>Kembalian</span><span>Rp {fmt(order.change)}</span>
-              </div>}
-            </>}
-          </div>
-
-          {/* Form bayar jika PENDING */}
-          {!paid && (
-            <button
-              onClick={() => { onClose(); onPayNow(order) }}
-              style={{ width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', marginTop: '4px' }}>
-              💳 Proses Pembayaran
-            </button>
+              {/* Edit items */}
+              <div className="section-label">Item Pesanan</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                {editItems.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'center', background: 'var(--surface2)', borderRadius: '8px', padding: '8px 10px', border: '1px solid var(--border)' }}>
+                    <input className="input" style={{ flex: 2, fontSize: '12px', padding: '5px 8px' }} value={item.name} onChange={e => updateItem(i, 'name', e.target.value)} placeholder="Nama item" />
+                    <input className="input" type="number" style={{ flex: '0 0 48px', fontSize: '12px', padding: '5px 6px' }} value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} min="1" placeholder="Qty" />
+                    <input className="input" type="number" style={{ flex: 2, fontSize: '12px', padding: '5px 8px' }} value={item.price} onChange={e => updateItem(i, 'price', e.target.value)} placeholder="Harga" />
+                    <button onClick={() => setEditItems(prev => prev.filter((_, n) => n !== i))}
+                      style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '5px 7px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => setEditItems(prev => [...prev, { productId: null, name: '', category: '', code: '', qty: 1, price: 0 }])}
+                  style={{ padding: '7px', border: '1px dashed var(--border)', borderRadius: '8px', background: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: '600', fontFamily: 'inherit' }}>
+                  + Tambah Item
+                </button>
+              </div>
+              <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700' }}>
+                <span>Total Baru</span>
+                <span style={{ color: 'var(--accent)' }}>Rp {fmt(editTotal)}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Catatan */}
+              {order.note && (
+                <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#FFFBEB', borderRadius: '10px', border: '1px solid #FDE68A' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400E', marginBottom: '3px' }}>CATATAN</div>
+                  <div style={{ fontSize: '13px', color: '#78350F' }}>{order.note}</div>
+                </div>
+              )}
+              {/* Items */}
+              <div style={{ marginBottom: '14px' }}>
+                <div className="section-label">Item Pesanan</div>
+                <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  {order.items.length === 0
+                    ? <div style={{ padding: '14px', fontSize: '13px', color: 'var(--muted)', textAlign: 'center' }}>Tidak ada item</div>
+                    : order.items.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: i < order.items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text)' }}>{item.product?.name || item.name || 'Item Manual'}</div>
+                          <div style={{ fontSize: '11px', color: '#94A3B8' }}>{item.qty} × Rp {fmt(item.price)}</div>
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: '700' }}>Rp {fmt(item.subtotal)}</div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              {/* Total */}
+              <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border)', marginBottom: paid ? '0' : '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: paid && order.payment > 0 ? '6px' : '0' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '700' }}>Total</span>
+                  <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--accent)' }}>Rp {fmt(order.total)}</span>
+                </div>
+                {paid && order.payment > 0 && <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text2)', marginBottom: '4px' }}>
+                    <span>Bayar ({order.payMethod})</span><span>Rp {fmt(order.payment)}</span>
+                  </div>
+                  {order.change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: 'var(--green)' }}>
+                    <span>Kembalian</span><span>Rp {fmt(order.change)}</span>
+                  </div>}
+                </>}
+              </div>
+              {!paid && (
+                <button onClick={() => { onClose(); onPayNow(order) }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', marginTop: '16px' }}>
+                  💳 Proses Pembayaran
+                </button>
+              )}
+            </>
           )}
         </div>
 
         {/* Footer */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
-          <button onClick={handleToggle} disabled={toggling}
-            style={{ flex: 1, padding: '10px', borderRadius: '9px', border: `1px solid ${served ? '#FDE68A' : '#A7F3D0'}`, background: served ? '#FFFBEB' : '#ECFDF5', color: served ? 'var(--orange)' : 'var(--green)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
-            {toggling ? '...' : served ? 'Batalkan Sajian' : 'Tandai Disajikan'}
-          </button>
-          <button onClick={handlePrint} disabled={printing}
-            style={{ flex: 1, padding: '10px', borderRadius: '9px', border: '1px solid #C7D4F0', background: '#EFF4FF', color: 'var(--accent)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
-            {printing ? '⏳ Mencetak...' : '🖨️ Print Ulang'}
-          </button>
+          {editing ? (
+            <button onClick={handleSaveEdit} disabled={saving}
+              style={{ flex: 1, padding: '10px', borderRadius: '9px', border: 'none', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+          ) : (
+            <>
+              <button onClick={handleToggle} disabled={toggling}
+                style={{ flex: 1, padding: '10px', borderRadius: '9px', border: `1px solid ${served ? '#FDE68A' : '#A7F3D0'}`, background: served ? '#FFFBEB' : '#ECFDF5', color: served ? 'var(--orange)' : 'var(--green)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                {toggling ? '...' : served ? 'Batalkan Sajian' : 'Tandai Disajikan'}
+              </button>
+              <button onClick={handlePrint} disabled={printing}
+                style={{ flex: 1, padding: '10px', borderRadius: '9px', border: '1px solid #C7D4F0', background: '#EFF4FF', color: 'var(--accent)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                {printing ? '⏳ Mencetak...' : '🖨️ Print Ulang'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

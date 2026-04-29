@@ -46,6 +46,21 @@ export async function PATCH(req, { params }) {
     data.payMethod = body.payMethod
     data.status = 'COMPLETED'
   }
+  if ('customerName' in body) data.customerName = body.customerName
+  if ('note' in body) data.note = body.note
+  if ('items' in body) {
+    const newItems = body.items.map(i => ({
+      productId: i.productId || null,
+      name: i.name || '',
+      code: i.code || '',
+      category: i.category || '',
+      qty: i.qty,
+      price: i.price,
+      subtotal: i.price * i.qty,
+    }))
+    data.total = newItems.reduce((s, i) => s + i.subtotal, 0)
+    data.items = { deleteMany: {}, create: newItems }
+  }
   const transaction = await prisma.transaction.update({
     where: { id },
     data,
