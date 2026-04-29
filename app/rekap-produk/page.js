@@ -24,6 +24,9 @@ export default function RekapProdukPage() {
   const [selected, setSelected] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef(null)
+  const [editModal, setEditModal] = useState(null) // row yang sedang diedit
+  const [editForm, setEditForm] = useState({})
+  const [editSaving, setEditSaving] = useState(false)
   const [exportModal, setExportModal] = useState(false)
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
@@ -78,6 +81,22 @@ export default function RekapProdukPage() {
   }
 
   // ── Delete single ──
+  function openEdit(r) {
+    setEditForm({ name: r.name, category: r.category === '-' ? '' : r.category, qty: r.qty, total: r.total })
+    setEditModal(r)
+  }
+
+  async function handleEditSave() {
+    setEditSaving(true)
+    try {
+      await api.patch(`/admin/product-sales/${editModal.id}`, editForm)
+      setData(prev => ({ ...prev, rows: prev.rows.map(r => r.id === editModal.id ? { ...r, ...editForm, total: Number(editForm.total), qty: Number(editForm.qty) } : r) }))
+      setEditModal(null)
+      loadMonthly()
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    finally { setEditSaving(false) }
+  }
+
   async function handleDelete(id) {
     if (!confirm('Hapus item ini?')) return
     try {
@@ -417,10 +436,10 @@ export default function RekapProdukPage() {
                     <td style={{ textAlign: 'center' }}><span className="badge badge-purple">{r.qty}</span></td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent)' }}>{fmt(r.total)}</td>
                     <td>
-                      <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }}
-                        onClick={() => handleDelete(r.id)}>
-                        Hapus
-                      </button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 10px', fontSize: '12px' }} onClick={() => openEdit(r)}>Edit</button>
+                        <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => handleDelete(r.id)}>Hapus</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -455,6 +474,45 @@ export default function RekapProdukPage() {
           </div>
         </div>
       </main>
+
+      {/* Modal Edit */}
+      {editModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setEditModal(null) }}>
+          <div className="card fade-in" style={{ width: '400px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Edit Item Penjualan</div>
+              <button onClick={() => setEditModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="label">Nama Produk</label>
+                <input className="input" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Kategori</label>
+                <input className="input" value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="label">QTY</label>
+                  <input className="input" type="number" min="1" value={editForm.qty} onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Total</label>
+                  <input className="input" type="number" min="0" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditModal(null)}>Batal</button>
+              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleEditSave} disabled={editSaving}>
+                {editSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Export CSV */}
       {exportModal && (

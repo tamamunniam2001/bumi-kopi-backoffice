@@ -2,6 +2,26 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth, adminOnly } from '@/lib/auth'
 
+export async function PATCH(req, { params }) {
+  const { error, user } = verifyAuth(req)
+  if (error) return error
+  const denied = adminOnly(user)
+  if (denied) return denied
+  const { id } = await params
+  const { name, category, qty, total } = await req.json()
+  const item = await prisma.orderItem.update({
+    where: { id },
+    data: {
+      name: name ?? undefined,
+      category: category ?? undefined,
+      qty: qty != null ? Number(qty) : undefined,
+      subtotal: total != null ? Number(total) : undefined,
+      price: qty != null && total != null ? Math.round(Number(total) / Number(qty)) : undefined,
+    },
+  })
+  return NextResponse.json(item)
+}
+
 export async function DELETE(req, { params }) {
   const { error, user } = verifyAuth(req)
   if (error) return error
