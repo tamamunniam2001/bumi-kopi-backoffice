@@ -48,18 +48,33 @@ export default function InventarisPage() {
   function openAdd() { setForm({ name: '', qty: '', satuan: '', category: '', imageUrl: '', note: '' }); setModal('add') }
   function openEdit(item) { setForm({ name: item.name, qty: String(item.qty), satuan: item.satuan || '', category: item.category || '', imageUrl: item.imageUrl || '', note: item.note || '' }); setModal(item) }
 
+  function compressImage(file, cb) {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 600
+        let w = img.width, h = img.height
+        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX }
+        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX }
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        cb(canvas.toDataURL('image/jpeg', 0.75))
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
   function handlePhotoFile(e) {
     const file = e.target.files[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setForm(f => ({ ...f, imageUrl: ev.target.result }))
-    reader.readAsDataURL(file)
+    compressImage(file, url => setForm(f => ({ ...f, imageUrl: url })))
   }
 
   function handleCameraCapture(e) {
     const file = e.target.files[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => setForm(f => ({ ...f, imageUrl: ev.target.result }))
-    reader.readAsDataURL(file)
+    compressImage(file, url => setForm(f => ({ ...f, imageUrl: url })))
   }
 
   async function handleSave() {
