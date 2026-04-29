@@ -121,9 +121,36 @@ export default function LaporanHarianPage() {
   )
 }
 
+const PAY_TABS = [
+  { key: 'CASH', label: 'Cash', color: '#2A9D6E', bg: '#E8F7F1', border: '#A7DFC8' },
+  { key: 'QRIS', label: 'QRIS', color: '#6B5BAF', bg: '#EEEAF8', border: '#C8C0E8' },
+  { key: 'TRANSFER', label: 'Transfer', color: '#C47D1A', bg: '#FDF4E3', border: '#F0D090' },
+  { key: 'NONTUNAI', label: 'Non-Tunai', color: '#0891B2', bg: '#E0F7FA', border: '#A5D8E6' },
+]
+
 function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAkhir, onEdit, onReopen, reopening }) {
   const kAkhir = kasAkhir(r)
   const totPengeluaran = totalPengeluaran(r)
+  const [activeTab, setActiveTab] = useState(null)
+  const [transactions, setTransactions] = useState(null)
+  const [txLoading, setTxLoading] = useState(false)
+
+  async function loadTransactions() {
+    if (transactions !== null) return
+    setTxLoading(true)
+    try {
+      const res = await api.get(`/daily-reports/${r.id}/transactions`)
+      setTransactions(res.data)
+    } catch { setTransactions([]) }
+    finally { setTxLoading(false) }
+  }
+
+  function handleTab(key) {
+    setActiveTab(prev => prev === key ? null : key)
+    loadTransactions()
+  }
+
+  const txByMethod = (key) => (transactions || []).filter(t => t.payMethod === key)
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,42,59,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, backdropFilter: 'blur(4px)' }}
@@ -212,6 +239,63 @@ function DetailModal({ report: r, onClose, fmt, fmtDate, totalPengeluaran, kasAk
                 {r.catatan ? <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: '1.6' }}>{r.catatan}</div>
                   : <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada catatan</div>}
               </div>
+            </div>
+
+            {/* Tabs transaksi per metode */}
+            <div style={{ background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: '#F5F8FE' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Detail Transaksi per Metode</div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', padding: '10px 12px', flexWrap: 'wrap' }}>
+                {PAY_TABS.map(tab => {
+                  const total = tab.key === 'CASH' ? r.uangDisetor : tab.key === 'QRIS' ? r.qris : tab.key === 'TRANSFER' ? r.transfer : 0
+                  if (total === 0 && tab.key !== 'CASH') return null
+                  const isActive = activeTab === tab.key
+                  return (
+                    <button key={tab.key} onClick={() => handleTab(tab.key)}
+                      style={{
+                        padding: '5px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                        border: `1.5px solid ${isActive ? tab.color : tab.border}`,
+                        background: isActive ? tab.bg : '#fff',
+                        color: isActive ? tab.color : 'var(--muted)',
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                      }}>
+                      {tab.label} {total > 0 ? `· ${fmt(total)}` : ''}
+                    </button>
+                  )
+                })}
+              </div>
+              {activeTab && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '0 12px 10px' }}>
+                  {txLoading ? (
+                    <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--muted)' }}>Memuat...</div>
+                  ) : txByMethod(activeTab).length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>Tidak ada transaksi</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px' }}>
+                      {txByMethod(activeTab).map((tx, i) => (
+                        <div key={tx.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: '#F8FAFF' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>{tx.invoiceNo}</span>
+                              {tx.customerName && <span style={{ fontSize: '10px', color: 'var(--muted)' }}>{tx.customerName}</span>}
+                            </div>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: PAY_TABS.find(t => t.key === activeTab)?.color }}>{fmt(tx.total)}</span>
+                          </div>
+                          <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            {tx.items.map((item, j) => (
+                              <div key={j} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                <span style={{ color: 'var(--text2)' }}>{item.name} <span style={{ color: 'var(--muted)' }}>x{item.qty}</span></span>
+                                <span style={{ color: 'var(--text)', fontWeight: '600' }}>{fmt(item.subtotal)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
