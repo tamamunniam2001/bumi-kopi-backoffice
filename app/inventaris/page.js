@@ -9,12 +9,15 @@ export default function InventarisPage() {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('')
   const [selected, setSelected] = useState(new Set())
-  const [modal, setModal] = useState(null) // null | 'add' | item(edit)
+  const [modal, setModal] = useState(null)
   const [form, setForm] = useState({ name: '', qty: '', satuan: '', category: '', imageUrl: '', note: '' })
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
+  const [lightbox, setLightbox] = useState(null) // url foto diperbesar
   const fileRef = useRef(null)
+  const photoRef = useRef(null)
+  const cameraRef = useRef(null)
 
   async function load() {
     setLoading(true)
@@ -44,6 +47,20 @@ export default function InventarisPage() {
 
   function openAdd() { setForm({ name: '', qty: '', satuan: '', category: '', imageUrl: '', note: '' }); setModal('add') }
   function openEdit(item) { setForm({ name: item.name, qty: String(item.qty), satuan: item.satuan || '', category: item.category || '', imageUrl: item.imageUrl || '', note: item.note || '' }); setModal(item) }
+
+  function handlePhotoFile(e) {
+    const file = e.target.files[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setForm(f => ({ ...f, imageUrl: ev.target.result }))
+    reader.readAsDataURL(file)
+  }
+
+  function handleCameraCapture(e) {
+    const file = e.target.files[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setForm(f => ({ ...f, imageUrl: ev.target.result }))
+    reader.readAsDataURL(file)
+  }
 
   async function handleSave() {
     if (!form.name.trim()) return alert('Nama wajib diisi')
@@ -187,7 +204,8 @@ export default function InventarisPage() {
                       </td>
                       <td>
                         {item.imageUrl
-                          ? <img src={item.imageUrl} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }} onError={e => e.target.style.display = 'none'} />
+                          ? <img src={item.imageUrl} alt={item.name} onClick={() => setLightbox(item.imageUrl)}
+                              style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }} onError={e => e.target.style.display = 'none'} />
                           : <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📦</div>
                         }
                       </td>
@@ -230,15 +248,37 @@ export default function InventarisPage() {
               <button onClick={() => setModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Preview foto */}
-              {form.imageUrl && (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <img src={form.imageUrl} alt="preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }} onError={e => e.target.style.display = 'none'} />
-                </div>
-              )}
+              {/* Preview + Upload foto */}
               <div>
-                <label className="label">URL Foto <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                <input className="input" placeholder="https://..." value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} />
+                <label className="label">Foto <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  {/* Preview */}
+                  <div onClick={() => form.imageUrl && setLightbox(form.imageUrl)}
+                    style={{ width: '72px', height: '72px', borderRadius: '10px', border: '2px dashed var(--border)', background: 'var(--surface2)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: form.imageUrl ? 'zoom-in' : 'default' }}>
+                    {form.imageUrl
+                      ? <img src={form.imageUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
+                      : <span style={{ fontSize: '24px' }}>📷</span>}
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* Upload dari file */}
+                    <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFile} />
+                    <button type="button" className="btn btn-ghost" style={{ justifyContent: 'flex-start', fontSize: '12px', padding: '6px 10px' }} onClick={() => photoRef.current.click()}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Pilih dari galeri
+                    </button>
+                    {/* Kamera */}
+                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleCameraCapture} />
+                    <button type="button" className="btn btn-ghost" style={{ justifyContent: 'flex-start', fontSize: '12px', padding: '6px 10px' }} onClick={() => cameraRef.current.click()}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Buka kamera
+                    </button>
+                    {form.imageUrl && (
+                      <button type="button" className="btn" style={{ justifyContent: 'flex-start', fontSize: '12px', padding: '6px 10px', color: 'var(--red)', background: 'var(--red-light)', border: '1px solid #FECACA' }} onClick={() => setForm(f => ({ ...f, imageUrl: '' }))}>
+                        Hapus foto
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="label">Nama Barang</label>
@@ -271,6 +311,15 @@ export default function InventarisPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}>
+          <img src={lightbox} alt="foto" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()} />
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
       )}
 

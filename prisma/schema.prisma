@@ -232,7 +232,7 @@ model InventoryItem {
   qty       Float    @default(0)
   satuan    String?  @default("")
   category  String?  @default("")
-  imageUrl  String?
+  imageUrl  String?  @db.Text
   note      String?  @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

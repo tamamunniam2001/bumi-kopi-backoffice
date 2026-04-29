@@ -28,7 +28,7 @@ const allNavGroups = [
     items: [
       { href: '/products', label: 'Produk', icon: <IconBox />, roles: ['ADMIN'] },
       { href: '/ingredients', label: 'Bahan Baku', icon: <IconFlask />, roles: ['ADMIN'] },
-      { href: '/inventaris', label: 'Inventaris', icon: <IconInventory />, roles: ['ADMIN'] },
+      { href: '/inventaris', label: 'Inventaris', icon: <IconInventory />, roles: ['ADMIN', 'CASHIER'] },
     ]
   },
   {
