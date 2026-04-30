@@ -18,6 +18,7 @@ model User {
   transactions Transaction[]
   dailyReports DailyReport[]
   expenses     Expense[]
+  stockOpnames StockOpname[]
 }
 
 model Category {
@@ -238,15 +239,51 @@ model MonthlyKas {
 }
 
 model InventoryItem {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   name      String
-  qty       Float    @default(0)
-  satuan    String?  @default("")
-  category  String?  @default("")
-  imageUrl  String?  @db.Text
-  note      String?  @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  qty       Float              @default(0)
+  satuan    String?            @default("")
+  category  String?            @default("")
+  imageUrl  String?            @db.Text
+  note      String?            @default("")
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  opnameItems StockOpnameItem[]
 
   @@index([category])
+}
+
+model StockOpname {
+  id        String            @id @default(cuid())
+  date      DateTime          @default(now())
+  note      String?           @default("")
+  status    OpnameStatus      @default(DRAFT)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  items     StockOpnameItem[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([date])
+  @@index([userId])
+}
+
+model StockOpnameItem {
+  id              String        @id @default(cuid())
+  opnameId        String
+  opname          StockOpname   @relation(fields: [opnameId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  qtySystem       Float         @default(0)
+  qtyActual       Float         @default(0)
+  selisih         Float         @default(0)
+  note            String?       @default("")
+
+  @@index([opnameId])
+  @@index([inventoryItemId])
+}
+
+enum OpnameStatus {
+  DRAFT
+  SELESAI
 }
