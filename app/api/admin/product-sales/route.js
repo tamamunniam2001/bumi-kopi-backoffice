@@ -59,16 +59,20 @@ export async function GET(req) {
   ])
 
   return NextResponse.json({
-    rows: rows.map(r => ({
-      id: r.id,
-      transactionId: r.transactionId,
-      date: r.transaction.createdAt,
-      code: r.product?.code || r.code || '-',
-      category: r.product?.category?.name || r.category || '-',
-      name: r.product?.name || r.name || 'Item Manual',
-      qty: r.qty,
-      total: r.subtotal,
-    })),
+    rows: rows.map(r => {
+      const isNameNull = !r.name || r.name === ''
+      return {
+        id: r.id,
+        transactionId: r.transactionId,
+        date: r.transaction.createdAt,
+        code: r.product?.code || r.code || '-',
+        category: r.product?.category?.name || r.category || '-',
+        name: r.product?.name || r.name || 'Item Manual',
+        isNameNull, // flag untuk frontend
+        qty: r.qty,
+        total: r.subtotal,
+      }
+    }),
     total,
     page,
     totalPages: Math.ceil(total / limit),

@@ -440,7 +440,7 @@ export default function RekapProdukPage() {
                     <div>Belum ada data transaksi produk</div>
                   </td></tr>
                 ) : data.rows.map((r, i) => {
-                  const isNull = !r.name || r.name === 'Item Manual'
+                  const isNull = r.isNameNull
                   return (
                   <tr key={i} style={{ background: selected.has(r.id) ? 'var(--accent-light)' : isNull ? '#FFF8F8' : undefined }}>
                     <td>
