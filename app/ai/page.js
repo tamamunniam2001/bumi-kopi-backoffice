@@ -92,7 +92,7 @@ export default function AIPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="ai-model-badge">
               <div className="ai-online-dot" />
-              Gemini 1.5 Flash
+              GPT-4o · OpenAI
             </div>
             {messages.length > 0 && (
               <button className="ai-clear-btn" onClick={() => setMessages([])}>
