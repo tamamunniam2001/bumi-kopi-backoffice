@@ -10,6 +10,17 @@ export async function GET(req) {
   const page = Number(searchParams.get('page') || 1)
   const limit = 20
 
+  // Ambil semua kategori ExpenseItem yang tersedia
+  if (searchParams.get('categories') === '1') {
+    const cats = await prisma.expenseItem.findMany({
+      where: { isActive: true, category: { not: '' } },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' },
+    })
+    return NextResponse.json(cats.map(c => c.category))
+  }
+
   const [opnames, total] = await Promise.all([
     prisma.stockOpname.findMany({
       orderBy: { date: 'desc' },
@@ -17,7 +28,7 @@ export async function GET(req) {
       skip: (page - 1) * limit,
       include: {
         user: { select: { name: true } },
-        items: { select: { id: true, qtyActual: true, qtySystem: true, selisih: true } },
+        items: { select: { id: true, selisih: true } },
       },
     }),
     prisma.stockOpname.count(),
@@ -27,7 +38,6 @@ export async function GET(req) {
     opnames: opnames.map(o => ({
       ...o,
       totalItems: o.items.length,
-      totalSelisih: o.items.reduce((s, i) => s + Math.abs(i.selisih), 0),
       itemsOk: o.items.filter(i => i.selisih === 0).length,
       itemsSelisih: o.items.filter(i => i.selisih !== 0).length,
     })),
@@ -40,13 +50,18 @@ export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
 
-  const { note } = await req.json()
+  const { note, categories } = await req.json()
+  // categories: array string kategori yang dipilih, misal ['Persediaan', 'Bahan Baku']
 
-  // Ambil semua inventory item sebagai base
-  const inventoryItems = await prisma.inventoryItem.findMany({ orderBy: [{ category: 'asc' }, { name: 'asc' }] })
-  if (!inventoryItems.length) return NextResponse.json({ message: 'Belum ada item inventaris' }, { status: 400 })
+  if (!categories?.length) return NextResponse.json({ message: 'Pilih minimal satu kategori' }, { status: 400 })
 
-  // Cek apakah sudah ada opname hari ini yang masih DRAFT
+  const expenseItems = await prisma.expenseItem.findMany({
+    where: { isActive: true, category: { in: categories } },
+    orderBy: [{ category: 'asc' }, { name: 'asc' }],
+  })
+  if (!expenseItems.length) return NextResponse.json({ message: 'Tidak ada item pada kategori yang dipilih' }, { status: 400 })
+
+  // Cek opname hari ini yang masih DRAFT
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
   const existing = await prisma.stockOpname.findFirst({
@@ -57,12 +72,15 @@ export async function POST(req) {
   const opname = await prisma.stockOpname.create({
     data: {
       note: note || '',
+      categories: categories.join(', '),
       userId: user.id,
       items: {
-        create: inventoryItems.map(item => ({
-          inventoryItemId: item.id,
-          qtySystem: item.qty,
-          qtyActual: item.qty, // default sama dengan sistem
+        create: expenseItems.map(item => ({
+          expenseItemId: item.id,
+          itemName: item.name,
+          satuan: item.satuan || '',
+          qtySystem: 0,
+          qtyActual: 0,
           selisih: 0,
         })),
       },
@@ -70,8 +88,8 @@ export async function POST(req) {
     include: {
       user: { select: { name: true } },
       items: {
-        include: { inventoryItem: true },
-        orderBy: [{ inventoryItem: { category: 'asc' } }, { inventoryItem: { name: 'asc' } }],
+        include: { expenseItem: true },
+        orderBy: [{ expenseItem: { category: 'asc' } }, { expenseItem: { name: 'asc' } }],
       },
     },
   })

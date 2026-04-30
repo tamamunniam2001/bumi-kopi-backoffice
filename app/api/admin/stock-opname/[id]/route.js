@@ -12,8 +12,8 @@ export async function GET(req, { params }) {
     include: {
       user: { select: { name: true } },
       items: {
-        include: { inventoryItem: true },
-        orderBy: [{ inventoryItem: { category: 'asc' } }, { inventoryItem: { name: 'asc' } }],
+        include: { expenseItem: true },
+        orderBy: [{ expenseItem: { category: 'asc' } }, { itemName: 'asc' }],
       },
     },
   })
@@ -27,13 +27,29 @@ export async function PATCH(req, { params }) {
   const { id } = await params
   const body = await req.json()
 
+  // Tambah item manual
+  if (body.action === 'add-item') {
+    const { itemName, satuan, qtySystem } = body
+    if (!itemName?.trim()) return NextResponse.json({ message: 'Nama item wajib diisi' }, { status: 400 })
+    const item = await prisma.stockOpnameItem.create({
+      data: {
+        opnameId: id,
+        itemName: itemName.trim(),
+        satuan: satuan || '',
+        isManual: true,
+        qtySystem: Number(qtySystem) || 0,
+        qtyActual: Number(qtySystem) || 0,
+        selisih: 0,
+      },
+      include: { expenseItem: true },
+    })
+    return NextResponse.json(item, { status: 201 })
+  }
+
   // Update satu item opname
   if (body.itemId !== undefined) {
     const { itemId, qtyActual, note } = body
-    const item = await prisma.stockOpnameItem.findUnique({
-      where: { id: itemId },
-      select: { qtySystem: true },
-    })
+    const item = await prisma.stockOpnameItem.findUnique({ where: { id: itemId }, select: { qtySystem: true } })
     if (!item) return NextResponse.json({ message: 'Item tidak ditemukan' }, { status: 404 })
 
     const updated = await prisma.stockOpnameItem.update({
@@ -47,26 +63,12 @@ export async function PATCH(req, { params }) {
     return NextResponse.json(updated)
   }
 
-  // Selesaikan opname — update status + sync qty inventaris
+  // Selesaikan opname
   if (body.action === 'selesai') {
-    const opname = await prisma.stockOpname.findUnique({
-      where: { id },
-      include: { items: { include: { inventoryItem: true } } },
-    })
+    const opname = await prisma.stockOpname.findUnique({ where: { id }, select: { status: true } })
     if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
     if (opname.status === 'SELESAI') return NextResponse.json({ message: 'Opname sudah selesai' }, { status: 400 })
-
-    // Update status opname + sync semua qty inventaris ke qtyActual
-    await prisma.$transaction([
-      prisma.stockOpname.update({ where: { id }, data: { status: 'SELESAI' } }),
-      ...opname.items.map(item =>
-        prisma.inventoryItem.update({
-          where: { id: item.inventoryItemId },
-          data: { qty: item.qtyActual },
-        })
-      ),
-    ])
-
+    await prisma.stockOpname.update({ where: { id }, data: { status: 'SELESAI' } })
     return NextResponse.json({ success: true })
   }
 
@@ -82,6 +84,17 @@ export async function DELETE(req, { params }) {
   const { error } = verifyAuth(req)
   if (error) return error
   const { id } = await params
+
+  // Cek apakah delete item manual (body ada itemId)
+  let body = {}
+  try { body = await req.json() } catch { }
+  if (body.itemId) {
+    const item = await prisma.stockOpnameItem.findUnique({ where: { id: body.itemId }, select: { isManual: true, opnameId: true } })
+    if (!item || item.opnameId !== id) return NextResponse.json({ message: 'Item tidak ditemukan' }, { status: 404 })
+    if (!item.isManual) return NextResponse.json({ message: 'Hanya item manual yang bisa dihapus' }, { status: 400 })
+    await prisma.stockOpnameItem.delete({ where: { id: body.itemId } })
+    return NextResponse.json({ success: true })
+  }
 
   const opname = await prisma.stockOpname.findUnique({ where: { id }, select: { status: true } })
   if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })

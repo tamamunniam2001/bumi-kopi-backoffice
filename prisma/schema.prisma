@@ -166,6 +166,7 @@ model ExpenseItem {
   isActive  Boolean         @default(true)
   createdAt DateTime        @default(now())
   details   ExpenseDetail[]
+  opnameItems StockOpnameItem[]
 }
 
 model ExpenseCategory {
@@ -254,15 +255,16 @@ model InventoryItem {
 }
 
 model StockOpname {
-  id        String            @id @default(cuid())
-  date      DateTime          @default(now())
-  note      String?           @default("")
-  status    OpnameStatus      @default(DRAFT)
-  userId    String
-  user      User              @relation(fields: [userId], references: [id])
-  items     StockOpnameItem[]
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id         String            @id @default(cuid())
+  date       DateTime          @default(now())
+  note       String?           @default("")
+  categories String?           @default("")
+  status     OpnameStatus      @default(DRAFT)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id])
+  items      StockOpnameItem[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   @@index([date])
   @@index([userId])
@@ -272,8 +274,13 @@ model StockOpnameItem {
   id              String        @id @default(cuid())
   opnameId        String
   opname          StockOpname   @relation(fields: [opnameId], references: [id], onDelete: Cascade)
-  inventoryItemId String
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+  expenseItemId   String?
+  expenseItem     ExpenseItem?  @relation(fields: [expenseItemId], references: [id])
+  itemName        String        @default("")
+  satuan          String?       @default("")
+  isManual        Boolean       @default(false)
   qtySystem       Float         @default(0)
   qtyActual       Float         @default(0)
   selisih         Float         @default(0)
@@ -281,6 +288,7 @@ model StockOpnameItem {
 
   @@index([opnameId])
   @@index([inventoryItemId])
+  @@index([expenseItemId])
 }
 
 enum OpnameStatus {

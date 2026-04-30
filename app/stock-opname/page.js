@@ -15,6 +15,8 @@ export default function StockOpnamePage() {
   const [creating, setCreating] = useState(false)
   const [note, setNote] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [availableCategories, setAvailableCategories] = useState([])
+  const [selectedCategories, setSelectedCategories] = useState([])
 
   // Detail view
   const [detail, setDetail] = useState(null) // opname object
@@ -26,6 +28,13 @@ export default function StockOpnamePage() {
   const [editingId, setEditingId] = useState(null)
   const [editVal, setEditVal] = useState('')
   const [editNote, setEditNote] = useState('')
+  const [showAddManual, setShowAddManual] = useState(false)
+  const [manualItem, setManualItem] = useState({ itemName: '', satuan: '', qtySystem: '' })
+  const [addingManual, setAddingManual] = useState(false)
+
+  useEffect(() => {
+    api.get('/admin/stock-opname?categories=1').then(r => setAvailableCategories(r.data)).catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -40,10 +49,11 @@ export default function StockOpnamePage() {
   useEffect(() => { load() }, [load])
 
   async function handleCreate() {
+    if (!selectedCategories.length) return alert('Pilih minimal satu kategori')
     setCreating(true)
     try {
-      const res = await api.post('/admin/stock-opname', { note })
-      setNote(''); setShowCreate(false)
+      const res = await api.post('/admin/stock-opname', { note, categories: selectedCategories })
+      setNote(''); setSelectedCategories([]); setShowCreate(false)
       await openDetail(res.data.id)
       load()
     } catch (e) {
@@ -84,6 +94,26 @@ export default function StockOpnamePage() {
     finally { setSaving(false) }
   }
 
+  async function handleAddManual() {
+    if (!manualItem.itemName.trim()) return alert('Nama item wajib diisi')
+    setAddingManual(true)
+    try {
+      const res = await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'add-item', ...manualItem })
+      setDetail(prev => ({ ...prev, items: [...prev.items, res.data] }))
+      setManualItem({ itemName: '', satuan: '', qtySystem: '' })
+      setShowAddManual(false)
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menambah item') }
+    finally { setAddingManual(false) }
+  }
+
+  async function handleDeleteManualItem(itemId) {
+    if (!confirm('Hapus item manual ini?')) return
+    try {
+      await api.delete(`/admin/stock-opname/${detail.id}`, { data: { itemId } })
+      setDetail(prev => ({ ...prev, items: prev.items.filter(i => i.id !== itemId) }))
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
+  }
+
   async function handleFinish() {
     if (!confirm('Selesaikan opname ini? Qty inventaris akan diperbarui sesuai qty aktual.')) return
     setFinishing(true)
@@ -109,9 +139,9 @@ export default function StockOpnamePage() {
 
   // ── Detail view ──
   if (detail || detailLoading) {
-    const cats = detail ? [...new Set(detail.items.map(i => i.inventoryItem.category).filter(Boolean))].sort() : []
+    const cats = detail ? [...new Set(detail.items.map(i => i.inventoryItem?.category).filter(Boolean))].sort() : []
     const filtered = detail ? detail.items.filter(i => {
-      const matchCat = !filterCat || i.inventoryItem.category === filterCat
+      const matchCat = !filterCat || i.inventoryItem?.category === filterCat
       const matchSelisih = !filterSelisih || i.selisih !== 0
       return matchCat && matchSelisih
     }) : []
@@ -141,10 +171,16 @@ export default function StockOpnamePage() {
               )}
             </div>
             {detail && isDraft && (
-              <button className="btn btn-primary" onClick={handleFinish} disabled={finishing} style={{ background: '#10B981', borderColor: '#10B981' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                {finishing ? 'Menyimpan...' : 'Selesaikan Opname'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-ghost" onClick={() => setShowAddManual(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Tambah Manual
+                </button>
+                <button className="btn btn-primary" onClick={handleFinish} disabled={finishing} style={{ background: '#10B981', borderColor: '#10B981' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {finishing ? 'Menyimpan...' : 'Selesaikan Opname'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -203,10 +239,13 @@ export default function StockOpnamePage() {
                           const selisih = item.selisih
                           return (
                             <tr key={item.id} style={{ background: selisih !== 0 ? '#FFF7F7' : undefined }}>
-                              <td><div style={{ fontWeight: '600', color: 'var(--text)' }}>{item.inventoryItem.name}</div></td>
-                              <td>{item.inventoryItem.category ? <span className="badge badge-blue">{item.inventoryItem.category}</span> : null}</td>
+                              <td>
+                                <div style={{ fontWeight: '600', color: 'var(--text)' }}>{item.inventoryItem?.name || item.itemName}</div>
+                                {item.isManual && <span style={{ fontSize: '10px', background: 'var(--orange-light)', color: 'var(--orange)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>Manual</span>}
+                              </td>
+                              <td>{item.inventoryItem?.category ? <span className="badge badge-blue">{item.inventoryItem.category}</span> : null}</td>
                               <td style={{ textAlign: 'center' }}>
-                                <span className="badge badge-gray">{fmt(item.qtySystem)} {item.inventoryItem.satuan}</span>
+                                <span className="badge badge-gray">{fmt(item.qtySystem)} {item.inventoryItem?.satuan || item.satuan}</span>
                               </td>
                               <td style={{ textAlign: 'center' }}>
                                 {isEditing ? (
@@ -223,7 +262,7 @@ export default function StockOpnamePage() {
                                   />
                                 ) : (
                                   <span className="badge badge-purple" style={{ cursor: isDraft ? 'pointer' : 'default' }} onClick={() => isDraft && startEdit(item)}>
-                                    {fmt(item.qtyActual)} {item.inventoryItem.satuan}
+                                    {fmt(item.qtyActual)} {item.inventoryItem?.satuan || item.satuan}
                                   </span>
                                 )}
                               </td>
@@ -248,7 +287,12 @@ export default function StockOpnamePage() {
                                       <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => setEditingId(null)}>Batal</button>
                                     </div>
                                   ) : (
-                                    <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '4px 10px', fontSize: '12px' }} onClick={() => startEdit(item)}>Edit</button>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '4px 10px', fontSize: '12px' }} onClick={() => startEdit(item)}>Edit</button>
+                                      {item.isManual && (
+                                        <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleDeleteManualItem(item.id)}>Hapus</button>
+                                      )}
+                                    </div>
                                   )}
                                 </td>
                               )}
@@ -362,9 +406,27 @@ export default function StockOpnamePage() {
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--muted)', background: 'var(--surface2)', borderRadius: '8px', padding: '10px 14px', border: '1px solid var(--border)' }}>
-                Opname akan dibuat berdasarkan semua item inventaris yang ada saat ini.
-              </div>
+              {availableCategories.length > 0 && (
+                <div>
+                  <label className="label">Kategori Persediaan</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', padding: '10px 12px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    {availableCategories.map(cat => (
+                      <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
+                        <input type="checkbox" checked={selectedCategories.includes(cat)}
+                          onChange={e => setSelectedCategories(prev => e.target.checked ? [...prev, cat] : prev.filter(c => c !== cat))}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer' }} />
+                        {cat}
+                      </label>
+                    ))}
+                  </div>
+                  {availableCategories.length > 1 && (
+                    <button type="button" style={{ marginTop: '6px', fontSize: '11px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      onClick={() => setSelectedCategories(selectedCategories.length === availableCategories.length ? [] : [...availableCategories])}>
+                      {selectedCategories.length === availableCategories.length ? 'Batal pilih semua' : 'Pilih semua'}
+                    </button>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                 <input className="input" placeholder="Misal: Opname bulanan Januari..." value={note} onChange={e => setNote(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && handleCreate()} />
@@ -374,6 +436,45 @@ export default function StockOpnamePage() {
               <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowCreate(false)}>Batal</button>
               <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleCreate} disabled={creating}>
                 {creating ? 'Membuat...' : 'Buat & Mulai Isi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah Item Manual */}
+      {showAddManual && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowAddManual(false) }}>
+          <div className="card fade-in" style={{ width: '400px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Tambah Item Manual</div>
+              <button onClick={() => setShowAddManual(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="label">Nama Item</label>
+                <input className="input" placeholder="Nama barang..." value={manualItem.itemName}
+                  onChange={e => setManualItem(p => ({ ...p, itemName: e.target.value }))} autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleAddManual()} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="pcs, kg, liter..." value={manualItem.satuan}
+                    onChange={e => setManualItem(p => ({ ...p, satuan: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Qty Sistem <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" type="number" step="any" min="0" placeholder="0" value={manualItem.qtySystem}
+                    onChange={e => setManualItem(p => ({ ...p, qtySystem: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowAddManual(false)}>Batal</button>
+              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleAddManual} disabled={addingManual}>
+                {addingManual ? 'Menambah...' : 'Tambah Item'}
               </button>
             </div>
           </div>
