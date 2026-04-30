@@ -14,9 +14,8 @@ export default function StockOpnamePage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [note, setNote] = useState('')
+  const [opnameDate, setOpnameDate] = useState(new Date().toISOString().slice(0, 10))
   const [showCreate, setShowCreate] = useState(false)
-  const [availableCategories, setAvailableCategories] = useState([])
-  const [selectedCategories, setSelectedCategories] = useState([])
 
   // Detail view
   const [detail, setDetail] = useState(null) // opname object
@@ -35,7 +34,6 @@ export default function StockOpnamePage() {
   useEffect(() => {
     api.get('/admin/stock-opname?categories=1').then(r => setAvailableCategories(r.data)).catch(() => {})
   }, [])
-
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -49,11 +47,10 @@ export default function StockOpnamePage() {
   useEffect(() => { load() }, [load])
 
   async function handleCreate() {
-    if (!selectedCategories.length) return alert('Pilih minimal satu kategori')
     setCreating(true)
     try {
-      const res = await api.post('/admin/stock-opname', { note, categories: selectedCategories })
-      setNote(''); setSelectedCategories([]); setShowCreate(false)
+      const res = await api.post('/admin/stock-opname', { note, categories: availableCategories, date: opnameDate })
+      setNote(''); setShowCreate(false)
       await openDetail(res.data.id)
       load()
     } catch (e) {
@@ -406,27 +403,10 @@ export default function StockOpnamePage() {
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {availableCategories.length > 0 && (
-                <div>
-                  <label className="label">Kategori Persediaan</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', padding: '10px 12px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    {availableCategories.map(cat => (
-                      <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
-                        <input type="checkbox" checked={selectedCategories.includes(cat)}
-                          onChange={e => setSelectedCategories(prev => e.target.checked ? [...prev, cat] : prev.filter(c => c !== cat))}
-                          style={{ width: '15px', height: '15px', cursor: 'pointer' }} />
-                        {cat}
-                      </label>
-                    ))}
-                  </div>
-                  {availableCategories.length > 1 && (
-                    <button type="button" style={{ marginTop: '6px', fontSize: '11px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      onClick={() => setSelectedCategories(selectedCategories.length === availableCategories.length ? [] : [...availableCategories])}>
-                      {selectedCategories.length === availableCategories.length ? 'Batal pilih semua' : 'Pilih semua'}
-                    </button>
-                  )}
-                </div>
-              )}
+              <div>
+                <label className="label">Tanggal</label>
+                <input type="date" className="input" value={opnameDate} onChange={e => setOpnameDate(e.target.value)} />
+              </div>
               <div>
                 <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                 <input className="input" placeholder="Misal: Opname bulanan Januari..." value={note} onChange={e => setNote(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && handleCreate()} />

@@ -50,8 +50,7 @@ export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
 
-  const { note, categories } = await req.json()
-  // categories: array string kategori yang dipilih, misal ['Persediaan', 'Bahan Baku']
+  const { note, categories, date } = await req.json()
 
   if (!categories?.length) return NextResponse.json({ message: 'Pilih minimal satu kategori' }, { status: 400 })
 
@@ -61,16 +60,18 @@ export async function POST(req) {
   })
   if (!expenseItems.length) return NextResponse.json({ message: 'Tidak ada item pada kategori yang dipilih' }, { status: 400 })
 
-  // Cek opname hari ini yang masih DRAFT
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  // Cek opname pada tanggal yang dipilih yang masih DRAFT
+  const opnameDate = date ? new Date(date) : new Date()
+  opnameDate.setHours(0, 0, 0, 0)
+  const nextDay = new Date(opnameDate); nextDay.setDate(opnameDate.getDate() + 1)
   const existing = await prisma.stockOpname.findFirst({
-    where: { date: { gte: today, lt: tomorrow }, status: 'DRAFT' },
+    where: { date: { gte: opnameDate, lt: nextDay }, status: 'DRAFT' },
   })
   if (existing) return NextResponse.json({ message: 'Sudah ada opname hari ini yang belum selesai', id: existing.id }, { status: 409 })
 
   const opname = await prisma.stockOpname.create({
     data: {
+      date: opnameDate,
       note: note || '',
       categories: categories.join(', '),
       userId: user.id,
