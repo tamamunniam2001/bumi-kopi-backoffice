@@ -92,7 +92,7 @@ export default function AIPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="ai-model-badge">
               <div className="ai-online-dot" />
-              Llama 3.3 · Groq
+              Gemini 1.5 Flash
             </div>
             {messages.length > 0 && (
               <button className="ai-clear-btn" onClick={() => setMessages([])}>
