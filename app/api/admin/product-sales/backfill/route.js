@@ -45,17 +45,39 @@ export async function POST(req) {
     return NextResponse.json({ fixed: 0, message: 'Tidak ada data null yang perlu diperbaiki' })
   }
 
-  // Update semua sekaligus dengan Promise.all
-  await Promise.all(nullItems.map(item =>
-    prisma.orderItem.update({
-      where: { id: item.id },
-      data: {
-        name: item.product?.name || 'Item Manual',
-        code: item.product?.code || '',
-        category: item.product?.category?.name || '',
-      },
+  // Pisah: item dengan produk vs tanpa produk
+  const withProduct = nullItems.filter(i => i.product)
+  const withoutProduct = nullItems.filter(i => !i.product)
+
+  // Update dalam batch kecil (10 per batch) agar tidak overload koneksi
+  const BATCH = 10
+  const batches = []
+  for (let i = 0; i < withProduct.length; i += BATCH) {
+    batches.push(withProduct.slice(i, i + BATCH))
+  }
+
+  for (const batch of batches) {
+    await prisma.$transaction(
+      batch.map(item =>
+        prisma.orderItem.update({
+          where: { id: item.id },
+          data: {
+            name: item.product.name,
+            code: item.product.code || '',
+            category: item.product.category?.name || '',
+          },
+        })
+      )
+    )
+  }
+
+  // Item tanpa productId → 'Item Manual' sekaligus pakai updateMany
+  if (withoutProduct.length > 0) {
+    await prisma.orderItem.updateMany({
+      where: { id: { in: withoutProduct.map(i => i.id) } },
+      data: { name: 'Item Manual', code: '', category: '' },
     })
-  ))
+  }
 
   return NextResponse.json({
     fixed: nullItems.length,
