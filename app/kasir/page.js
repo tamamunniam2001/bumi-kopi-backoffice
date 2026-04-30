@@ -702,8 +702,8 @@ function ManualItemButton({ onAdd, categories }) {
 
   function submit(e) {
     e.preventDefault()
-    if (!name || !price) return
-    onAdd({ id: `manual_${Date.now()}`, name, price: Number(price), stock: 999, imageUrl: null, category: category ? { name: category } : null })
+    if (!name.trim() || !price) return
+    onAdd({ id: `manual_${Date.now()}`, name: name.trim(), price: Number(price), stock: 999, imageUrl: null, category: category ? { name: category } : null })
     setName(''); setPrice(''); setCategory(''); setOpen(false)
   }
 

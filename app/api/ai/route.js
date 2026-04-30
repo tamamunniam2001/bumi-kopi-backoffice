@@ -58,9 +58,9 @@ async function buildFullContext() {
     prisma.expense.aggregate({ where: { date: { gte: lastMonthStart, lte: lastMonthEnd } }, _sum: { total: true } }),
     prisma.expense.aggregate({ where: { date: { gte: yearStart } }, _sum: { total: true } }),
     // Produk terlaris bulan ini
-    prisma.orderItem.groupBy({ by: ['name'], where: { transaction: { createdAt: { gte: monthStart, lte: monthEnd }, status: 'COMPLETED' } }, _sum: { qty: true, subtotal: true }, orderBy: { _sum: { subtotal: 'desc' } }, take: 10 }),
+    prisma.orderItem.groupBy({ by: ['name'], where: { name: { not: null }, transaction: { createdAt: { gte: monthStart, lte: monthEnd }, status: 'COMPLETED' } }, _sum: { qty: true, subtotal: true }, orderBy: { _sum: { subtotal: 'desc' } }, take: 10 }),
     // Produk terlaris tahun ini
-    prisma.orderItem.groupBy({ by: ['name'], where: { transaction: { createdAt: { gte: yearStart }, status: 'COMPLETED' } }, _sum: { qty: true, subtotal: true }, orderBy: { _sum: { subtotal: 'desc' } }, take: 10 }),
+    prisma.orderItem.groupBy({ by: ['name'], where: { name: { not: null }, transaction: { createdAt: { gte: yearStart }, status: 'COMPLETED' } }, _sum: { qty: true, subtotal: true }, orderBy: { _sum: { subtotal: 'desc' } }, take: 10 }),
     // Master data
     prisma.product.findMany({ where: { isActive: true }, select: { name: true, price: true, category: { select: { name: true } } }, orderBy: { name: 'asc' } }),
     prisma.ingredient.findMany({ orderBy: { name: 'asc' } }),
@@ -281,7 +281,7 @@ export async function POST(req) {
     const prevReport = await prisma.dailyReport.findFirst({ where: { date: { gte: prevDayStart, lte: prevDayEnd } } })
     const txData = await prisma.transaction.aggregate({ where: { createdAt: { gte: dayStart, lte: dayEnd }, status: 'COMPLETED' }, _count: true, _sum: { total: true } })
     const topProducts = await prisma.orderItem.groupBy({
-      by: ['name'], where: { transaction: { createdAt: { gte: dayStart, lte: dayEnd }, status: 'COMPLETED' } },
+      by: ['name'], where: { name: { not: null }, transaction: { createdAt: { gte: dayStart, lte: dayEnd }, status: 'COMPLETED' } },
       _sum: { qty: true, subtotal: true }, orderBy: { _sum: { subtotal: 'desc' } }, take: 3,
     })
 

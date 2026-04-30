@@ -16,6 +16,7 @@ export default function RekapProdukPage() {
   const [data, setData] = useState({ rows: [], total: 0, totalPages: 1 })
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [nullOnly, setNullOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
@@ -45,13 +46,14 @@ export default function RekapProdukPage() {
     finally { setMonthlyLoading(false) }
   }
 
-  async function load(p = page) {
+  async function load(p = page, overrideNullOnly = nullOnly) {
     setLoading(true)
     setSelected(new Set())
     try {
       const params = new URLSearchParams({ page: p })
       if (from) params.append('from', from)
       if (to) params.append('to', to)
+      if (overrideNullOnly) params.append('nullOnly', '1')
       const res = await api.get(`/admin/product-sales?${params}`)
       setData(res.data)
     } catch { }
@@ -65,7 +67,14 @@ export default function RekapProdukPage() {
   }, [])
 
   function handleFilter() { setPage(1); load(1) }
-  function handleReset() { setFrom(''); setTo(''); setPage(1); setTimeout(() => load(1), 0) }
+  function handleReset() { setFrom(''); setTo(''); setNullOnly(false); setPage(1); setTimeout(() => load(1, false), 0) }
+
+  function toggleNullOnly() {
+    const next = !nullOnly
+    setNullOnly(next)
+    setPage(1)
+    load(1, next)
+  }
 
   // ── Select ──
   function toggleSelect(id) {
@@ -329,7 +338,14 @@ export default function RekapProdukPage() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Filter
             </button>
-            {(from || to) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            {(from || to || nullOnly) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            <button onClick={toggleNullOnly}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '9px', border: `1.5px solid ${nullOnly ? '#FECACA' : 'var(--border)'}`, background: nullOnly ? '#FEF2F2' : 'var(--surface)', color: nullOnly ? 'var(--red)' : 'var(--text2)', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+              <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `2px solid ${nullOnly ? 'var(--red)' : 'var(--muted)'}`, background: nullOnly ? 'var(--red)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                {nullOnly && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              Tampilkan Data Null
+            </button>
           </div>
 
           {/* Hasil Import */}
@@ -423,8 +439,10 @@ export default function RekapProdukPage() {
                     <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
                     <div>Belum ada data transaksi produk</div>
                   </td></tr>
-                ) : data.rows.map((r, i) => (
-                  <tr key={i} style={{ background: selected.has(r.id) ? 'var(--accent-light)' : undefined }}>
+                ) : data.rows.map((r, i) => {
+                  const isNull = !r.name || r.name === 'Item Manual'
+                  return (
+                  <tr key={i} style={{ background: selected.has(r.id) ? 'var(--accent-light)' : isNull ? '#FFF8F8' : undefined }}>
                     <td>
                       <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)}
                         style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: 'var(--accent)' }} />
@@ -436,7 +454,14 @@ export default function RekapProdukPage() {
                         : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}
                     </td>
                     <td><span className="badge badge-gray">{r.category}</span></td>
-                    <td style={{ fontWeight: '600', color: 'var(--text)' }}>{r.name}</td>
+                    <td style={{ fontWeight: '600', color: isNull ? 'var(--red)' : 'var(--text)' }}>
+                      {isNull
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '11px', background: '#FEF2F2', color: 'var(--red)', border: '1px solid #FECACA', borderRadius: '5px', padding: '1px 6px', fontWeight: '700' }}>NULL</span>
+                            <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontWeight: '400' }}>Tidak ada nama</span>
+                          </span>
+                        : r.name}
+                    </td>
                     <td style={{ textAlign: 'center' }}><span className="badge badge-purple">{r.qty}</span></td>
                     <td style={{ textAlign: 'right', fontWeight: '700', color: 'var(--accent)' }}>{fmt(r.total)}</td>
                     <td>
@@ -446,7 +471,7 @@ export default function RekapProdukPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
               {!loading && data.rows.length > 0 && (
                 <tfoot>

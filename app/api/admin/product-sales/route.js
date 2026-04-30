@@ -33,15 +33,20 @@ export async function GET(req) {
     return NextResponse.json({ monthly, year })
   }
 
+  const nullOnly = searchParams.get('nullOnly') === '1'
   const txWhere = { status: 'COMPLETED' }
   if (from && to) txWhere.createdAt = {
     gte: new Date(`${from}T00:00:00+07:00`),
     lte: new Date(`${to}T23:59:59.999+07:00`),
   }
+  const itemWhere = {
+    transaction: txWhere,
+    ...(nullOnly ? { OR: [{ name: null }, { name: '' }] } : {}),
+  }
 
   const [rows, total] = await Promise.all([
     prisma.orderItem.findMany({
-      where: { transaction: txWhere },
+      where: itemWhere,
       include: {
         product: { select: { code: true, name: true, category: { select: { name: true } } } },
         transaction: { select: { createdAt: true } },
@@ -50,7 +55,7 @@ export async function GET(req) {
       take: limit,
       skip: (page - 1) * limit,
     }),
-    prisma.orderItem.count({ where: { transaction: txWhere } }),
+    prisma.orderItem.count({ where: itemWhere }),
   ])
 
   return NextResponse.json({

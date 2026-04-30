@@ -60,9 +60,10 @@ export async function POST(req) {
 
     const orderItems = items.map((item) => {
       const price = item.price || 0
+      const name = (item.name || '').trim() || 'Item Manual'
       return {
         productId: item.productId || null,
-        name: item.name || '',
+        name,
         code: item.code || '',
         category: item.category || '',
         qty: item.qty, price, subtotal: price * item.qty,
