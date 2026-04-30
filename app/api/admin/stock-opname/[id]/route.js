@@ -138,7 +138,6 @@ export async function DELETE(req, { params }) {
 
   const opname = await prisma.stockOpname.findUnique({ where: { id }, select: { status: true } })
   if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
-  if (opname.status === 'SELESAI') return NextResponse.json({ message: 'Opname yang sudah selesai tidak bisa dihapus' }, { status: 400 })
 
   await prisma.stockOpname.delete({ where: { id } })
   return NextResponse.json({ success: true })

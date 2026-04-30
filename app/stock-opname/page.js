@@ -322,7 +322,7 @@ export default function StockOpnamePage() {
                                 {harga > 0 ? fmtRp(harga) : <span style={{ color: 'var(--muted)' }}>—</span>}
                               </td>
                               <td style={{ textAlign: 'right' }}>
-                                {harga > 0 && qtyNow > 0
+                                {harga > 0 && qtyAsli > 0
                                   ? <span style={{ fontWeight: '700', color: '#8B5CF6', fontSize: '13px' }}>{fmtRp(nilaiStok)}</span>
                                   : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
                                 }
@@ -428,9 +428,7 @@ export default function StockOpnamePage() {
                           <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 10px', fontSize: '12px' }} onClick={() => openDetail(o.id)}>
                             {o.status === 'DRAFT' ? 'Isi' : 'Lihat'}
                           </button>
-                          {o.status === 'DRAFT' && (
-                            <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => handleDelete(o.id)}>Hapus</button>
-                          )}
+                          <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => handleDelete(o.id)}>Hapus</button>
                         </div>
                       </td>
                     </tr>
