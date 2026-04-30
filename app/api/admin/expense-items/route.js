@@ -21,9 +21,9 @@ export async function POST(req) {
   if (error) return error
   const denied = adminOnly(user)
   if (denied) return denied
-  const { code, name, category, satuan } = await req.json()
+  const { code, name, category, satuan, satuanOpname, konversi } = await req.json()
   try {
-    const item = await prisma.expenseItem.create({ data: { code: code || null, name, category: category || '', satuan: satuan || '' } })
+    const item = await prisma.expenseItem.create({ data: { code: code || null, name, category: category || '', satuan: satuan || '', satuanOpname: satuanOpname || '', konversi: konversi ? Number(konversi) : null } })
     return NextResponse.json(item, { status: 201 })
   } catch (e) {
     if (e.code === 'P2002') return NextResponse.json({ message: 'Kode sudah digunakan' }, { status: 400 })

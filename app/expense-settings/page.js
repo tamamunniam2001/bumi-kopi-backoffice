@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
-const empty = { code: '', name: '', category: '', satuan: '' }
+const empty = { code: '', name: '', category: '', satuan: '', satuanOpname: '', konversi: '' }
 
 export default function ExpenseSettingsPage() {
   const [items, setItems] = useState([])
@@ -180,6 +180,20 @@ export default function ExpenseSettingsPage() {
                   <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="pcs, kg, liter..." value={form.satuan}
                     onChange={e => setForm({ ...form, satuan: e.target.value })} style={{ marginBottom: '12px' }} />
+                  <label className="label">Konversi Satuan Opname <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                    <input className="input" placeholder={`Satuan opname (misal: pcs)`} value={form.satuanOpname}
+                      onChange={e => setForm({ ...form, satuanOpname: e.target.value })} />
+                    <div style={{ position: 'relative' }}>
+                      <input className="input" type="number" step="any" min="0" placeholder={`1 pcs = ? ${form.satuan || 'satuan'}`} value={form.konversi}
+                        onChange={e => setForm({ ...form, konversi: e.target.value })} />
+                    </div>
+                  </div>
+                  {form.satuanOpname && form.konversi && form.satuan && (
+                    <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'var(--accent-light)', borderRadius: '8px', border: '1px solid #C7D4F0', fontSize: '12px', color: 'var(--accent)', fontWeight: '600' }}>
+                      1 {form.satuanOpname} = {form.konversi} {form.satuan}
+                    </div>
+                  )}
                   <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="Pilih atau ketik kategori..." value={form.category}
                     onChange={e => setForm({ ...form, category: e.target.value })} style={{ marginBottom: '16px' }}
@@ -199,18 +213,19 @@ export default function ExpenseSettingsPage() {
               {/* List */}
               <div className="card" style={{ overflow: 'hidden' }}>
                 <table className="table">
-                  <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Kategori</th><th>Aksi</th></tr></thead>
+                  <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Konversi Opname</th><th>Kategori</th><th>Aksi</th></tr></thead>
                   <tbody>
                     {items.map(item => (
                       <tr key={item.id}>
                         <td>{item.code ? <span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code}</span> : null}</td>
                         <td style={{ fontWeight: '600' }}>{item.name}</td>
                         <td>{item.satuan ? <span className="badge badge-gray">{item.satuan}</span> : null}</td>
+                        <td>{item.satuanOpname && item.konversi ? <span className="badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0' }}>1 {item.satuanOpname} = {item.konversi} {item.satuan}</span> : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}</td>
                         <td>{item.category ? <span className="badge badge-blue">{item.category}</span> : null}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ background: '#EFF4FF', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 12px', fontSize: '12px' }}
-                              onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '' }); setEditId(item.id) }}>Edit</button>
+                              onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '', satuanOpname: item.satuanOpname || '', konversi: item.konversi || '' }); setEditId(item.id) }}>Edit</button>
                             <button className="btn btn-danger" style={{ padding: '5px 12px', fontSize: '12px' }}
                               onClick={() => handleDelete(item.id)}>Hapus</button>
                           </div>

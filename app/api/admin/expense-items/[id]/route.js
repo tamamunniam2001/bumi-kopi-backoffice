@@ -8,8 +8,8 @@ export async function PUT(req, { params }) {
   const denied = adminOnly(user)
   if (denied) return denied
   const { id } = await params
-  const { code, name, category, satuan } = await req.json()
-  const item = await prisma.expenseItem.update({ where: { id }, data: { code: code || null, name, category: category || '', satuan: satuan || '' } })
+  const { code, name, category, satuan, satuanOpname, konversi } = await req.json()
+  const item = await prisma.expenseItem.update({ where: { id }, data: { code: code || null, name, category: category || '', satuan: satuan || '', satuanOpname: satuanOpname || '', konversi: konversi ? Number(konversi) : null } })
   return NextResponse.json(item)
 }
 

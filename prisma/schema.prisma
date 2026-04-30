@@ -158,15 +158,17 @@ model SopItem {
 }
 
 model ExpenseItem {
-  id        String          @id @default(cuid())
-  code      String?         @unique
-  name      String
-  category  String?         @default("")
-  satuan    String?         @default("")
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  details   ExpenseDetail[]
-  opnameItems StockOpnameItem[]
+  id           String          @id @default(cuid())
+  code         String?         @unique
+  name         String
+  category     String?         @default("")
+  satuan       String?         @default("")
+  satuanOpname String?         @default("")
+  konversi     Float?          // 1 satuanOpname = konversi satuan
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  details      ExpenseDetail[]
+  opnameItems  StockOpnameItem[]
 }
 
 model ExpenseCategory {

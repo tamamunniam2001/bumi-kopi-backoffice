@@ -32,8 +32,10 @@ export default function StockOpnamePage() {
   const [editVal, setEditVal] = useState('')
   const [editNote, setEditNote] = useState('')
   const [showAddManual, setShowAddManual] = useState(false)
-  const [manualItem, setManualItem] = useState({ itemName: '', satuan: '', qtySystem: '' })
+  const [manualItem, setManualItem] = useState({ itemName: '', satuan: '', hargaTerakhir: '' })
   const [addingManual, setAddingManual] = useState(false)
+  const [search, setSearch] = useState('')
+  const [reopening, setReopening] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -79,11 +81,15 @@ export default function StockOpnamePage() {
   async function handleSaveItem(itemId) {
     setSaving(true)
     try {
-      await api.patch(`/admin/stock-opname/${detail.id}`, { itemId, qtyActual: Number(editVal), note: editNote })
+      // Jika ada konversi, editVal adalah dalam satuanOpname → konversi ke satuan asli
+      const item = detail.items.find(i => i.id === itemId)
+      const konversi = item?.konversi
+      const qtyToSave = konversi ? Number(editVal) * konversi : Number(editVal)
+      await api.patch(`/admin/stock-opname/${detail.id}`, { itemId, qtyActual: qtyToSave, note: editNote })
       setDetail(prev => ({
         ...prev,
         items: prev.items.map(i => i.id === itemId
-          ? { ...i, qtyActual: Number(editVal), note: editNote }
+          ? { ...i, qtyActual: qtyToSave, note: editNote }
           : i
         )
       }))
@@ -96,12 +102,22 @@ export default function StockOpnamePage() {
     if (!manualItem.itemName.trim()) return alert('Nama item wajib diisi')
     setAddingManual(true)
     try {
-      const res = await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'add-item', ...manualItem })
+      const res = await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'add-item', itemName: manualItem.itemName, satuan: manualItem.satuan, hargaTerakhir: manualItem.hargaTerakhir })
       setDetail(prev => ({ ...prev, items: [...prev.items, res.data] }))
-      setManualItem({ itemName: '', satuan: '', qtySystem: '' })
+      setManualItem({ itemName: '', satuan: '', hargaTerakhir: '' })
       setShowAddManual(false)
     } catch (e) { alert(e.response?.data?.message || 'Gagal menambah item') }
     finally { setAddingManual(false) }
+  }
+
+  async function handleReopen() {
+    if (!confirm('Buka kembali opname ini untuk diedit?')) return
+    setReopening(true)
+    try {
+      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'reopen' })
+      setDetail(prev => ({ ...prev, status: 'DRAFT' }))
+    } catch (e) { alert(e.response?.data?.message || 'Gagal membuka opname') }
+    finally { setReopening(false) }
   }
 
   async function handleDeleteManualItem(itemId) {
@@ -131,7 +147,11 @@ export default function StockOpnamePage() {
 
   function startEdit(item) {
     setEditingId(item.id)
-    setEditVal(String(item.qtyActual))
+    // Tampilkan dalam satuanOpname jika ada konversi
+    const displayQty = item.konversi && item.konversi > 0
+      ? String(item.qtyActual / item.konversi)
+      : String(item.qtyActual)
+    setEditVal(displayQty)
     setEditNote(item.note || '')
   }
 
@@ -140,8 +160,9 @@ export default function StockOpnamePage() {
     const cats = detail ? [...new Set(detail.items.map(i => i.inventoryItem?.category || i.expenseItem?.category).filter(Boolean))].sort() : []
     const filtered = detail ? detail.items.filter(i => {
       const matchCat = !filterCat || (i.inventoryItem?.category || i.expenseItem?.category) === filterCat
-      const matchSelisih = !filterSelisih || i.qtyActual === 0
-      return matchCat && matchSelisih
+      const matchBelum = !filterSelisih || i.qtyActual === 0
+      const matchSearch = !search || (i.inventoryItem?.name || i.itemName || '').toLowerCase().includes(search.toLowerCase())
+      return matchCat && matchBelum && matchSearch
     }) : []
     const isDraft = detail?.status === 'DRAFT'
 
@@ -167,18 +188,26 @@ export default function StockOpnamePage() {
                 </div>
               )}
             </div>
-            {detail && isDraft && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-ghost" onClick={() => setShowAddManual(true)}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Tambah Manual
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {detail && isDraft && (
+                <>
+                  <button className="btn btn-ghost" onClick={() => setShowAddManual(true)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Tambah Manual
+                  </button>
+                  <button className="btn btn-primary" onClick={handleFinish} disabled={finishing} style={{ background: '#10B981', borderColor: '#10B981' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {finishing ? 'Menyimpan...' : 'Selesaikan Opname'}
+                  </button>
+                </>
+              )}
+              {detail && !isDraft && (
+                <button className="btn btn-ghost" onClick={handleReopen} disabled={reopening}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  {reopening ? 'Membuka...' : 'Edit Opname'}
                 </button>
-                <button className="btn btn-primary" onClick={handleFinish} disabled={finishing} style={{ background: '#10B981', borderColor: '#10B981' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  {finishing ? 'Menyimpan...' : 'Selesaikan Opname'}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="content">
@@ -203,6 +232,10 @@ export default function StockOpnamePage() {
 
                 {/* Filter */}
                 <div className="card" style={{ padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative' }}>
+                    <svg style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input className="input" style={{ paddingLeft: '32px', width: '200px' }} placeholder="Cari nama barang..." value={search} onChange={e => setSearch(e.target.value)} />
+                  </div>
                   <select className="input" style={{ width: 'auto' }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
                     <option value="">Semua Kategori</option>
                     {cats.map(c => <option key={c} value={c}>{c}</option>)}
@@ -236,8 +269,15 @@ export default function StockOpnamePage() {
                         ) : filtered.map(item => {
                           const isEditing = editingId === item.id
                           const harga = item.hargaTerakhir || 0
-                          const qtyNow = isEditing ? (Number(editVal) || 0) : item.qtyActual
-                          const nilaiStok = qtyNow * harga
+                          const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan)
+                          const qtyAktualTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
+                          const qtySebelumnyaTampil = (item.satuanOpname && item.konversi && item.qtySebelumnya != null) ? item.qtySebelumnya / item.konversi : item.qtySebelumnya
+                          const qtyInputNow = isEditing ? (Number(editVal) || 0) : qtyAktualTampil
+                          // Nilai stok selalu pakai satuan asli × harga
+                          const qtyAsli = isEditing
+                            ? (item.konversi ? Number(editVal) * item.konversi : Number(editVal))
+                            : item.qtyActual
+                          const nilaiStok = qtyAsli * harga
                           return (
                             <tr key={item.id} style={{ background: item.qtyActual === 0 && !isEditing ? '#FFFBEB' : undefined }}>
                               <td>
@@ -246,27 +286,35 @@ export default function StockOpnamePage() {
                               </td>
                               <td>{item.inventoryItem?.category || item.expenseItem?.category ? <span className="badge badge-blue">{item.inventoryItem?.category || item.expenseItem?.category}</span> : null}</td>
                               <td style={{ textAlign: 'center' }}>
-                                {item.qtySebelumnya !== null && item.qtySebelumnya !== undefined
-                                  ? <span className="badge badge-gray">{fmt(item.qtySebelumnya)} {item.inventoryItem?.satuan || item.satuan}</span>
+                                {qtySebelumnyaTampil !== null && qtySebelumnyaTampil !== undefined
+                                  ? <span className="badge badge-gray">{fmt(qtySebelumnyaTampil)} {satuanTampil}</span>
                                   : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
                                 }
                               </td>
                               <td style={{ textAlign: 'center' }}>
                                 {isEditing ? (
-                                  <input
-                                    className="input"
-                                    type="number"
-                                    step="any"
-                                    min="0"
-                                    value={editVal}
-                                    onChange={e => setEditVal(e.target.value)}
-                                    style={{ width: '90px', textAlign: 'center', padding: '4px 8px' }}
-                                    autoFocus
-                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveItem(item.id); if (e.key === 'Escape') setEditingId(null) }}
-                                  />
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <input
+                                      className="input"
+                                      type="number"
+                                      step="any"
+                                      min="0"
+                                      value={editVal}
+                                      onChange={e => setEditVal(e.target.value)}
+                                      style={{ width: '80px', textAlign: 'center', padding: '4px 8px' }}
+                                      autoFocus
+                                      onKeyDown={e => { if (e.key === 'Enter') handleSaveItem(item.id); if (e.key === 'Escape') setEditingId(null) }}
+                                    />
+                                    <span style={{ fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{satuanTampil}</span>
+                                    {item.satuanOpname && item.konversi && (
+                                      <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-light)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                        = {fmt(Number(editVal) * item.konversi)} {item.inventoryItem?.satuan || item.satuan}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="badge badge-purple" style={{ cursor: isDraft ? 'pointer' : 'default' }} onClick={() => isDraft && startEdit(item)}>
-                                    {fmt(item.qtyActual)} {item.inventoryItem?.satuan || item.satuan}
+                                    {fmt(qtyAktualTampil)} {satuanTampil}
                                   </span>
                                 )}
                               </td>
@@ -443,8 +491,7 @@ export default function StockOpnamePage() {
               <div>
                 <label className="label">Nama Item</label>
                 <input className="input" placeholder="Nama barang..." value={manualItem.itemName}
-                  onChange={e => setManualItem(p => ({ ...p, itemName: e.target.value }))} autoFocus
-                  onKeyDown={e => e.key === 'Enter' && handleAddManual()} />
+                  onChange={e => setManualItem(p => ({ ...p, itemName: e.target.value }))} autoFocus />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -453,9 +500,13 @@ export default function StockOpnamePage() {
                     onChange={e => setManualItem(p => ({ ...p, satuan: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="label">Qty Sistem <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <input className="input" type="number" step="any" min="0" placeholder="0" value={manualItem.qtySystem}
-                    onChange={e => setManualItem(p => ({ ...p, qtySystem: e.target.value }))} />
+                  <label className="label">Harga/Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
+                    <input className="input" type="number" step="any" min="0" placeholder="0" value={manualItem.hargaTerakhir}
+                      onChange={e => setManualItem(p => ({ ...p, hargaTerakhir: e.target.value }))}
+                      style={{ paddingLeft: '30px' }} />
+                  </div>
                 </div>
               </div>
             </div>

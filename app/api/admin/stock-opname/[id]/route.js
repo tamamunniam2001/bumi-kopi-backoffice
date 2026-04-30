@@ -49,6 +49,8 @@ export async function GET(req, { params }) {
     qtySebelumnya: i.expenseItemId
       ? (prevMap[i.expenseItemId] ?? null)
       : (prevMap[i.itemName] ?? null),
+    satuanOpname: i.expenseItem?.satuanOpname || null,
+    konversi: i.expenseItem?.konversi || null,
   }))
 
   return NextResponse.json({ ...opname, items })
@@ -62,7 +64,7 @@ export async function PATCH(req, { params }) {
 
   // Tambah item manual
   if (body.action === 'add-item') {
-    const { itemName, satuan, qtySystem } = body
+    const { itemName, satuan, hargaTerakhir } = body
     if (!itemName?.trim()) return NextResponse.json({ message: 'Nama item wajib diisi' }, { status: 400 })
     const item = await prisma.stockOpnameItem.create({
       data: {
@@ -70,13 +72,21 @@ export async function PATCH(req, { params }) {
         itemName: itemName.trim(),
         satuan: satuan || '',
         isManual: true,
-        qtySystem: Number(qtySystem) || 0,
-        qtyActual: Number(qtySystem) || 0,
+        qtySystem: 0,
+        qtyActual: 0,
         selisih: 0,
       },
       include: { expenseItem: true },
     })
-    return NextResponse.json(item, { status: 201 })
+    return NextResponse.json({ ...item, hargaTerakhir: Number(hargaTerakhir) || null, qtySebelumnya: null }, { status: 201 })
+  }
+
+  // Buka kembali opname SELESAI untuk diedit
+  if (body.action === 'reopen') {
+    const opname = await prisma.stockOpname.findUnique({ where: { id }, select: { status: true } })
+    if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
+    await prisma.stockOpname.update({ where: { id }, data: { status: 'DRAFT' } })
+    return NextResponse.json({ success: true })
   }
 
   // Update satu item opname
