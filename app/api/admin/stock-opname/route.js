@@ -58,8 +58,9 @@ export async function POST(req) {
   })
   if (!expenseItems.length) return NextResponse.json({ message: 'Belum ada item persediaan. Tambahkan dulu di menu Item Pengeluaran.' }, { status: 400 })
 
-  // Cek opname pada tanggal yang dipilih yang masih DRAFT
-  const opnameDate = date ? new Date(date) : new Date()
+  // Timezone WIB (UTC+7)
+  const now = date ? new Date(`${date}T00:00:00+07:00`) : new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+  const opnameDate = new Date(now)
   opnameDate.setHours(0, 0, 0, 0)
   const nextDay = new Date(opnameDate); nextDay.setDate(opnameDate.getDate() + 1)
   const existing = await prisma.stockOpname.findFirst({

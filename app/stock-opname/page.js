@@ -4,7 +4,8 @@ import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
 const fmt = n => Number(n) % 1 !== 0 ? Number(n).toLocaleString('id-ID', { maximumFractionDigits: 4 }) : Number(n).toLocaleString('id-ID')
-const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+const fmtRp = n => 'Rp ' + Number(n).toLocaleString('id-ID', { maximumFractionDigits: 0 })
+const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
 
 export default function StockOpnamePage() {
   const [opnames, setOpnames] = useState([])
@@ -14,7 +15,10 @@ export default function StockOpnamePage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [note, setNote] = useState('')
-  const [opnameDate, setOpnameDate] = useState(new Date().toISOString().slice(0, 10))
+  const [opnameDate, setOpnameDate] = useState(() => {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+    return now.toISOString().slice(0, 10)
+  })
   const [showCreate, setShowCreate] = useState(false)
 
   // Detail view
@@ -79,7 +83,7 @@ export default function StockOpnamePage() {
       setDetail(prev => ({
         ...prev,
         items: prev.items.map(i => i.id === itemId
-          ? { ...i, qtyActual: Number(editVal), selisih: Number(editVal) - i.qtySystem, note: editNote }
+          ? { ...i, qtyActual: Number(editVal), note: editNote }
           : i
         )
       }))
@@ -133,13 +137,12 @@ export default function StockOpnamePage() {
 
   // ── Detail view ──
   if (detail || detailLoading) {
-    const cats = detail ? [...new Set(detail.items.map(i => i.inventoryItem?.category).filter(Boolean))].sort() : []
+    const cats = detail ? [...new Set(detail.items.map(i => i.inventoryItem?.category || i.expenseItem?.category).filter(Boolean))].sort() : []
     const filtered = detail ? detail.items.filter(i => {
-      const matchCat = !filterCat || i.inventoryItem?.category === filterCat
-      const matchSelisih = !filterSelisih || i.selisih !== 0
+      const matchCat = !filterCat || (i.inventoryItem?.category || i.expenseItem?.category) === filterCat
+      const matchSelisih = !filterSelisih || i.qtyActual === 0
       return matchCat && matchSelisih
     }) : []
-    const totalSelisih = detail ? detail.items.filter(i => i.selisih !== 0).length : 0
     const isDraft = detail?.status === 'DRAFT'
 
     return (
@@ -187,11 +190,12 @@ export default function StockOpnamePage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                   {[
                     { label: 'Total Item', val: detail.items.length, color: '#4A7CC7' },
-                    { label: 'Sesuai', val: detail.items.filter(i => i.selisih === 0).length, color: '#10B981' },
-                    { label: 'Selisih', val: totalSelisih, color: totalSelisih > 0 ? '#EF4444' : '#10B981' },
+                    { label: 'Sudah Diisi', val: detail.items.filter(i => i.qtyActual > 0).length, color: '#10B981' },
+                    { label: 'Belum Diisi', val: detail.items.filter(i => i.qtyActual === 0).length, color: '#F59E0B' },
+                    { label: 'Total Nilai', val: fmtRp(detail.items.reduce((s, i) => s + (i.qtyActual * (i.hargaTerakhir || 0)), 0)), color: '#8B5CF6', isText: true },
                   ].map(s => (
                     <div key={s.label} className="card" style={{ padding: '14px 18px' }}>
-                      <div style={{ fontSize: '22px', fontWeight: '800', color: s.color }}>{s.val}</div>
+                      <div style={{ fontSize: s.isText ? '16px' : '22px', fontWeight: '800', color: s.color }}>{s.val}</div>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{s.label}</div>
                     </div>
                   ))}
@@ -205,7 +209,7 @@ export default function StockOpnamePage() {
                   </select>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
                     <input type="checkbox" checked={filterSelisih} onChange={e => setFilterSelisih(e.target.checked)} style={{ width: '15px', height: '15px', cursor: 'pointer' }} />
-                    Tampilkan selisih saja
+                    Belum diisi saja
                   </label>
                   <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--muted)' }}>{filtered.length} item</span>
                 </div>
@@ -218,28 +222,34 @@ export default function StockOpnamePage() {
                         <tr>
                           <th>Nama Barang</th>
                           <th>Kategori</th>
-                          <th style={{ textAlign: 'center' }}>Qty Sistem</th>
-                          <th style={{ textAlign: 'center' }}>Qty Aktual</th>
-                          <th style={{ textAlign: 'center' }}>Selisih</th>
+                          <th style={{ textAlign: 'center' }}>Stok Sebelumnya</th>
+                          <th style={{ textAlign: 'center' }}>Qty Saat Ini</th>
+                          <th style={{ textAlign: 'right' }}>Harga Satuan</th>
+                          <th style={{ textAlign: 'right' }}>Nilai Stok</th>
                           <th>Catatan</th>
                           {isDraft && <th></th>}
                         </tr>
                       </thead>
                       <tbody>
                         {filtered.length === 0 ? (
-                          <tr><td colSpan={isDraft ? 7 : 6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Tidak ada item</td></tr>
+                          <tr><td colSpan={isDraft ? 8 : 7} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Tidak ada item</td></tr>
                         ) : filtered.map(item => {
                           const isEditing = editingId === item.id
-                          const selisih = item.selisih
+                          const harga = item.hargaTerakhir || 0
+                          const qtyNow = isEditing ? (Number(editVal) || 0) : item.qtyActual
+                          const nilaiStok = qtyNow * harga
                           return (
-                            <tr key={item.id} style={{ background: selisih !== 0 ? '#FFF7F7' : undefined }}>
+                            <tr key={item.id} style={{ background: item.qtyActual === 0 && !isEditing ? '#FFFBEB' : undefined }}>
                               <td>
                                 <div style={{ fontWeight: '600', color: 'var(--text)' }}>{item.inventoryItem?.name || item.itemName}</div>
                                 {item.isManual && <span style={{ fontSize: '10px', background: 'var(--orange-light)', color: 'var(--orange)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>Manual</span>}
                               </td>
-                              <td>{item.inventoryItem?.category ? <span className="badge badge-blue">{item.inventoryItem.category}</span> : null}</td>
+                              <td>{item.inventoryItem?.category || item.expenseItem?.category ? <span className="badge badge-blue">{item.inventoryItem?.category || item.expenseItem?.category}</span> : null}</td>
                               <td style={{ textAlign: 'center' }}>
-                                <span className="badge badge-gray">{fmt(item.qtySystem)} {item.inventoryItem?.satuan || item.satuan}</span>
+                                {item.qtySebelumnya !== null && item.qtySebelumnya !== undefined
+                                  ? <span className="badge badge-gray">{fmt(item.qtySebelumnya)} {item.inventoryItem?.satuan || item.satuan}</span>
+                                  : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
+                                }
                               </td>
                               <td style={{ textAlign: 'center' }}>
                                 {isEditing ? (
@@ -260,12 +270,13 @@ export default function StockOpnamePage() {
                                   </span>
                                 )}
                               </td>
-                              <td style={{ textAlign: 'center' }}>
-                                {selisih === 0
-                                  ? <span className="badge" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}>0</span>
-                                  : <span className="badge" style={{ background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA', fontWeight: 700 }}>
-                                      {selisih > 0 ? '+' : ''}{fmt(selisih)}
-                                    </span>
+                              <td style={{ textAlign: 'right', fontSize: '12px', color: 'var(--muted)' }}>
+                                {harga > 0 ? fmtRp(harga) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                {harga > 0 && qtyNow > 0
+                                  ? <span style={{ fontWeight: '700', color: '#8B5CF6', fontSize: '13px' }}>{fmtRp(nilaiStok)}</span>
+                                  : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>
                                 }
                               </td>
                               <td style={{ fontSize: '12px', color: 'var(--muted)' }}>

@@ -18,7 +18,40 @@ export async function GET(req, { params }) {
     },
   })
   if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
-  return NextResponse.json(opname)
+
+  // Ambil harga terakhir & stok opname sebelumnya per expenseItemId
+  const expenseItemIds = opname.items.map(i => i.expenseItemId).filter(Boolean)
+
+  const [lastPrices, prevOpname] = await Promise.all([
+    // Harga terakhir dari ExpenseDetail per item
+    prisma.expenseDetail.findMany({
+      where: { expenseItemId: { in: expenseItemIds } },
+      orderBy: { expense: { date: 'desc' } },
+      distinct: ['expenseItemId'],
+      select: { expenseItemId: true, harga: true, satuan: true },
+    }),
+    // Opname SELESAI terakhir sebelum opname ini
+    prisma.stockOpname.findFirst({
+      where: { status: 'SELESAI', date: { lt: opname.date } },
+      orderBy: { date: 'desc' },
+      include: { items: { select: { expenseItemId: true, itemName: true, qtyActual: true } } },
+    }),
+  ])
+
+  const priceMap = Object.fromEntries(lastPrices.map(p => [p.expenseItemId, p.harga]))
+  const prevMap = Object.fromEntries(
+    (prevOpname?.items || []).map(i => [i.expenseItemId || i.itemName, i.qtyActual])
+  )
+
+  const items = opname.items.map(i => ({
+    ...i,
+    hargaTerakhir: i.expenseItemId ? (priceMap[i.expenseItemId] ?? null) : null,
+    qtySebelumnya: i.expenseItemId
+      ? (prevMap[i.expenseItemId] ?? null)
+      : (prevMap[i.itemName] ?? null),
+  }))
+
+  return NextResponse.json({ ...opname, items })
 }
 
 export async function PATCH(req, { params }) {
@@ -49,14 +82,11 @@ export async function PATCH(req, { params }) {
   // Update satu item opname
   if (body.itemId !== undefined) {
     const { itemId, qtyActual, note } = body
-    const item = await prisma.stockOpnameItem.findUnique({ where: { id: itemId }, select: { qtySystem: true } })
-    if (!item) return NextResponse.json({ message: 'Item tidak ditemukan' }, { status: 404 })
-
     const updated = await prisma.stockOpnameItem.update({
       where: { id: itemId },
       data: {
         qtyActual: Number(qtyActual),
-        selisih: Number(qtyActual) - item.qtySystem,
+        selisih: 0,
         note: note ?? '',
       },
     })
