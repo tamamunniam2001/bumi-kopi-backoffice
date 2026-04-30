@@ -2,19 +2,35 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const MODEL = 'llama-3.3-70b-versatile'
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
-async function groq(messages) {
-  const res = await fetch(GROQ_URL, {
+async function gemini(messages) {
+  // Pisah system prompt dari messages
+  const systemMsg = messages.find(m => m.role === 'system')
+  const chatMsgs = messages.filter(m => m.role !== 'system')
+
+  const contents = chatMsgs.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+
+  const body = {
+    contents,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+  }
+  if (systemMsg) {
+    body.systemInstruction = { parts: [{ text: systemMsg.content }] }
+  }
+
+  const res = await fetch(GEMINI_URL + '?key=' + GEMINI_API_KEY, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + GROQ_API_KEY },
-    body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 2048 }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error('Groq error: ' + await res.text())
+  if (!res.ok) throw new Error('Gemini error: ' + await res.text())
   const data = await res.json()
-  return data.choices[0].message.content
+  return data.candidates[0].content.parts[0].text
 }
 
 const fmt = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
@@ -195,7 +211,7 @@ async function buildFullContext() {
 export async function POST(req) {
   const { error } = verifyAuth(req)
   if (error) return error
-  if (!GROQ_API_KEY) return NextResponse.json({ message: 'GROQ_API_KEY belum dikonfigurasi' }, { status: 500 })
+  if (!GEMINI_API_KEY) return NextResponse.json({ message: 'GEMINI_API_KEY belum dikonfigurasi' }, { status: 500 })
 
   const { mode, payload } = await req.json()
 
@@ -259,7 +275,7 @@ export async function POST(req) {
       + '3. **Rekomendasi** (3-4 saran konkret)\n'
       + '4. **Peringatan** (jika ada anomali atau pengeluaran yang perlu diperhatikan)'
 
-    const result = await groq([{ role: 'user', content: context }])
+    const result = await gemini([{ role: 'user', content: context }])
     return NextResponse.json({ result })
   }
 
@@ -305,7 +321,7 @@ export async function POST(req) {
       + 'CATATAN KASIR: ' + (report.catatan || '-') + '\n\n'
       + 'Buat ringkasan dalam format narasi yang natural (bukan bullet point), 3-4 paragraf pendek. Sertakan highlight positif, hal yang perlu diperhatikan, dan saran singkat untuk hari berikutnya.'
 
-    const result = await groq([{ role: 'user', content: context }])
+    const result = await gemini([{ role: 'user', content: context }])
     return NextResponse.json({ result, report: { date: report.date, cashier: report.cashier?.name } })
   }
 
@@ -330,7 +346,7 @@ export async function POST(req) {
       { role: 'user', content: question },
     ]
 
-    const result = await groq(messages)
+    const result = await gemini(messages)
     return NextResponse.json({ result })
   }
 
