@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
 
 async function gemini(messages) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY tidak ditemukan di environment')
+
   // Pisah system prompt dari messages
   const systemMsg = messages.find(m => m.role === 'system')
   const chatMsgs = messages.filter(m => m.role !== 'system')
@@ -219,7 +221,7 @@ async function buildFullContext() {
 export async function POST(req) {
   const { error } = verifyAuth(req)
   if (error) return error
-  if (!GEMINI_API_KEY) return NextResponse.json({ message: 'GEMINI_API_KEY belum dikonfigurasi' }, { status: 500 })
+  if (!process.env.GEMINI_API_KEY) return NextResponse.json({ message: 'GEMINI_API_KEY belum dikonfigurasi' }, { status: 500 })
 
   const { mode, payload } = await req.json()
 
