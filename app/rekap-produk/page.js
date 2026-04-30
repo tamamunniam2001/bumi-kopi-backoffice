@@ -33,6 +33,8 @@ export default function RekapProdukPage() {
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [nullStats, setNullStats] = useState(null)
+  const [backfilling, setBackfilling] = useState(false)
   const [monthly, setMonthly] = useState(Array.from({ length: 12 }, (_, m) => ({ month: m + 1, total: 0, qty: 0 })))
   const [year, setYear] = useState(new Date().getFullYear())
   const [monthlyLoading, setMonthlyLoading] = useState(true)
@@ -64,7 +66,21 @@ export default function RekapProdukPage() {
   useEffect(() => { loadMonthly() }, [])
   useEffect(() => {
     api.get('/admin/categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
+    api.get('/admin/product-sales/backfill').then(r => { if (r.data.total > 0) setNullStats(r.data) }).catch(() => {})
   }, [])
+
+  async function handleBackfill() {
+    if (!confirm(`Perbaiki ${nullStats.total} data null? Nama produk akan diisi otomatis dari master produk.`)) return
+    setBackfilling(true)
+    try {
+      const res = await api.post('/admin/product-sales/backfill')
+      alert(res.data.message)
+      setNullStats(null)
+      load(1)
+      loadMonthly()
+    } catch (e) { alert(e.response?.data?.message || 'Gagal backfill') }
+    finally { setBackfilling(false) }
+  }
 
   function handleFilter() { setPage(1); load(1) }
   function handleReset() { setFrom(''); setTo(''); setNullOnly(false); setPage(1); setTimeout(() => load(1, false), 0) }
@@ -122,10 +138,13 @@ export default function RekapProdukPage() {
 
   // ── Delete bulk ──
   async function handleDeleteSelected() {
-    if (!confirm(`Hapus ${selected.size} item yang dipilih?`)) return
+    if (!confirm(`Hapus ${selected.size} item yang dipilih? Seluruh transaksi terkait akan ikut dihapus.`)) return
     setDeleting(true)
     try {
-      await Promise.all([...selected].map(id => api.delete(`/admin/product-sales/${id}`)))
+      // Deduplikasi berdasarkan transactionId agar tidak double-delete
+      const txIds = new Set(data.rows.filter(r => selected.has(r.id)).map(r => r.transactionId))
+      const idsToDelete = [...txIds].map(txId => data.rows.find(r => r.transactionId === txId)?.id).filter(Boolean)
+      await Promise.all(idsToDelete.map(id => api.delete(`/admin/product-sales/${id}`)))
       setData(prev => ({
         ...prev,
         rows: prev.rows.filter(r => !selected.has(r.id)),
@@ -347,6 +366,25 @@ export default function RekapProdukPage() {
               Tampilkan Data Null
             </button>
           </div>
+
+          {/* Banner data null */}
+          {nullStats && (
+            <div className="slide-down" style={{ marginBottom: '16px', padding: '14px 18px', borderRadius: '12px', border: '1px solid #FDE68A', background: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400E' }}>Ditemukan {nullStats.total} data dengan nama produk kosong</div>
+                  <div style={{ fontSize: '12px', color: '#B45309', marginTop: '2px' }}>
+                    {nullStats.withProduct} item bisa diisi dari master produk · {nullStats.withoutProduct} item akan diisi sebagai "Item Manual"
+                  </div>
+                </div>
+              </div>
+              <button onClick={handleBackfill} disabled={backfilling}
+                style={{ padding: '8px 16px', borderRadius: '9px', border: 'none', background: '#F59E0B', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0, opacity: backfilling ? 0.6 : 1 }}>
+                {backfilling ? 'Memperbaiki...' : '✨ Perbaiki Sekarang'}
+              </button>
+            </div>
+          )}
 
           {/* Hasil Import */}
           {importResult && (

@@ -34,11 +34,11 @@ export async function DELETE(req, { params }) {
   const item = await prisma.orderItem.findUnique({ where: { id }, select: { transactionId: true } })
   if (!item) return NextResponse.json({ message: 'Item tidak ditemukan' }, { status: 404 })
 
-  await prisma.orderItem.delete({ where: { id } })
+  const { transactionId } = item
 
-  // Jika transaksi tidak punya item lagi, hapus transaksinya juga
-  const remaining = await prisma.orderItem.count({ where: { transactionId: item.transactionId } })
-  if (remaining === 0) await prisma.transaction.delete({ where: { id: item.transactionId } })
+  // Hapus semua OrderItem milik transaksi ini, lalu hapus transaksinya
+  await prisma.orderItem.deleteMany({ where: { transactionId } })
+  await prisma.transaction.delete({ where: { id: transactionId } })
 
-  return NextResponse.json({ message: 'Item dihapus' })
+  return NextResponse.json({ message: 'Transaksi dihapus' })
 }
