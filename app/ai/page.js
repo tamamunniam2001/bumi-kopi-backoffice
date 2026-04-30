@@ -56,8 +56,9 @@ export default function AIPage() {
         payload: { messages, question: q },
       })
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.result }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Gagal mendapat respons. Silakan coba lagi.' }])
+    } catch (e) {
+      const msg = e.response?.data?.message || 'Gagal mendapat respons. Silakan coba lagi.'
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }])
     } finally {
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)

@@ -28,8 +28,16 @@ async function gemini(messages) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error('Gemini error: ' + await res.text())
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('Gemini error:', errText)
+    throw new Error('Gemini error: ' + errText)
+  }
   const data = await res.json()
+  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    console.error('Gemini response unexpected:', JSON.stringify(data))
+    throw new Error('Gemini response kosong atau diblokir')
+  }
   return data.candidates[0].content.parts[0].text
 }
 
@@ -328,6 +336,7 @@ export async function POST(req) {
   // ── 3. CHAT ──
   if (mode === 'chat') {
     const { messages: chatHistory, question } = payload
+    if (!question?.trim()) return NextResponse.json({ message: 'Pertanyaan tidak boleh kosong' }, { status: 400 })
 
     const fullContext = await buildFullContext()
 
@@ -346,8 +355,13 @@ export async function POST(req) {
       { role: 'user', content: question },
     ]
 
-    const result = await gemini(messages)
-    return NextResponse.json({ result })
+    try {
+      const result = await gemini(messages)
+      return NextResponse.json({ result })
+    } catch (e) {
+      console.error('Chat error:', e.message)
+      return NextResponse.json({ message: e.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ message: 'Mode tidak valid' }, { status: 400 })
