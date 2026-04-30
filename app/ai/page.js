@@ -8,31 +8,60 @@ function MarkdownText({ text }) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^#{1,3} (.+)$/gm, '<div style="font-weight:800;font-size:14px;color:var(--text);margin:14px 0 6px">$1</div>')
     .replace(/^[-•] (.+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0"><span style="color:var(--accent);flex-shrink:0">•</span><span>$1</span></div>')
-    .replace(/^\d+\. (.+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0"><span style="color:var(--accent);flex-shrink:0;font-weight:700">$&</span></div>')
+    .replace(/^(\d+\. .+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0"><span style="color:var(--accent);flex-shrink:0;font-weight:700">$1</span></div>')
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g, '<br/>')
-  return <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--text2)' }} dangerouslySetInnerHTML={{ __html: html }} />
+  return <div style={{ fontSize: '13px', lineHeight: 1.8, color: 'var(--text2)' }} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 function Spinner() {
+  return <span className="ai-spinner" />
+}
+
+function TypingDots() {
   return (
-    <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', padding: '4px 0' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: `aiBounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+      ))}
+    </div>
   )
 }
 
+const TABS = [
+  { key: 'analyze', label: 'Analisis Pengeluaran', icon: '📊', color: '#4A7CC7', gradient: 'linear-gradient(135deg, #4A7CC7, #7AAAE0)' },
+  { key: 'summary', label: 'Ringkasan Laporan', icon: '📋', color: '#10B981', gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
+  { key: 'chat', label: 'Tanya Data', icon: '💬', color: '#8B5CF6', gradient: 'linear-gradient(135deg, #8B5CF6, #A78BFA)' },
+]
+
+const ANALYZE_FEATURES = [
+  'Perbandingan pengeluaran bulan ini vs bulan lalu',
+  'Breakdown per kategori & persentase',
+  'Deteksi item pengeluaran terbesar',
+  'Rekomendasi efisiensi & peringatan',
+]
+
+const SUMMARY_FEATURES = [
+  'Ringkasan performa penjualan hari itu',
+  'Perbandingan dengan hari sebelumnya',
+  'Produk terlaris & highlight transaksi',
+  'Saran & catatan untuk hari berikutnya',
+]
+
+const QUICK_QUESTIONS = [
+  'Berapa total penjualan hari ini?',
+  'Produk apa yang paling laris bulan ini?',
+  'Berapa total pengeluaran bulan ini?',
+  'Bagaimana laba bersih bulan ini?',
+]
+
 export default function AIPage() {
   const [tab, setTab] = useState('analyze')
-
-  // Analyze
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeResult, setAnalyzeResult] = useState(null)
-
-  // Summary
   const [summarizing, setSummarizing] = useState(false)
   const [summaryResult, setSummaryResult] = useState(null)
   const [summaryMeta, setSummaryMeta] = useState(null)
-
-  // Chat
   const [chatHistory, setChatHistory] = useState([])
   const [question, setQuestion] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -67,208 +96,148 @@ export default function AIPage() {
     setChatHistory(prev => [...prev, { role: 'user', content: q }])
     setChatLoading(true)
     try {
-      const res = await api.post('/ai', {
-        mode: 'chat',
-        payload: { messages: chatHistory, question: q },
-      })
+      const res = await api.post('/ai', { mode: 'chat', payload: { messages: chatHistory, question: q } })
       setChatHistory(prev => [...prev, { role: 'assistant', content: res.data.result }])
-    } catch (e) {
+    } catch {
       setChatHistory(prev => [...prev, { role: 'assistant', content: '❌ Gagal mendapat respons. Coba lagi.' }])
-    }
-    finally { setChatLoading(false) }
+    } finally { setChatLoading(false) }
   }
 
-  const tabs = [
-    { key: 'analyze', label: 'Analisis Pengeluaran', icon: '📊' },
-    { key: 'summary', label: 'Ringkasan Laporan', icon: '📋' },
-    { key: 'chat', label: 'Tanya Data', icon: '💬' },
-  ]
+  const activeTab = TABS.find(t => t.key === tab)
 
   return (
     <div className="page">
       <Sidebar />
       <main className="main">
-        <div className="topbar">
-          <div>
-            <div className="topbar-title">AI Assistant</div>
-            <div className="topbar-sub">Analisis cerdas berbasis data kedai kopi</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #EFF4FF, #F5F0FF)', padding: '8px 14px', borderRadius: '10px', border: '1px solid #C7D4F0' }}>
-            <span style={{ fontSize: '16px' }}>✨</span>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)' }}>Powered by Groq · Llama 3.3</span>
+        {/* Hero Topbar */}
+        <div className="ai-hero">
+          <div className="ai-hero-bg" />
+          <div className="ai-hero-content">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div className="ai-hero-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', letterSpacing: '-0.4px' }}>AI Assistant</div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>Analisis cerdas berbasis data kedai kopi</div>
+              </div>
+            </div>
+            <div className="ai-powered-badge">
+              <span style={{ fontSize: '14px' }}>✨</span>
+              <span>Powered by Groq · Llama 3.3</span>
+            </div>
           </div>
         </div>
 
         <div className="content">
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-            {tabs.map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                style={{ padding: '10px 20px', borderRadius: '10px', border: '1.5px solid', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '7px',
-                  background: tab === t.key ? 'var(--accent)' : 'var(--surface)',
-                  borderColor: tab === t.key ? 'var(--accent)' : 'var(--border)',
-                  color: tab === t.key ? '#fff' : 'var(--text2)',
-                  boxShadow: tab === t.key ? '0 4px 12px rgba(74,124,199,0.3)' : 'none',
-                }}>
-                <span>{t.icon}</span>{t.label}
+          <div className="ai-tabs">
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)} className={`ai-tab ${tab === t.key ? 'active' : ''}`}
+                style={tab === t.key ? { background: t.gradient, borderColor: 'transparent', color: '#fff', boxShadow: `0 6px 20px ${t.color}40` } : {}}>
+                <span className="ai-tab-icon">{t.icon}</span>
+                <span>{t.label}</span>
+                {tab === t.key && <span className="ai-tab-dot" />}
               </button>
             ))}
           </div>
 
-          {/* ── Tab: Analisis Pengeluaran ── */}
+          {/* ── Analisis Pengeluaran ── */}
           {tab === 'analyze' && (
-            <div style={{ display: 'grid', gridTemplateColumns: analyzeResult ? '1fr 1fr' : '1fr', gap: '20px', alignItems: 'start' }}>
-              <div className="card" style={{ padding: '28px' }}>
-                <div style={{ fontSize: '20px', marginBottom: '12px' }}>📊</div>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '8px' }}>Analisis Pengeluaran</div>
-                <div style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '24px' }}>
-                  AI akan menganalisis pola pengeluaran bulan ini, membandingkan dengan bulan lalu, mendeteksi anomali, dan memberikan rekomendasi efisiensi biaya.
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                  {['Perbandingan pengeluaran bulan ini vs bulan lalu', 'Breakdown per kategori & persentase', 'Deteksi item pengeluaran terbesar', 'Rekomendasi efisiensi & peringatan'].map((f, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text2)' }}>
-                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-light)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      </div>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '14px', gap: '8px' }}
-                  onClick={handleAnalyze} disabled={analyzing}>
-                  {analyzing ? <><Spinner /> Menganalisis...</> : <><span>✨</span> Analisis Sekarang</>}
-                </button>
-              </div>
-
+            <div className={`ai-panel-grid ${analyzeResult ? 'has-result' : ''}`}>
+              <FeatureCard
+                icon="📊" title="Analisis Pengeluaran"
+                desc="AI akan menganalisis pola pengeluaran bulan ini, membandingkan dengan bulan lalu, mendeteksi anomali, dan memberikan rekomendasi efisiensi biaya."
+                features={ANALYZE_FEATURES} featureColor="#4A7CC7" featureBg="#EBF1FB" featureBorder="#C7D4F0"
+                btnLabel="Analisis Sekarang" loading={analyzing} loadingLabel="Menganalisis..."
+                btnStyle={{ background: 'linear-gradient(135deg, #4A7CC7, #7AAAE0)', boxShadow: '0 6px 20px rgba(74,124,199,0.4)' }}
+                onClick={handleAnalyze}
+              />
               {analyzeResult && (
-                <div className="card fade-in" style={{ padding: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--accent), #7AAAE0)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '18px' }}>✨</span>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Hasil Analisis AI</div>
-                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Berdasarkan data pengeluaran terkini</div>
-                    </div>
-                    <button onClick={() => setAnalyzeResult(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '18px' }}>×</button>
-                  </div>
-                  <MarkdownText text={analyzeResult} />
-                </div>
+                <ResultCard
+                  icon="✨" title="Hasil Analisis AI" sub="Berdasarkan data pengeluaran terkini"
+                  gradient="linear-gradient(135deg, #4A7CC7, #7AAAE0)"
+                  onClose={() => setAnalyzeResult(null)} result={analyzeResult}
+                />
               )}
             </div>
           )}
 
-          {/* ── Tab: Ringkasan Laporan ── */}
+          {/* ── Ringkasan Laporan ── */}
           {tab === 'summary' && (
-            <div style={{ display: 'grid', gridTemplateColumns: summaryResult ? '1fr 1.5fr' : '1fr', gap: '20px', alignItems: 'start' }}>
-              <div className="card" style={{ padding: '28px' }}>
-                <div style={{ fontSize: '20px', marginBottom: '12px' }}>📋</div>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '8px' }}>Ringkasan Laporan Harian</div>
-                <div style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '24px' }}>
-                  AI akan membuat ringkasan narasi dari laporan harian terakhir — mencakup performa penjualan, pengeluaran, produk terlaris, dan saran untuk hari berikutnya.
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                  {['Ringkasan performa penjualan hari itu', 'Perbandingan dengan hari sebelumnya', 'Produk terlaris & highlight transaksi', 'Saran & catatan untuk hari berikutnya'].map((f, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text2)' }}>
-                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#F0FDF4', border: '1px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      </div>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '14px', gap: '8px', background: 'linear-gradient(135deg, #10B981, #34D399)', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                  onClick={handleSummary} disabled={summarizing}>
-                  {summarizing ? <><Spinner /> Membuat Ringkasan...</> : <><span>✨</span> Buat Ringkasan</>}
-                </button>
-              </div>
-
+            <div className={`ai-panel-grid ${summaryResult ? 'has-result' : ''}`}>
+              <FeatureCard
+                icon="📋" title="Ringkasan Laporan Harian"
+                desc="AI akan membuat ringkasan narasi dari laporan harian terakhir — mencakup performa penjualan, pengeluaran, produk terlaris, dan saran untuk hari berikutnya."
+                features={SUMMARY_FEATURES} featureColor="#10B981" featureBg="#F0FDF4" featureBorder="#A7F3D0"
+                btnLabel="Buat Ringkasan" loading={summarizing} loadingLabel="Membuat Ringkasan..."
+                btnStyle={{ background: 'linear-gradient(135deg, #10B981, #34D399)', boxShadow: '0 6px 20px rgba(16,185,129,0.4)' }}
+                onClick={handleSummary}
+              />
               {summaryResult && (
-                <div className="card fade-in" style={{ padding: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #10B981, #34D399)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '18px' }}>📋</span>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Ringkasan Laporan</div>
-                      {summaryMeta && <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{new Date(summaryMeta.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })} · {summaryMeta.cashier}</div>}
-                    </div>
-                    <button onClick={() => setSummaryResult(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '18px' }}>×</button>
-                  </div>
-                  <MarkdownText text={summaryResult} />
-                </div>
+                <ResultCard
+                  icon="📋" title="Ringkasan Laporan"
+                  sub={summaryMeta ? `${new Date(summaryMeta.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })} · ${summaryMeta.cashier}` : ''}
+                  gradient="linear-gradient(135deg, #10B981, #34D399)"
+                  onClose={() => setSummaryResult(null)} result={summaryResult}
+                />
               )}
             </div>
           )}
 
-          {/* ── Tab: Chat ── */}
+          {/* ── Chat ── */}
           {tab === 'chat' && (
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
-              {/* Header */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, #EFF4FF, #F5F8FE)' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--accent), #7AAAE0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>🤖</div>
+            <div className="ai-chat-card card">
+              {/* Chat Header */}
+              <div className="ai-chat-header">
+                <div className="ai-chat-avatar" style={{ background: 'linear-gradient(135deg, #8B5CF6, #A78BFA)' }}>🤖</div>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Tanya Data Kedai</div>
                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Tanya apa saja tentang penjualan, pengeluaran, dan laporan</div>
                 </div>
-                {chatHistory.length > 0 && (
-                  <button onClick={() => setChatHistory([])} style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: '7px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--muted)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Bersihkan
-                  </button>
-                )}
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="ai-status-dot" />
+                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '600' }}>Online</span>
+                  {chatHistory.length > 0 && (
+                    <button onClick={() => setChatHistory([])} className="ai-clear-btn">Bersihkan</button>
+                  )}
+                </div>
               </div>
 
               {/* Messages */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+              <div className="ai-messages">
                 {chatHistory.length === 0 ? (
-                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
-                    <div style={{ fontSize: '48px' }}>💬</div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>Tanya apa saja tentang data kedai</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', maxWidth: '500px', width: '100%' }}>
-                      {[
-                        'Berapa total penjualan hari ini?',
-                        'Produk apa yang paling laris bulan ini?',
-                        'Berapa total pengeluaran bulan ini?',
-                        'Bagaimana laba bersih bulan ini?',
-                      ].map((q, i) => (
-                        <button key={i} onClick={() => setQuestion(q)}
-                          style={{ padding: '10px 14px', borderRadius: '10px', border: '1.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--text2)', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', lineHeight: 1.4, transition: 'all 0.15s' }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}>
-                          {q}
-                        </button>
+                  <div className="ai-empty-state">
+                    <div className="ai-empty-icon">🤖</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text)' }}>Halo! Ada yang bisa saya bantu?</div>
+                    <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '4px' }}>Tanya apa saja tentang data kedai kopi kamu</div>
+                    <div className="ai-quick-grid">
+                      {QUICK_QUESTIONS.map((q, i) => (
+                        <button key={i} onClick={() => setQuestion(q)} className="ai-quick-btn">{q}</button>
                       ))}
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {chatHistory.map((msg, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '12px', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      <div key={i} className={`ai-msg-row ${msg.role}`}>
                         {msg.role === 'assistant' && (
-                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--accent), #7AAAE0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0, marginTop: '2px' }}>🤖</div>
+                          <div className="ai-chat-avatar sm" style={{ background: 'linear-gradient(135deg, #8B5CF6, #A78BFA)' }}>🤖</div>
                         )}
-                        <div style={{
-                          maxWidth: '75%', padding: '12px 16px', borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                          background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface2)',
-                          border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
-                          color: msg.role === 'user' ? '#fff' : 'var(--text2)',
-                          fontSize: '13px', lineHeight: 1.6,
-                        }}>
+                        <div className={`ai-bubble ${msg.role}`}>
                           {msg.role === 'user' ? msg.content : <MarkdownText text={msg.content} />}
                         </div>
                         {msg.role === 'user' && (
-                          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0, marginTop: '2px' }}>👤</div>
+                          <div className="ai-chat-avatar sm user">👤</div>
                         )}
                       </div>
                     ))}
                     {chatLoading && (
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--accent), #7AAAE0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>🤖</div>
-                        <div style={{ padding: '12px 16px', borderRadius: '16px 16px 16px 4px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', gap: '5px', alignItems: 'center' }}>
-                          {[0, 1, 2].map(i => (
-                            <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-                          ))}
-                        </div>
+                      <div className="ai-msg-row assistant">
+                        <div className="ai-chat-avatar sm" style={{ background: 'linear-gradient(135deg, #8B5CF6, #A78BFA)' }}>🤖</div>
+                        <div className="ai-bubble assistant"><TypingDots /></div>
                       </div>
                     )}
                     <div ref={chatEndRef} />
@@ -277,14 +246,16 @@ export default function AIPage() {
               </div>
 
               {/* Input */}
-              <form onSubmit={handleChat} style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', gap: '10px' }}>
-                <input className="input" placeholder="Tanya sesuatu... (misal: berapa penjualan hari ini?)" value={question}
-                  onChange={e => setQuestion(e.target.value)} style={{ flex: 1, fontSize: '13px' }} disabled={chatLoading} />
-                <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px', gap: '6px', flexShrink: 0 }} disabled={chatLoading || !question.trim()}>
+              <form onSubmit={handleChat} className="ai-input-bar">
+                <input className="input ai-input" placeholder="Tanya sesuatu... (misal: berapa penjualan hari ini?)"
+                  value={question} onChange={e => setQuestion(e.target.value)} disabled={chatLoading} />
+                <button type="submit" className="ai-send-btn" disabled={chatLoading || !question.trim()}
+                  style={{ background: chatLoading || !question.trim() ? 'var(--border)' : 'linear-gradient(135deg, #8B5CF6, #A78BFA)' }}>
                   {chatLoading ? <Spinner /> : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
                   )}
-                  Kirim
                 </button>
               </form>
             </div>
@@ -293,9 +264,117 @@ export default function AIPage() {
       </main>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+        .ai-hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #1E2A3B 0%, #2D3F5E 50%, #3A5080 100%); padding: 0 24px; height: 72px; display: flex; align-items: center; }
+        .ai-hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 50%, rgba(74,124,199,0.3) 0%, transparent 60%), radial-gradient(ellipse at 20% 50%, rgba(139,92,246,0.2) 0%, transparent 50%); pointer-events: none; }
+        .ai-hero-content { position: relative; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+        .ai-hero-icon { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ai-powered-badge { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); }
+
+        .ai-tabs { display: flex; gap: '8px'; margin-bottom: 24px; gap: 8px; }
+        .ai-tab { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 12px; border: 1.5px solid var(--border); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; background: var(--surface); color: var(--text2); position: relative; }
+        .ai-tab:hover:not(.active) { background: var(--surface2); border-color: #CBD5E1; transform: translateY(-1px); }
+        .ai-tab.active { color: #fff; }
+        .ai-tab-icon { font-size: 15px; }
+        .ai-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.7); margin-left: 2px; }
+
+        .ai-panel-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+        .ai-panel-grid.has-result { grid-template-columns: 1fr 1.2fr; }
+
+        .ai-feature-card { padding: 28px; }
+        .ai-feature-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+        .ai-feature-desc { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 22px; }
+        .ai-feature-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+        .ai-feature-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); }
+        .ai-feature-check { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ai-run-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+        .ai-run-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+        .ai-run-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .ai-result-card { padding: 24px; }
+        .ai-result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .ai-result-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .ai-result-close { margin-left: auto; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; color: var(--muted); font-size: 16px; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .ai-result-close:hover { background: var(--red-light); color: var(--red); border-color: #FECACA; }
+
+        .ai-chat-card { display: flex; flex-direction: column; height: calc(100vh - 220px); overflow: hidden; }
+        .ai-chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #FAFBFF, #F5F0FF); }
+        .ai-chat-avatar { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .ai-chat-avatar.sm { width: 32px; height: 32px; border-radius: 10px; font-size: 16px; margin-top: 2px; }
+        .ai-chat-avatar.user { background: var(--surface2); border: 1px solid var(--border); }
+        .ai-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); animation: aiPulse 2s ease-in-out infinite; }
+        .ai-clear-btn { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+        .ai-clear-btn:hover { background: var(--red-light); color: var(--red); border-color: #FECACA; }
+
+        .ai-messages { flex: 1; overflow-y: auto; padding: 24px; }
+        .ai-empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+        .ai-empty-icon { font-size: 52px; animation: aiFloat 3s ease-in-out infinite; }
+        .ai-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 520px; width: 100%; margin-top: 8px; }
+        .ai-quick-btn { padding: 11px 14px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 12px; cursor: pointer; font-family: inherit; text-align: left; line-height: 1.5; transition: all 0.15s; }
+        .ai-quick-btn:hover { border-color: #8B5CF6; color: #8B5CF6; background: #F5F0FF; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,0.15); }
+
+        .ai-msg-row { display: flex; gap: 10px; }
+        .ai-msg-row.user { justify-content: flex-end; }
+        .ai-msg-row.assistant { justify-content: flex-start; }
+        .ai-bubble { max-width: 75%; padding: 12px 16px; font-size: 13px; line-height: 1.7; }
+        .ai-bubble.user { background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: #fff; border-radius: 18px 18px 4px 18px; box-shadow: 0 4px 12px rgba(139,92,246,0.3); }
+        .ai-bubble.assistant { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 18px 18px 18px 4px; }
+
+        .ai-input-bar { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 10px; align-items: center; }
+        .ai-input { flex: 1; font-size: 13px; border-radius: 12px; padding: 11px 16px; }
+        .ai-send-btn { width: 44px; height: 44px; border-radius: 12px; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+        .ai-send-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 16px rgba(139,92,246,0.4); }
+        .ai-send-btn:disabled { cursor: not-allowed; }
+
+        .ai-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; display: inline-block; animation: aiSpin 0.7s linear infinite; }
+
+        @keyframes aiSpin { to { transform: rotate(360deg); } }
+        @keyframes aiBounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+        @keyframes aiFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes aiPulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.2); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.1); } }
       `}</style>
+    </div>
+  )
+}
+
+function FeatureCard({ icon, title, desc, features, featureColor, featureBg, featureBorder, btnLabel, loading, loadingLabel, btnStyle, onClick }) {
+  return (
+    <div className="card ai-feature-card fade-in">
+      <div style={{ fontSize: '28px', marginBottom: '14px' }}>{icon}</div>
+      <div className="ai-feature-title">{title}</div>
+      <div className="ai-feature-desc">{desc}</div>
+      <div className="ai-feature-list">
+        {features.map((f, i) => (
+          <div key={i} className="ai-feature-item">
+            <div className="ai-feature-check" style={{ background: featureBg, border: `1px solid ${featureBorder}` }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={featureColor} strokeWidth="3" strokeLinecap="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            {f}
+          </div>
+        ))}
+      </div>
+      <button className="ai-run-btn" style={btnStyle} onClick={onClick} disabled={loading}>
+        {loading ? <><span className="ai-spinner" /> {loadingLabel}</> : <><span>✨</span> {btnLabel}</>}
+      </button>
+    </div>
+  )
+}
+
+function ResultCard({ icon, title, sub, gradient, onClose, result }) {
+  return (
+    <div className="card ai-result-card fade-in">
+      <div className="ai-result-header">
+        <div className="ai-result-icon" style={{ background: gradient }}>
+          <span>{icon}</span>
+        </div>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>{title}</div>
+          {sub && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{sub}</div>}
+        </div>
+        <button className="ai-result-close" onClick={onClose}>×</button>
+      </div>
+      <MarkdownText text={result} />
     </div>
   )
 }
