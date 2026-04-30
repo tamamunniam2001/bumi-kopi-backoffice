@@ -31,9 +31,6 @@ export default function StockOpnamePage() {
   const [manualItem, setManualItem] = useState({ itemName: '', satuan: '', qtySystem: '' })
   const [addingManual, setAddingManual] = useState(false)
 
-  useEffect(() => {
-    api.get('/admin/stock-opname?categories=1').then(r => setAvailableCategories(r.data)).catch(() => {})
-  }, [])
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -49,7 +46,7 @@ export default function StockOpnamePage() {
   async function handleCreate() {
     setCreating(true)
     try {
-      const res = await api.post('/admin/stock-opname', { note, categories: availableCategories, date: opnameDate })
+      const res = await api.post('/admin/stock-opname', { note, date: opnameDate })
       setNote(''); setShowCreate(false)
       await openDetail(res.data.id)
       load()

@@ -50,15 +50,13 @@ export async function POST(req) {
   const { error, user } = verifyAuth(req)
   if (error) return error
 
-  const { note, categories, date } = await req.json()
-
-  if (!categories?.length) return NextResponse.json({ message: 'Pilih minimal satu kategori' }, { status: 400 })
+  const { note, date } = await req.json()
 
   const expenseItems = await prisma.expenseItem.findMany({
-    where: { isActive: true, category: { in: categories } },
+    where: { isActive: true },
     orderBy: [{ category: 'asc' }, { name: 'asc' }],
   })
-  if (!expenseItems.length) return NextResponse.json({ message: 'Tidak ada item pada kategori yang dipilih' }, { status: 400 })
+  if (!expenseItems.length) return NextResponse.json({ message: 'Belum ada item persediaan. Tambahkan dulu di menu Item Pengeluaran.' }, { status: 400 })
 
   // Cek opname pada tanggal yang dipilih yang masih DRAFT
   const opnameDate = date ? new Date(date) : new Date()
@@ -73,7 +71,7 @@ export async function POST(req) {
     data: {
       date: opnameDate,
       note: note || '',
-      categories: categories.join(', '),
+      categories: '',
       userId: user.id,
       items: {
         create: expenseItems.map(item => ({
