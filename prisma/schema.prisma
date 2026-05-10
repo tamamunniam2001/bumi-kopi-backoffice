@@ -286,6 +286,7 @@ model StockOpnameItem {
   qtySystem       Float         @default(0)
   qtyActual       Float         @default(0)
   selisih         Float         @default(0)
+  hargaManual     Float?        // harga satuan untuk item manual
   note            String?       @default("")
 
   @@index([opnameId])

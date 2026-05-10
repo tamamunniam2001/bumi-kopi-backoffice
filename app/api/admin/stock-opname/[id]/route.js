@@ -45,7 +45,9 @@ export async function GET(req, { params }) {
 
   const items = opname.items.map(i => ({
     ...i,
-    hargaTerakhir: i.expenseItemId ? (priceMap[i.expenseItemId] ?? null) : null,
+    hargaTerakhir: i.isManual
+      ? (i.hargaManual ?? null)
+      : (i.expenseItemId ? (priceMap[i.expenseItemId] ?? null) : null),
     qtySebelumnya: i.expenseItemId
       ? (prevMap[i.expenseItemId] ?? null)
       : (prevMap[i.itemName] ?? null),
@@ -75,10 +77,11 @@ export async function PATCH(req, { params }) {
         qtySystem: 0,
         qtyActual: 0,
         selisih: 0,
+        hargaManual: hargaTerakhir ? Number(hargaTerakhir) : null,
       },
       include: { expenseItem: true },
     })
-    return NextResponse.json({ ...item, hargaTerakhir: Number(hargaTerakhir) || null, qtySebelumnya: null }, { status: 201 })
+    return NextResponse.json({ ...item, hargaTerakhir: item.hargaManual, qtySebelumnya: null }, { status: 201 })
   }
 
   // Buka kembali opname SELESAI untuk diedit
@@ -91,13 +94,11 @@ export async function PATCH(req, { params }) {
 
   // Update satu item opname
   if (body.itemId !== undefined) {
-    const { itemId, qtyActual, note } = body
-    const updated = await prisma.stockOpnameItem.update({
-      where: { id: itemId },
-      data: { qtyActual: Number(qtyActual), selisih: 0, note: note ?? '' },
-    })
-    // Kembalikan hargaTerakhir dari body agar frontend bisa update state
-    return NextResponse.json({ ...updated, hargaTerakhir: body.hargaTerakhir ?? null })
+    const { itemId, qtyActual, note, hargaTerakhir } = body
+    const data = { qtyActual: Number(qtyActual), selisih: 0, note: note ?? '' }
+    if (hargaTerakhir != null) data.hargaManual = Number(hargaTerakhir)
+    const updated = await prisma.stockOpnameItem.update({ where: { id: itemId }, data })
+    return NextResponse.json({ ...updated, hargaTerakhir: updated.hargaManual ?? body.hargaTerakhir ?? null })
   }
 
   // Selesaikan opname
