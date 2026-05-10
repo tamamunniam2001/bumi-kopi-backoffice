@@ -79,7 +79,12 @@ export default function ExpenseSettingsPage() {
     setEditId(item.id)
   }, [])
 
+  const [search, setSearch] = useState('')
   const catNames = categories.map(c => c.name)
+  const handleSearch = useCallback(e => setSearch(e.target.value), [])
+  const filteredItems = items.filter(i =>
+    !search || i.name.toLowerCase().includes(search.toLowerCase()) || (i.code || '').toLowerCase().includes(search.toLowerCase()) || (i.category || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   function downloadTemplate() {
     const header = 'Kode,Nama,Kategori,Satuan'
@@ -228,10 +233,16 @@ export default function ExpenseSettingsPage() {
 
               {/* List */}
               <div className="card" style={{ overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ position: 'relative' }}>
+                    <svg style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input className="input" style={{ paddingLeft: '32px' }} placeholder="Cari nama, kode, atau kategori..." value={search} onChange={handleSearch} />
+                  </div>
+                </div>
                 <table className="table">
                   <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Konversi Opname</th><th>Kategori</th><th>Aksi</th></tr></thead>
                   <tbody>
-                    {items.map(item => (
+                    {filteredItems.map(item => (
                       <tr key={item.id}>
                         <td>{item.code ? <span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code}</span> : null}</td>
                         <td style={{ fontWeight: '600' }}>{item.name}</td>
@@ -251,8 +262,8 @@ export default function ExpenseSettingsPage() {
                         </td>
                       </tr>
                     ))}
-                    {items.length === 0 && (
-                      <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Belum ada item</td></tr>
+                    {filteredItems.length === 0 && (
+                      <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>{search ? 'Tidak ada item ditemukan' : 'Belum ada item'}</td></tr>
                     )}
                   </tbody>
                 </table>
