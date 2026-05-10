@@ -287,6 +287,8 @@ model StockOpnameItem {
   qtyActual       Float         @default(0)
   selisih         Float         @default(0)
   hargaManual     Float?        // harga satuan untuk item manual
+  isRequested     Boolean       @default(false)
+  requestQty      Float?        // qty yang direquest untuk restock
   note            String?       @default("")
 
   @@index([opnameId])

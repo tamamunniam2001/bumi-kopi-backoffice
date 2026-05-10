@@ -39,6 +39,10 @@ export default function StockOpnamePage() {
   const [reopening, setReopening] = useState(false)
   const [sortDetail, setSortDetail] = useState({ key: '', dir: 1 })
   const [sortList, setSortList] = useState({ key: 'date', dir: -1 })
+  const [requestingId, setRequestingId] = useState(null) // itemId yang sedang di-request
+  const [requestQtyVal, setRequestQtyVal] = useState('')
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [showLaporanRequest, setShowLaporanRequest] = useState(false)
 
   function toggleSortDetail(key) {
     setSortDetail(prev => prev.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 })
@@ -145,8 +149,28 @@ export default function StockOpnamePage() {
       await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'selesai' })
       setDetail(prev => ({ ...prev, status: 'SELESAI' }))
       load()
+      // Tampilkan popup laporan request jika ada item yang direquest
+      const hasRequest = detail.items.some(i => i.isRequested)
+      if (hasRequest) setShowLaporanRequest(true)
     } catch (e) { alert(e.response?.data?.message || 'Gagal menyelesaikan') }
     finally { setFinishing(false) }
+  }
+
+  async function handleSaveRequest(itemId) {
+    try {
+      const item = detail.items.find(i => i.id === itemId)
+      const isRequested = !item.isRequested
+      const qty = isRequested ? (Number(requestQtyVal) || null) : null
+      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'request-item', itemId, isRequested, requestQty: qty })
+      setDetail(prev => ({ ...prev, items: prev.items.map(i => i.id === itemId ? { ...i, isRequested, requestQty: qty } : i) }))
+      setRequestingId(null); setRequestQtyVal(''); setShowRequestModal(false)
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan request') }
+  }
+
+  function openRequestModal(item) {
+    setRequestingId(item.id)
+    setRequestQtyVal(item.requestQty ? String(item.requestQty) : '')
+    setShowRequestModal(true)
   }
 
   async function handleDelete(id) {
@@ -379,6 +403,9 @@ export default function StockOpnamePage() {
                                   ) : (
                                     <div style={{ display: 'flex', gap: '4px' }}>
                                       <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '4px 10px', fontSize: '12px' }} onClick={() => startEdit(item)}>Edit</button>
+                                      <button className="btn" style={{ background: item.isRequested ? '#FEF2F2' : '#FFF7ED', color: item.isRequested ? '#EF4444' : '#F59E0B', border: `1px solid ${item.isRequested ? '#FECACA' : '#FDE68A'}`, padding: '4px 8px', fontSize: '12px' }} onClick={() => openRequestModal(item)}>
+                                        {item.isRequested ? '✓ Request' : 'Request'}
+                                      </button>
                                       {item.isManual && (
                                         <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleDeleteManualItem(item.id)}>Hapus</button>
                                       )}
@@ -439,6 +466,121 @@ export default function StockOpnamePage() {
           </div>
         </div>
       )}
+      {/* Modal Request Item */}
+      {showRequestModal && requestingId && (() => {
+        const item = detail.items.find(i => i.id === requestingId)
+        const satuanTampil = (item?.satuanOpname && item?.konversi) ? item.satuanOpname : (item?.inventoryItem?.satuan || item?.satuan)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, backdropFilter: 'blur(6px)' }}
+            onClick={e => { if (e.target === e.currentTarget) { setShowRequestModal(false); setRequestingId(null) } }}>
+            <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #FFF7ED, #FFFBEB)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Request Restock</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{item?.inventoryItem?.name || item?.itemName}</div>
+                </div>
+                <button onClick={() => { setShowRequestModal(false); setRequestingId(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {item?.isRequested && (
+                  <div style={{ padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA', fontSize: '12px', color: '#EF4444', fontWeight: '600' }}>
+                    Item ini sudah direquest. Simpan dengan qty 0 atau kosong untuk batalkan request.
+                  </div>
+                )}
+                <div>
+                  <label className="label">Qty yang dibutuhkan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input className="input" type="number" step="any" min="0" placeholder="0" value={requestQtyVal}
+                      onChange={e => setRequestQtyVal(e.target.value)} autoFocus style={{ flex: 1 }} />
+                    <span style={{ fontSize: '13px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{satuanTampil}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
+                <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setShowRequestModal(false); setRequestingId(null) }}>Batal</button>
+                {item?.isRequested && (
+                  <button className="btn" style={{ flex: 1, justifyContent: 'center', background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA' }}
+                    onClick={async () => {
+                      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'request-item', itemId: requestingId, isRequested: false, requestQty: null })
+                      setDetail(prev => ({ ...prev, items: prev.items.map(i => i.id === requestingId ? { ...i, isRequested: false, requestQty: null } : i) }))
+                      setShowRequestModal(false); setRequestingId(null)
+                    }}>Batalkan Request</button>
+                )}
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#F59E0B', borderColor: '#F59E0B' }}
+                  onClick={() => handleSaveRequest(requestingId)}>
+                  {item?.isRequested ? 'Update Request' : 'Tandai Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Popup Laporan Request */}
+      {showLaporanRequest && detail && (() => {
+        const requested = detail.items.filter(i => i.isRequested)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 700, backdropFilter: 'blur(6px)' }}>
+            <div className="card fade-in" style={{ width: '520px', maxWidth: '96vw', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #FFF7ED, #FFFBEB)', flexShrink: 0 }}>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '2px' }}>📋 Laporan Request Restock</div>
+                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{fmtDate(detail.date)} · {requested.length} item perlu restock</div>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Nama Item</th>
+                      <th style={{ textAlign: 'center' }}>Stok Saat Ini</th>
+                      <th style={{ textAlign: 'center' }}>Qty Request</th>
+                      <th style={{ textAlign: 'right' }}>Est. Nilai</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requested.map(item => {
+                      const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan)
+                      const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
+                      const harga = item.hargaTerakhir || 0
+                      const estNilai = harga && item.requestQty ? item.requestQty * harga : null
+                      return (
+                        <tr key={item.id}>
+                          <td>
+                            <div style={{ fontWeight: '600', fontSize: '13px' }}>{item.inventoryItem?.name || item.itemName}</div>
+                            {item.expenseItem?.category && <span className="badge badge-blue" style={{ fontSize: '10px' }}>{item.expenseItem.category}</span>}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="badge badge-gray">{fmt(qtyTampil)} {satuanTampil}</span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {item.requestQty
+                              ? <span className="badge" style={{ background: '#FFF7ED', color: '#F59E0B', border: '1px solid #FDE68A', fontWeight: '700' }}>{fmt(item.requestQty)} {satuanTampil}</span>
+                              : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}
+                          </td>
+                          <td style={{ textAlign: 'right', fontSize: '13px', fontWeight: '700', color: '#8B5CF6' }}>
+                            {estNilai ? fmtRp(estNilai) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {requested.some(i => i.hargaTerakhir && i.requestQty) && (
+                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Total Estimasi</span>
+                    <span style={{ fontSize: '15px', fontWeight: '800', color: '#8B5CF6' }}>
+                      {fmtRp(requested.reduce((s, i) => s + ((i.hargaTerakhir || 0) * (i.requestQty || 0)), 0))}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', flexShrink: 0 }}>
+                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowLaporanRequest(false)}>Tutup</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       </div>
     )
   }
