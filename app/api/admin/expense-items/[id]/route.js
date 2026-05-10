@@ -35,6 +35,7 @@ export async function DELETE(req, { params }) {
   const ct = requireJson(req)
   if (ct) return ct
   const { id } = await params
-  await prisma.expenseItem.update({ where: { id }, data: { isActive: false } })
+  // Kosongkan code dulu agar constraint unique tidak menghalangi pemakaian ulang kode
+  await prisma.expenseItem.update({ where: { id }, data: { isActive: false, code: null } })
   return NextResponse.json({ message: 'Item dihapus' })
 }
