@@ -52,11 +52,20 @@ export async function POST(req) {
 
   const { note, date } = await req.json()
 
-  const expenseItems = await prisma.expenseItem.findMany({
-    where: { isActive: true },
-    orderBy: [{ category: 'asc' }, { name: 'asc' }],
-  })
+  const [expenseItems, prevManualItems] = await Promise.all([
+    prisma.expenseItem.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    }),
+    prisma.stockOpname.findFirst({
+      where: { status: 'SELESAI' },
+      orderBy: { date: 'desc' },
+      include: { items: { where: { isManual: true }, select: { itemName: true, satuan: true, hargaManual: true } } },
+    }),
+  ])
   if (!expenseItems.length) return NextResponse.json({ message: 'Belum ada item persediaan. Tambahkan dulu di menu Item Pengeluaran.' }, { status: 400 })
+
+  const manualItems = prevManualItems?.items || []
 
   // Parse tanggal sebagai WIB (UTC+7) — simpan sebagai noon WIB agar tidak geser hari
   const opnameDate = date
@@ -78,14 +87,25 @@ export async function POST(req) {
       categories: '',
       userId: user.id,
       items: {
-        create: expenseItems.map(item => ({
-          expenseItemId: item.id,
-          itemName: item.name,
-          satuan: item.satuan || '',
-          qtySystem: 0,
-          qtyActual: 0,
-          selisih: 0,
-        })),
+        create: [
+          ...expenseItems.map(item => ({
+            expenseItemId: item.id,
+            itemName: item.name,
+            satuan: item.satuan || '',
+            qtySystem: 0,
+            qtyActual: 0,
+            selisih: 0,
+          })),
+          ...manualItems.map(item => ({
+            itemName: item.itemName,
+            satuan: item.satuan || '',
+            isManual: true,
+            hargaManual: item.hargaManual,
+            qtySystem: 0,
+            qtyActual: 0,
+            selisih: 0,
+          })),
+        ],
       },
     },
     include: {
