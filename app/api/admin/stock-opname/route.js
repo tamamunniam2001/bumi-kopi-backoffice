@@ -58,13 +58,16 @@ export async function POST(req) {
   })
   if (!expenseItems.length) return NextResponse.json({ message: 'Belum ada item persediaan. Tambahkan dulu di menu Item Pengeluaran.' }, { status: 400 })
 
-  // Timezone WIB (UTC+7)
-  const now = date ? new Date(`${date}T00:00:00+07:00`) : new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
-  const opnameDate = new Date(now)
-  opnameDate.setHours(0, 0, 0, 0)
-  const nextDay = new Date(opnameDate); nextDay.setDate(opnameDate.getDate() + 1)
+  // Parse tanggal sebagai WIB (UTC+7) — simpan sebagai noon WIB agar tidak geser hari
+  const opnameDate = date
+    ? new Date(`${date}T12:00:00+07:00`)
+    : new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+
+  // Cek duplikat: bandingkan dalam rentang hari WIB
+  const startOfDay = new Date(`${date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })}T00:00:00+07:00`)
+  const endOfDay = new Date(`${date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })}T23:59:59+07:00`)
   const existing = await prisma.stockOpname.findFirst({
-    where: { date: { gte: opnameDate, lt: nextDay }, status: 'DRAFT' },
+    where: { date: { gte: startOfDay, lte: endOfDay }, status: 'DRAFT' },
   })
   if (existing) return NextResponse.json({ message: 'Sudah ada opname hari ini yang belum selesai', id: existing.id }, { status: 409 })
 
