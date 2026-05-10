@@ -360,6 +360,48 @@ export default function StockOpnamePage() {
             )}
           </div>
         </main>
+
+      {/* Modal Tambah Item Manual */}
+      {showAddManual && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowAddManual(false) }}>
+          <div className="card fade-in" style={{ width: '400px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Tambah Item Manual</div>
+              <button onClick={() => setShowAddManual(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="label">Nama Item</label>
+                <input className="input" placeholder="Nama barang..." value={manualItem.itemName}
+                  onChange={e => setManualItem(p => ({ ...p, itemName: e.target.value }))} autoFocus />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <input className="input" placeholder="pcs, kg, liter..." value={manualItem.satuan}
+                    onChange={e => setManualItem(p => ({ ...p, satuan: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Harga/Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
+                    <input className="input" type="number" step="any" min="0" placeholder="0" value={manualItem.hargaTerakhir}
+                      onChange={e => setManualItem(p => ({ ...p, hargaTerakhir: e.target.value }))}
+                      style={{ paddingLeft: '30px' }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowAddManual(false)}>Batal</button>
+              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleAddManual} disabled={addingManual}>
+                {addingManual ? 'Menambah...' : 'Tambah Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     )
   }
@@ -476,47 +518,6 @@ export default function StockOpnamePage() {
         </div>
       )}
 
-      {/* Modal Tambah Item Manual */}
-      {showAddManual && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, backdropFilter: 'blur(6px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowAddManual(false) }}>
-          <div className="card fade-in" style={{ width: '400px', maxWidth: '96vw', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #D8E4F4, #E8EEF8)' }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Tambah Item Manual</div>
-              <button onClick={() => setShowAddManual(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
-            </div>
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label className="label">Nama Item</label>
-                <input className="input" placeholder="Nama barang..." value={manualItem.itemName}
-                  onChange={e => setManualItem(p => ({ ...p, itemName: e.target.value }))} autoFocus />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <input className="input" placeholder="pcs, kg, liter..." value={manualItem.satuan}
-                    onChange={e => setManualItem(p => ({ ...p, satuan: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="label">Harga/Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
-                    <input className="input" type="number" step="any" min="0" placeholder="0" value={manualItem.hargaTerakhir}
-                      onChange={e => setManualItem(p => ({ ...p, hargaTerakhir: e.target.value }))}
-                      style={{ paddingLeft: '30px' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
-              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowAddManual(false)}>Batal</button>
-              <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }} onClick={handleAddManual} disabled={addingManual}>
-                {addingManual ? 'Menambah...' : 'Tambah Item'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
