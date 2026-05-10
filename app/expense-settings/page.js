@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Sidebar from '@/components/Sidebar'
 import api from '@/lib/api'
 
@@ -12,7 +12,10 @@ export default function ExpenseSettingsPage() {
   const [categories, setCategories] = useState([])
   const [newCat, setNewCat] = useState('')
   const [catSaving, setCatSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('items') // 'items' | 'categories'
+  const [activeTab, setActiveTab] = useState('items')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileRef = useRef(null)
 
   async function load() {
     const res = await api.get('/admin/expense-items')
@@ -28,9 +31,13 @@ export default function ExpenseSettingsPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (editId) await api.put(`/admin/expense-items/${editId}`, form)
-    else await api.post('/admin/expense-items', form)
-    setForm(empty); setEditId(null); load()
+    try {
+      if (editId) await api.put(`/admin/expense-items/${editId}`, form)
+      else await api.post('/admin/expense-items', form)
+      setForm(empty); setEditId(null); load()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal menyimpan item')
+    }
   }
 
   async function handleDelete(id) {
@@ -56,9 +63,21 @@ export default function ExpenseSettingsPage() {
     catch { alert('Gagal menghapus') }
   }
 
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState(null)
-  const fileRef = useRef(null)
+  function handleCancelEdit() { setForm(empty); setEditId(null) }
+  function handleClearImport() { setImportResult(null) }
+  function handleClickImport() { fileRef.current.click() }
+  const handleSetTab = useCallback((key) => setActiveTab(key), [])
+  const handleFormCode = useCallback(e => setForm(f => ({ ...f, code: e.target.value })), [])
+  const handleFormName = useCallback(e => setForm(f => ({ ...f, name: e.target.value })), [])
+  const handleFormSatuan = useCallback(e => setForm(f => ({ ...f, satuan: e.target.value })), [])
+  const handleFormSatuanOpname = useCallback(e => setForm(f => ({ ...f, satuanOpname: e.target.value })), [])
+  const handleFormKonversi = useCallback(e => setForm(f => ({ ...f, konversi: e.target.value })), [])
+  const handleFormCategory = useCallback(e => setForm(f => ({ ...f, category: e.target.value })), [])
+  const handleNewCat = useCallback(e => setNewCat(e.target.value), [])
+  const handleEditItem = useCallback((item) => {
+    setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '', satuanOpname: item.satuanOpname || '', konversi: item.konversi || '' })
+    setEditId(item.id)
+  }, [])
 
   const catNames = categories.map(c => c.name)
 
@@ -111,7 +130,7 @@ export default function ExpenseSettingsPage() {
             </button>
             <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
             <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
-              onClick={() => fileRef.current.click()} disabled={importing}>
+              onClick={handleClickImport} disabled={importing}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               {importing ? 'Mengimpor...' : 'Import CSV'}
             </button>
@@ -135,13 +154,13 @@ export default function ExpenseSettingsPage() {
                         </div>
                         {importResult.errors?.length > 0 && (
                           <div style={{ marginTop: '8px', maxHeight: '100px', overflowY: 'auto', background: '#FEF2F2', borderRadius: '6px', padding: '8px 10px', border: '1px solid #FECACA' }}>
-                            {importResult.errors.map((e, i) => <div key={i} style={{ fontSize: '11px', color: '#EF4444' }}>{e}</div>)}
+                            {importResult.errors.map((err, i) => <div key={i} style={{ fontSize: '11px', color: '#EF4444' }}>{err}</div>)}
                           </div>
                         )}
                       </>}
                 </div>
               </div>
-              <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+              <button onClick={handleClearImport} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -150,7 +169,7 @@ export default function ExpenseSettingsPage() {
           {/* Tabs */}
           <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'var(--surface2)', padding: '4px', borderRadius: '10px', width: 'fit-content', border: '1px solid var(--border)' }}>
             {[['items', 'Daftar Item'], ['categories', 'Kategori']].map(([key, label]) => (
-              <button key={key} onClick={() => setActiveTab(key)}
+              <button key={key} onClick={() => handleSetTab(key)}
                 style={{ padding: '7px 20px', borderRadius: '7px', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                   background: activeTab === key ? 'var(--surface)' : 'transparent',
                   color: activeTab === key ? 'var(--accent)' : 'var(--muted)',
@@ -173,21 +192,19 @@ export default function ExpenseSettingsPage() {
                 <form onSubmit={handleSubmit}>
                   <label className="label">Kode <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="BHN-001" value={form.code}
-                    onChange={e => setForm({ ...form, code: e.target.value })} style={{ marginBottom: '12px' }} />
+                    onChange={handleFormCode} style={{ marginBottom: '12px' }} />
                   <label className="label">Nama Item</label>
                   <input className="input" placeholder="Air Isi Ulang" value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })} required style={{ marginBottom: '12px' }} />
+                    onChange={handleFormName} required style={{ marginBottom: '12px' }} />
                   <label className="label">Satuan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="pcs, kg, liter..." value={form.satuan}
-                    onChange={e => setForm({ ...form, satuan: e.target.value })} style={{ marginBottom: '12px' }} />
+                    onChange={handleFormSatuan} style={{ marginBottom: '12px' }} />
                   <label className="label">Konversi Satuan Opname <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                    <input className="input" placeholder={`Satuan opname (misal: pcs)`} value={form.satuanOpname}
-                      onChange={e => setForm({ ...form, satuanOpname: e.target.value })} />
-                    <div style={{ position: 'relative' }}>
-                      <input className="input" type="number" step="any" min="0" placeholder={`1 pcs = ? ${form.satuan || 'satuan'}`} value={form.konversi}
-                        onChange={e => setForm({ ...form, konversi: e.target.value })} />
-                    </div>
+                    <input className="input" placeholder="Satuan opname (misal: pcs)" value={form.satuanOpname}
+                      onChange={handleFormSatuanOpname} />
+                    <input className="input" type="number" step="any" min="0" placeholder={`1 ${form.satuanOpname || 'pcs'} = ? ${form.satuan || 'satuan'}`} value={form.konversi}
+                      onChange={handleFormKonversi} />
                   </div>
                   {form.satuanOpname && form.konversi && form.satuan && (
                     <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'var(--accent-light)', borderRadius: '8px', border: '1px solid #C7D4F0', fontSize: '12px', color: 'var(--accent)', fontWeight: '600' }}>
@@ -196,8 +213,7 @@ export default function ExpenseSettingsPage() {
                   )}
                   <label className="label">Kategori <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
                   <input className="input" placeholder="Pilih atau ketik kategori..." value={form.category}
-                    onChange={e => setForm({ ...form, category: e.target.value })} style={{ marginBottom: '16px' }}
-                    list="cat-list" />
+                    onChange={handleFormCategory} style={{ marginBottom: '16px' }} list="cat-list" />
                   <datalist id="cat-list">
                     {catNames.map(c => <option key={c} value={c} />)}
                   </datalist>
@@ -205,7 +221,7 @@ export default function ExpenseSettingsPage() {
                     <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                       {editId ? 'Simpan' : 'Tambah'}
                     </button>
-                    {editId && <button type="button" className="btn btn-ghost" onClick={() => { setForm(empty); setEditId(null) }}>Batal</button>}
+                    {editId && <button type="button" className="btn btn-ghost" onClick={handleCancelEdit}>Batal</button>}
                   </div>
                 </form>
               </div>
@@ -220,12 +236,15 @@ export default function ExpenseSettingsPage() {
                         <td>{item.code ? <span className="badge badge-blue" style={{ fontFamily: 'monospace' }}>{item.code}</span> : null}</td>
                         <td style={{ fontWeight: '600' }}>{item.name}</td>
                         <td>{item.satuan ? <span className="badge badge-gray">{item.satuan}</span> : null}</td>
-                        <td>{item.satuanOpname && item.konversi ? <span className="badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0' }}>1 {item.satuanOpname} = {item.konversi} {item.satuan}</span> : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}</td>
+                        <td>{item.satuanOpname && item.konversi
+                          ? <span className="badge" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0' }}>1 {item.satuanOpname} = {item.konversi} {item.satuan}</span>
+                          : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}
+                        </td>
                         <td>{item.category ? <span className="badge badge-blue">{item.category}</span> : null}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ background: '#EFF4FF', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 12px', fontSize: '12px' }}
-                              onClick={() => { setForm({ code: item.code || '', name: item.name, category: item.category || '', satuan: item.satuan || '', satuanOpname: item.satuanOpname || '', konversi: item.konversi || '' }); setEditId(item.id) }}>Edit</button>
+                              onClick={() => handleEditItem(item)}>Edit</button>
                             <button className="btn btn-danger" style={{ padding: '5px 12px', fontSize: '12px' }}
                               onClick={() => handleDelete(item.id)}>Hapus</button>
                           </div>
@@ -233,7 +252,7 @@ export default function ExpenseSettingsPage() {
                       </tr>
                     ))}
                     {items.length === 0 && (
-                      <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Belum ada item</td></tr>
+                      <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Belum ada item</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -243,13 +262,12 @@ export default function ExpenseSettingsPage() {
 
           {activeTab === 'categories' && (
             <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px' }}>
-              {/* Form tambah kategori */}
               <div className="card" style={{ padding: '24px' }}>
                 <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text)' }}>Tambah Kategori</div>
                 <form onSubmit={handleAddCategory}>
                   <label className="label">Nama Kategori</label>
                   <input className="input" placeholder="Bahan Baku, Operasional..." value={newCat}
-                    onChange={e => setNewCat(e.target.value)} required style={{ marginBottom: '16px' }} autoFocus />
+                    onChange={handleNewCat} required style={{ marginBottom: '16px' }} autoFocus />
                   <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={catSaving}>
                     {catSaving ? 'Menyimpan...' : 'Tambah Kategori'}
                   </button>
@@ -259,7 +277,6 @@ export default function ExpenseSettingsPage() {
                 </div>
               </div>
 
-              {/* List kategori */}
               <div className="card" style={{ overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>
                   {categories.length} Kategori

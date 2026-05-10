@@ -23,7 +23,7 @@ export async function POST(req) {
   if (denied) return denied
   const { code, name, category, satuan, satuanOpname, konversi } = await req.json()
   try {
-    const item = await prisma.expenseItem.create({ data: { code: code || null, name, category: category || '', satuan: satuan || '', satuanOpname: satuanOpname || '', konversi: konversi ? Number(konversi) : null } })
+    const item = await prisma.expenseItem.create({ data: { code: code || null, name, category: category || '', satuan: satuan || '', satuanOpname: satuanOpname || '', konversi: konversi !== '' && konversi != null ? Number(konversi) : null } })
     return NextResponse.json(item, { status: 201 })
   } catch (e) {
     if (e.code === 'P2002') return NextResponse.json({ message: 'Kode sudah digunakan' }, { status: 400 })
