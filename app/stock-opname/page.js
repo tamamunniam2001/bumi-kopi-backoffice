@@ -39,8 +39,7 @@ export default function StockOpnamePage() {
   const [reopening, setReopening] = useState(false)
   const [sortDetail, setSortDetail] = useState({ key: '', dir: 1 })
   const [sortList, setSortList] = useState({ key: 'date', dir: -1 })
-  const [requestingId, setRequestingId] = useState(null) // itemId yang sedang di-request
-  const [requestQtyVal, setRequestQtyVal] = useState('')
+  const [requestingId, setRequestingId] = useState(null)
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [showLaporanRequest, setShowLaporanRequest] = useState(false)
 
@@ -172,16 +171,14 @@ export default function StockOpnamePage() {
     try {
       const item = detail.items.find(i => i.id === itemId)
       const isRequested = !item.isRequested
-      const qty = isRequested ? (Number(requestQtyVal) || null) : null
-      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'request-item', itemId, isRequested, requestQty: qty })
-      setDetail(prev => ({ ...prev, items: prev.items.map(i => i.id === itemId ? { ...i, isRequested, requestQty: qty } : i) }))
-      setRequestingId(null); setRequestQtyVal(''); setShowRequestModal(false)
+      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'request-item', itemId, isRequested, requestQty: null })
+      setDetail(prev => ({ ...prev, items: prev.items.map(i => i.id === itemId ? { ...i, isRequested, requestQty: null } : i) }))
+      setRequestingId(null); setShowRequestModal(false)
     } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan request') }
   }
 
   function openRequestModal(item) {
     setRequestingId(item.id)
-    setRequestQtyVal(item.requestQty ? String(item.requestQty) : '')
     setShowRequestModal(true)
   }
 
@@ -485,46 +482,32 @@ export default function StockOpnamePage() {
       {/* Modal Request Item */}
       {showRequestModal && requestingId && (() => {
         const item = detail.items.find(i => i.id === requestingId)
-        const satuanTampil = (item?.satuanOpname && item?.konversi) ? item.satuanOpname : (item?.inventoryItem?.satuan || item?.satuan)
+        const itemName = item?.inventoryItem?.name || item?.itemName
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, backdropFilter: 'blur(6px)' }}
             onClick={e => { if (e.target === e.currentTarget) { setShowRequestModal(false); setRequestingId(null) } }}>
-            <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #FFF7ED, #FFFBEB)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Request Restock</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>{item?.inventoryItem?.name || item?.itemName}</div>
+            <div className="card fade-in" style={{ width: '360px', maxWidth: '96vw', overflow: 'hidden' }}>
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', textAlign: 'center' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: item?.isRequested ? '#FEF2F2' : '#FFF7ED', border: `2px solid ${item?.isRequested ? '#FECACA' : '#FDE68A'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={item?.isRequested ? '#EF4444' : '#F59E0B'} strokeWidth="2.5" strokeLinecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                 </div>
-                <button onClick={() => { setShowRequestModal(false); setRequestingId(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>
-              </div>
-              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)', marginBottom: '4px' }}>
+                    {item?.isRequested ? 'Batalkan Request?' : 'Tandai Perlu Restock?'}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{itemName}</div>
+                </div>
                 {item?.isRequested && (
-                  <div style={{ padding: '10px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA', fontSize: '12px', color: '#EF4444', fontWeight: '600' }}>
-                    Item ini sudah direquest. Simpan dengan qty 0 atau kosong untuk batalkan request.
+                  <div style={{ padding: '8px 14px', background: '#FEF2F2', borderRadius: '8px', border: '1px solid #FECACA', fontSize: '12px', color: '#EF4444', fontWeight: '600', width: '100%' }}>
+                    Item ini sudah ditandai perlu restock
                   </div>
                 )}
-                <div>
-                  <label className="label">Qty yang dibutuhkan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input className="input" type="number" step="any" min="0" placeholder="0" value={requestQtyVal}
-                      onChange={e => setRequestQtyVal(e.target.value)} autoFocus style={{ flex: 1 }} />
-                    <span style={{ fontSize: '13px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{satuanTampil}</span>
-                  </div>
-                </div>
               </div>
-              <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', background: 'var(--surface2)' }}>
+              <div style={{ padding: '0 20px 20px', display: 'flex', gap: '8px' }}>
                 <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setShowRequestModal(false); setRequestingId(null) }}>Batal</button>
-                {item?.isRequested && (
-                  <button className="btn" style={{ flex: 1, justifyContent: 'center', background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA' }}
-                    onClick={async () => {
-                      await api.patch(`/admin/stock-opname/${detail.id}`, { action: 'request-item', itemId: requestingId, isRequested: false, requestQty: null })
-                      setDetail(prev => ({ ...prev, items: prev.items.map(i => i.id === requestingId ? { ...i, isRequested: false, requestQty: null } : i) }))
-                      setShowRequestModal(false); setRequestingId(null)
-                    }}>Batalkan Request</button>
-                )}
-                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#F59E0B', borderColor: '#F59E0B' }}
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: item?.isRequested ? '#EF4444' : '#F59E0B', borderColor: item?.isRequested ? '#EF4444' : '#F59E0B' }}
                   onClick={() => handleSaveRequest(requestingId)}>
-                  {item?.isRequested ? 'Update Request' : 'Tandai Request'}
+                  {item?.isRequested ? 'Batalkan' : 'Tandai Request'}
                 </button>
               </div>
             </div>
@@ -537,60 +520,37 @@ export default function StockOpnamePage() {
         const requested = detail.items.filter(i => i.isRequested)
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 700, backdropFilter: 'blur(6px)' }}>
-            <div className="card fade-in" style={{ width: '520px', maxWidth: '96vw', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #FFF7ED, #FFFBEB)', flexShrink: 0 }}>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text)', marginBottom: '2px' }}>📋 Laporan Request Restock</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{fmtDate(detail.date)} · {requested.length} item perlu restock</div>
-              </div>
-              <div style={{ overflowY: 'auto', flex: 1 }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Nama Item</th>
-                      <th style={{ textAlign: 'center' }}>Stok Saat Ini</th>
-                      <th style={{ textAlign: 'center' }}>Qty Request</th>
-                      <th style={{ textAlign: 'right' }}>Est. Nilai</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {requested.map(item => {
-                      const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan)
-                      const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
-                      const harga = item.hargaTerakhir || 0
-                      const estNilai = harga && item.requestQty ? item.requestQty * harga : null
-                      return (
-                        <tr key={item.id}>
-                          <td>
-                            <div style={{ fontWeight: '600', fontSize: '13px' }}>{item.inventoryItem?.name || item.itemName}</div>
-                            {item.expenseItem?.category && <span className="badge badge-blue" style={{ fontSize: '10px' }}>{item.expenseItem.category}</span>}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <span className="badge badge-gray">{fmt(qtyTampil)} {satuanTampil}</span>
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            {item.requestQty
-                              ? <span className="badge" style={{ background: '#FFF7ED', color: '#F59E0B', border: '1px solid #FDE68A', fontWeight: '700' }}>{fmt(item.requestQty)} {satuanTampil}</span>
-                              : <span style={{ color: 'var(--muted)', fontSize: '12px' }}>—</span>}
-                          </td>
-                          <td style={{ textAlign: 'right', fontSize: '13px', fontWeight: '700', color: '#8B5CF6' }}>
-                            {estNilai ? fmtRp(estNilai) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {requested.some(i => i.hargaTerakhir && i.requestQty) && (
-                  <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Total Estimasi</span>
-                    <span style={{ fontSize: '15px', fontWeight: '800', color: '#8B5CF6' }}>
-                      {fmtRp(requested.reduce((s, i) => s + ((i.hargaTerakhir || 0) * (i.requestQty || 0)), 0))}
-                    </span>
+            <div className="card fade-in" style={{ width: '420px', maxWidth: '96vw', overflow: 'hidden', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+              {/* Header */}
+              <div style={{ padding: '20px 24px 16px', background: 'linear-gradient(135deg, #FFF7ED, #FFFBEB)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                   </div>
-                )}
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text)' }}>Daftar Restock</div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '1px' }}>{requested.length} item perlu restock</div>
+                  </div>
+                </div>
               </div>
-              <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', flexShrink: 0 }}>
-                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowLaporanRequest(false)}>Tutup</button>
+              {/* List */}
+              <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {requested.map((item, i) => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#FFF7ED', border: '1px solid #FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px', fontWeight: '800', color: '#D97706' }}>{i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.inventoryItem?.name || item.itemName}</div>
+                      {(item.expenseItem?.category || item.inventoryItem?.category) && (
+                        <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>{item.expenseItem?.category || item.inventoryItem?.category}</div>
+                      )}
+                    </div>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
+                  </div>
+                ))}
+              </div>
+              {/* Footer */}
+              <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', flexShrink: 0 }}>
+                <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', background: '#F59E0B', borderColor: '#F59E0B' }} onClick={() => setShowLaporanRequest(false)}>Tutup</button>
               </div>
             </div>
           </div>
@@ -636,6 +596,9 @@ export default function StockOpnamePage() {
                     <th style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('status')}>
                       Status {sortList.key === 'status' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
                     </th>
+                    <th style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('totalNilai')}>
+                      Total Nilai {sortList.key === 'totalNilai' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                    </th>
                     <th>Catatan</th>
                     <th></th>
                   </tr>
@@ -644,7 +607,7 @@ export default function StockOpnamePage() {
                   {loading ? (
                     <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>Memuat...</td></tr>
                   ) : opnames.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
+                    <tr><td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>
                       <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
                       <div>Belum ada data stock opname</div>
                     </td></tr>
@@ -654,6 +617,7 @@ export default function StockOpnamePage() {
                     else if (sortList.key === 'totalItems') { va = a.totalItems; vb = b.totalItems }
                     else if (sortList.key === 'selisih') { va = a.itemsSelisih; vb = b.itemsSelisih }
                     else if (sortList.key === 'status') { va = a.status; vb = b.status }
+                    else if (sortList.key === 'totalNilai') { va = a.totalNilai; vb = b.totalNilai }
                     else { va = 0; vb = 0 }
                     if (va < vb) return -1 * sortList.dir
                     if (va > vb) return 1 * sortList.dir
@@ -676,6 +640,9 @@ export default function StockOpnamePage() {
                           border: `1px solid ${o.status === 'SELESAI' ? '#A7F3D0' : '#FDE68A'}`,
                           fontWeight: 700
                         }}>{o.status}</span>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: '700', color: '#8B5CF6', fontSize: '13px' }}>
+                        {o.totalNilai > 0 ? fmtRp(o.totalNilai) : <span style={{ color: 'var(--muted)', fontWeight: '400' }}>—</span>}
                       </td>
                       <td style={{ fontSize: '12px', color: 'var(--muted)' }}>{o.note}</td>
                       <td>

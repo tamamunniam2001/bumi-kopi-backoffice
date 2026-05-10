@@ -28,11 +28,21 @@ export async function GET(req) {
       skip: (page - 1) * limit,
       include: {
         user: { select: { name: true } },
-        items: { select: { id: true, selisih: true } },
+        items: { select: { id: true, selisih: true, qtyActual: true, hargaManual: true, expenseItemId: true } },
       },
     }),
     prisma.stockOpname.count(),
   ])
+
+  // Kumpulkan semua expenseItemId untuk ambil harga terakhir
+  const allExpenseItemIds = [...new Set(opnames.flatMap(o => o.items.map(i => i.expenseItemId).filter(Boolean)))]
+  const lastPrices = await prisma.expenseDetail.findMany({
+    where: { expenseItemId: { in: allExpenseItemIds } },
+    orderBy: { expense: { date: 'desc' } },
+    distinct: ['expenseItemId'],
+    select: { expenseItemId: true, harga: true },
+  })
+  const priceMap = Object.fromEntries(lastPrices.map(p => [p.expenseItemId, Number(p.harga)]))
 
   return NextResponse.json({
     opnames: opnames.map(o => ({
@@ -40,6 +50,10 @@ export async function GET(req) {
       totalItems: o.items.length,
       itemsOk: o.items.filter(i => i.selisih === 0).length,
       itemsSelisih: o.items.filter(i => i.selisih !== 0).length,
+      totalNilai: o.items.reduce((s, i) => {
+        const harga = i.hargaManual ?? (i.expenseItemId ? (priceMap[i.expenseItemId] ?? 0) : 0)
+        return s + (i.qtyActual * harga)
+      }, 0),
     })),
     total,
     totalPages: Math.ceil(total / limit),
