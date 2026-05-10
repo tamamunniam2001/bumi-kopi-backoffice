@@ -37,6 +37,15 @@ export default function StockOpnamePage() {
   const [addingManual, setAddingManual] = useState(false)
   const [search, setSearch] = useState('')
   const [reopening, setReopening] = useState(false)
+  const [sortDetail, setSortDetail] = useState({ key: '', dir: 1 })
+  const [sortList, setSortList] = useState({ key: 'date', dir: -1 })
+
+  function toggleSortDetail(key) {
+    setSortDetail(prev => prev.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 })
+  }
+  function toggleSortList(key) {
+    setSortList(prev => prev.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -164,6 +173,17 @@ export default function StockOpnamePage() {
       const matchBelum = !filterSelisih || i.qtyActual === 0
       const matchSearch = !search || (i.inventoryItem?.name || i.itemName || '').toLowerCase().includes(search.toLowerCase())
       return matchCat && matchBelum && matchSearch
+    }).sort((a, b) => {
+      if (!sortDetail.key) return 0
+      let va, vb
+      if (sortDetail.key === 'name') { va = (a.inventoryItem?.name || a.itemName || '').toLowerCase(); vb = (b.inventoryItem?.name || b.itemName || '').toLowerCase() }
+      else if (sortDetail.key === 'category') { va = (a.inventoryItem?.category || a.expenseItem?.category || '').toLowerCase(); vb = (b.inventoryItem?.category || b.expenseItem?.category || '').toLowerCase() }
+      else if (sortDetail.key === 'qty') { va = a.qtyActual; vb = b.qtyActual }
+      else if (sortDetail.key === 'harga') { va = a.hargaTerakhir || 0; vb = b.hargaTerakhir || 0 }
+      else if (sortDetail.key === 'nilai') { va = a.qtyActual * (a.hargaTerakhir || 0); vb = b.qtyActual * (b.hargaTerakhir || 0) }
+      if (va < vb) return -1 * sortDetail.dir
+      if (va > vb) return 1 * sortDetail.dir
+      return 0
     }) : []
     const isDraft = detail?.status === 'DRAFT'
 
@@ -254,12 +274,21 @@ export default function StockOpnamePage() {
                     <table className="table">
                       <thead>
                         <tr>
-                          <th>Nama Barang</th>
-                          <th>Kategori</th>
+                          {[['name','Nama Barang'],['category','Kategori']].map(([k,l]) => (
+                            <th key={k} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortDetail(k)}>
+                              {l} {sortDetail.key === k ? (sortDetail.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                            </th>
+                          ))}
                           <th style={{ textAlign: 'center' }}>Stok Sebelumnya</th>
-                          <th style={{ textAlign: 'center' }}>Qty Saat Ini</th>
-                          <th style={{ textAlign: 'right' }}>Harga Satuan</th>
-                          <th style={{ textAlign: 'right' }}>Nilai Stok</th>
+                          <th style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortDetail('qty')}>
+                            Qty Saat Ini {sortDetail.key === 'qty' ? (sortDetail.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                          </th>
+                          <th style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortDetail('harga')}>
+                            Harga Satuan {sortDetail.key === 'harga' ? (sortDetail.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                          </th>
+                          <th style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortDetail('nilai')}>
+                            Nilai Stok {sortDetail.key === 'nilai' ? (sortDetail.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                          </th>
                           <th>Catatan</th>
                           {isDraft && <th></th>}
                         </tr>
@@ -436,11 +465,19 @@ export default function StockOpnamePage() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Tanggal</th>
+                    <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('date')}>
+                      Tanggal {sortList.key === 'date' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                    </th>
                     <th>Oleh</th>
-                    <th style={{ textAlign: 'center' }}>Total Item</th>
-                    <th style={{ textAlign: 'center' }}>Selisih</th>
-                    <th style={{ textAlign: 'center' }}>Status</th>
+                    <th style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('totalItems')}>
+                      Total Item {sortList.key === 'totalItems' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                    </th>
+                    <th style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('selisih')}>
+                      Selisih {sortList.key === 'selisih' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                    </th>
+                    <th style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortList('status')}>
+                      Status {sortList.key === 'status' ? (sortList.dir === 1 ? '↑' : '↓') : <span style={{ color: 'var(--border)' }}>↕</span>}
+                    </th>
                     <th>Catatan</th>
                     <th></th>
                   </tr>
@@ -453,7 +490,17 @@ export default function StockOpnamePage() {
                       <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
                       <div>Belum ada data stock opname</div>
                     </td></tr>
-                  ) : opnames.map(o => (
+                  ) : opnames.map(o => o).sort((a, b) => {
+                    let va, vb
+                    if (sortList.key === 'date') { va = new Date(a.date); vb = new Date(b.date) }
+                    else if (sortList.key === 'totalItems') { va = a.totalItems; vb = b.totalItems }
+                    else if (sortList.key === 'selisih') { va = a.itemsSelisih; vb = b.itemsSelisih }
+                    else if (sortList.key === 'status') { va = a.status; vb = b.status }
+                    else { va = 0; vb = 0 }
+                    if (va < vb) return -1 * sortList.dir
+                    if (va > vb) return 1 * sortList.dir
+                    return 0
+                  }).map(o => (
                     <tr key={o.id}>
                       <td style={{ fontWeight: '600' }}>{fmtDate(o.date)}</td>
                       <td>{o.user?.name}</td>
