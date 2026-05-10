@@ -58,7 +58,6 @@ export async function POST(req) {
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     }),
     prisma.stockOpname.findFirst({
-      where: { status: 'SELESAI' },
       orderBy: { date: 'desc' },
       include: { items: { where: { isManual: true }, select: { itemName: true, satuan: true, hargaManual: true } } },
     }),

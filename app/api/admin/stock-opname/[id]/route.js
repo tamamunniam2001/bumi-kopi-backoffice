@@ -13,7 +13,7 @@ export async function GET(req, { params }) {
       user: { select: { name: true } },
       items: {
         include: { expenseItem: true },
-        orderBy: [{ expenseItem: { category: 'asc' } }, { itemName: 'asc' }],
+        orderBy: { itemName: 'asc' },
       },
     },
   })
@@ -63,6 +63,31 @@ export async function PATCH(req, { params }) {
   if (error) return error
   const { id } = await params
   const body = await req.json()
+
+  // Sync item manual dari opname sebelumnya
+  if (body.action === 'sync-manual') {
+    const opname = await prisma.stockOpname.findUnique({ where: { id }, select: { date: true } })
+    if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
+
+    const prev = await prisma.stockOpname.findFirst({
+      where: { date: { lt: opname.date }, id: { not: id } },
+      orderBy: { date: 'desc' },
+      include: { items: { where: { isManual: true }, select: { itemName: true, satuan: true, hargaManual: true } } },
+    })
+    if (!prev?.items?.length) return NextResponse.json({ message: 'Tidak ada item manual di opname sebelumnya' }, { status: 404 })
+
+    // Ambil item manual yang belum ada di opname ini
+    const existing = await prisma.stockOpnameItem.findMany({ where: { opnameId: id, isManual: true }, select: { itemName: true } })
+    const existingNames = new Set(existing.map(i => i.itemName.toLowerCase()))
+    const toAdd = prev.items.filter(i => !existingNames.has(i.itemName.toLowerCase()))
+    if (!toAdd.length) return NextResponse.json({ message: 'Semua item manual sudah ada di opname ini' }, { status: 400 })
+
+    const created = await Promise.all(toAdd.map(item => prisma.stockOpnameItem.create({
+      data: { opnameId: id, itemName: item.itemName, satuan: item.satuan || '', isManual: true, hargaManual: item.hargaManual, qtySystem: 0, qtyActual: 0, selisih: 0 },
+      include: { expenseItem: true },
+    })))
+    return NextResponse.json(created.map(i => ({ ...i, hargaTerakhir: i.hargaManual, qtySebelumnya: null })))
+  }
 
   // Tambah item manual
   if (body.action === 'add-item') {
