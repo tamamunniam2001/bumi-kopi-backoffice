@@ -31,6 +31,7 @@ export default function StockOpnamePage() {
   const [editingId, setEditingId] = useState(null)
   const [editVal, setEditVal] = useState('')
   const [editNote, setEditNote] = useState('')
+  const [editHarga, setEditHarga] = useState('')
   const [showAddManual, setShowAddManual] = useState(false)
   const [manualItem, setManualItem] = useState({ itemName: '', satuan: '', hargaTerakhir: '' })
   const [addingManual, setAddingManual] = useState(false)
@@ -81,15 +82,15 @@ export default function StockOpnamePage() {
   async function handleSaveItem(itemId) {
     setSaving(true)
     try {
-      // Jika ada konversi, editVal adalah dalam satuanOpname → konversi ke satuan asli
       const item = detail.items.find(i => i.id === itemId)
       const konversi = item?.konversi
       const qtyToSave = konversi ? Number(editVal) * konversi : Number(editVal)
-      await api.patch(`/admin/stock-opname/${detail.id}`, { itemId, qtyActual: qtyToSave, note: editNote })
+      const hargaToSave = item?.isManual && editHarga !== '' ? Number(editHarga) : undefined
+      await api.patch(`/admin/stock-opname/${detail.id}`, { itemId, qtyActual: qtyToSave, note: editNote, hargaTerakhir: hargaToSave })
       setDetail(prev => ({
         ...prev,
         items: prev.items.map(i => i.id === itemId
-          ? { ...i, qtyActual: qtyToSave, note: editNote }
+          ? { ...i, qtyActual: qtyToSave, note: editNote, ...(hargaToSave !== undefined ? { hargaTerakhir: hargaToSave } : {}) }
           : i
         )
       }))
@@ -147,12 +148,12 @@ export default function StockOpnamePage() {
 
   function startEdit(item) {
     setEditingId(item.id)
-    // Tampilkan dalam satuanOpname jika ada konversi
     const displayQty = item.konversi && item.konversi > 0
       ? String(item.qtyActual / item.konversi)
       : String(item.qtyActual)
     setEditVal(displayQty)
     setEditNote(item.note || '')
+    setEditHarga(item.isManual ? String(item.hargaTerakhir || '') : '')
   }
 
   // ── Detail view ──
@@ -319,7 +320,14 @@ export default function StockOpnamePage() {
                                 )}
                               </td>
                               <td style={{ textAlign: 'right', fontSize: '12px', color: 'var(--muted)' }}>
-                                {harga > 0 ? fmtRp(harga) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                                {isEditing && item.isManual ? (
+                                  <div style={{ position: 'relative' }}>
+                                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: 'var(--muted)', fontWeight: '600', pointerEvents: 'none' }}>Rp</span>
+                                    <input className="input" type="number" step="any" min="0" placeholder="0" value={editHarga}
+                                      onChange={e => setEditHarga(e.target.value)}
+                                      style={{ width: '110px', padding: '4px 8px 4px 24px', fontSize: '12px', textAlign: 'right' }} />
+                                  </div>
+                                ) : harga > 0 ? fmtRp(harga) : <span style={{ color: 'var(--muted)' }}>—</span>}
                               </td>
                               <td style={{ textAlign: 'right' }}>
                                 {harga > 0 && qtyAsli > 0

@@ -94,13 +94,10 @@ export async function PATCH(req, { params }) {
     const { itemId, qtyActual, note } = body
     const updated = await prisma.stockOpnameItem.update({
       where: { id: itemId },
-      data: {
-        qtyActual: Number(qtyActual),
-        selisih: 0,
-        note: note ?? '',
-      },
+      data: { qtyActual: Number(qtyActual), selisih: 0, note: note ?? '' },
     })
-    return NextResponse.json(updated)
+    // Kembalikan hargaTerakhir dari body agar frontend bisa update state
+    return NextResponse.json({ ...updated, hargaTerakhir: body.hargaTerakhir ?? null })
   }
 
   // Selesaikan opname
