@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
 import { jsPDF } from 'jspdf'
+import { put, del } from '@vercel/blob'
 
 const fmtRp = n => 'Rp ' + Number(n).toLocaleString('id-ID', { maximumFractionDigits: 0 })
 const fmt = n => Number(n) % 1 !== 0 ? Number(n).toLocaleString('id-ID', { maximumFractionDigits: 4 }) : Number(n).toLocaleString('id-ID')
 const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })
 
-function generatePDFBase64(opname, items) {
+function generatePDFBuffer(opname, items) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
   const W = 515
   const ML = 40
@@ -151,8 +152,7 @@ function generatePDFBase64(opname, items) {
   doc.setFont('helvetica', 'normal')
   doc.text(`Dicetak: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, ML + W, doc.internal.pageSize.height - 20, { align: 'right' })
 
-  // Return sebagai base64 string (tanpa prefix data:...)
-  return doc.output('datauristring').split(',')[1]
+  return Buffer.from(doc.output('arraybuffer'))
 }
 
 export async function POST(req, { params }) {
@@ -193,30 +193,32 @@ export async function POST(req, { params }) {
       konversi: i.expenseItem?.konversi || null,
     })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
 
-    let pdfBase64
+    let pdfBuffer
     try {
-      pdfBase64 = generatePDFBase64(opname, items)
+      pdfBuffer = generatePDFBuffer(opname, items)
     } catch (pdfErr) {
       console.error('PDF error:', pdfErr)
       return NextResponse.json({ message: `Gagal generate PDF: ${pdfErr.message}` }, { status: 500 })
     }
 
+    // Upload PDF ke Vercel Blob (public URL sementara)
+    const filename = `opname-${id}-${Date.now()}.pdf`
+    const blob = await put(filename, pdfBuffer, { access: 'public', contentType: 'application/pdf' })
+    const pdfUrl = blob.url
+
     const results = []
     for (const target of targets) {
       try {
-        // Fonnte: kirim dokumen via base64
+        const form = new FormData()
+        form.append('target', target)
+        form.append('message', caption || '')
+        form.append('url', pdfUrl)
+        form.append('filename', `Laporan-Opname-${fmtDate(opname.date)}.pdf`)
+
         const res = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
-          headers: {
-            Authorization: token,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            target,
-            message: caption || '',
-            file: `data:application/pdf;base64,${pdfBase64}`,
-            filename: `opname-${fmtDate(opname.date)}.pdf`,
-          }),
+          headers: { Authorization: token },
+          body: form,
         })
         const result = await res.json()
         console.log('Fonnte response:', JSON.stringify(result))
@@ -225,6 +227,9 @@ export async function POST(req, { params }) {
         results.push({ target, success: false, detail: { reason: sendErr.message } })
       }
     }
+
+    // Hapus blob setelah semua terkirim
+    try { await del(pdfUrl) } catch {}
 
     const allFailed = results.every(r => !r.success)
     if (allFailed) {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@vercel/blob": "^2.3.3",
     "axios": "^1.15.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.10.0",
