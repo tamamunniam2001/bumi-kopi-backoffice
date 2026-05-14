@@ -7,7 +7,7 @@ const fmtRp = n => 'Rp ' + Number(n).toLocaleString('id-ID', { maximumFractionDi
 const fmt = n => Number(n) % 1 !== 0 ? Number(n).toLocaleString('id-ID', { maximumFractionDigits: 4 }) : Number(n).toLocaleString('id-ID')
 const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })
 
-function generatePDFBuffer(opname, items) {
+function generatePDFBase64(opname, items) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
   const W = 515
   const ML = 40
@@ -51,7 +51,7 @@ function generatePDFBuffer(opname, items) {
     doc.text(s.label, x + 8, 136)
   })
 
-  // Tabel header
+  // Tabel
   const cols = { no: ML, nama: ML + 20, kategori: ML + 158, qty: ML + 266, harga: ML + 334, nilai: ML + 407 }
   const colW = { no: 18, nama: 136, kategori: 106, qty: 66, harga: 71, nilai: 108 }
   let y = 158
@@ -76,12 +76,9 @@ function generatePDFBuffer(opname, items) {
   items.forEach((item, idx) => {
     const rowH = 15
     if (y + rowH > 800) {
-      doc.addPage()
-      y = 40
-      drawHeader(y)
-      y += 18
+      doc.addPage(); y = 40
+      drawHeader(y); y += 18
     }
-
     const isZero = item.qtyActual === 0
     if (isZero) doc.setFillColor(255, 251, 235)
     else if (idx % 2 === 0) doc.setFillColor(255, 255, 255)
@@ -149,13 +146,13 @@ function generatePDFBuffer(opname, items) {
     })
   }
 
-  // Timestamp
   doc.setTextColor(148, 163, 184)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.text(`Dicetak: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, ML + W, doc.internal.pageSize.height - 20, { align: 'right' })
 
-  return Buffer.from(doc.output('arraybuffer'))
+  // Return sebagai base64 string (tanpa prefix data:...)
+  return doc.output('datauristring').split(',')[1]
 }
 
 export async function POST(req, { params }) {
@@ -196,9 +193,9 @@ export async function POST(req, { params }) {
       konversi: i.expenseItem?.konversi || null,
     })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
 
-    let pdfBuffer
+    let pdfBase64
     try {
-      pdfBuffer = generatePDFBuffer(opname, items)
+      pdfBase64 = generatePDFBase64(opname, items)
     } catch (pdfErr) {
       console.error('PDF error:', pdfErr)
       return NextResponse.json({ message: `Gagal generate PDF: ${pdfErr.message}` }, { status: 500 })
@@ -207,15 +204,19 @@ export async function POST(req, { params }) {
     const results = []
     for (const target of targets) {
       try {
-        const form = new FormData()
-        form.append('target', target)
-        form.append('message', caption || '')
-        form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `opname-${id}.pdf`)
-
+        // Fonnte: kirim dokumen via base64
         const res = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
-          headers: { Authorization: token },
-          body: form,
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target,
+            message: caption || '',
+            file: `data:application/pdf;base64,${pdfBase64}`,
+            filename: `opname-${fmtDate(opname.date)}.pdf`,
+          }),
         })
         const result = await res.json()
         console.log('Fonnte response:', JSON.stringify(result))

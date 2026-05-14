@@ -45,7 +45,7 @@ export default function StockOpnamePage() {
 
   const [showSendWA, setShowSendWA] = useState(false)
   const [waSending, setWaSending] = useState(false)
-  const [waNumber, setWaNumber] = useState('')
+  const [waTargets, setWaTargets] = useState({ admin: false, group: false })
   const [waStatus, setWaStatus] = useState(null)
   const [waMessage, setWaMessage] = useState('')
   const [waOpname, setWaOpname] = useState(null)
@@ -53,13 +53,15 @@ export default function StockOpnamePage() {
   const [syncing, setSyncing] = useState(false)
 
   async function handleSendWA() {
-    const numbers = waNumber.split(',').map(s => s.trim()).filter(Boolean)
-    if (!numbers.length) return alert('Masukkan nomor WhatsApp tujuan')
+    const targets = []
+    if (waTargets.admin && process.env.NEXT_PUBLIC_WA_ADMIN_NUMBER) targets.push(process.env.NEXT_PUBLIC_WA_ADMIN_NUMBER)
+    if (waTargets.group && process.env.NEXT_PUBLIC_WA_GROUP_NUMBER) targets.push(process.env.NEXT_PUBLIC_WA_GROUP_NUMBER)
+    if (!targets.length) return alert('Pilih minimal satu tujuan')
     const opname = waOpname
     setWaSending(true); setWaStatus('sending')
     try {
       const res = await api.post(`/admin/stock-opname/${opname.id}/send-wa`, {
-        targets: numbers,
+        targets,
         caption: `📋 *Laporan Stock Opname*\n${new Date(opname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\nOleh: ${opname.user?.name}\nStatus: ${opname.status}${opname.note ? `\nCatatan: ${opname.note}` : ''}`,
       })
       setWaStatus('success')
@@ -675,7 +677,7 @@ export default function StockOpnamePage() {
                             {o.status === 'DRAFT' ? 'Isi' : 'Lihat'}
                           </button>
                           <button className="btn" style={{ background: '#F0FDF4', color: '#22C55E', border: '1px solid #A7F3D0', padding: '5px 10px', fontSize: '12px' }}
-                            onClick={() => { setWaOpname(o); setShowSendWA(true); setWaStatus(null); setWaNumber('') }}>
+                            onClick={() => { setWaOpname(o); setShowSendWA(true); setWaStatus(null); setWaTargets({ admin: false, group: false }) }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                           </button>
                           <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => handleDelete(o.id)}>Hapus</button>
@@ -748,15 +750,21 @@ export default function StockOpnamePage() {
               </div>
               {waStatus !== 'success' && (
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)', display: 'block', marginBottom: '6px' }}>Nomor WhatsApp tujuan</label>
-                  <input
-                    className="input"
-                    placeholder="628xxx atau 628xxx,628yyy untuk banyak nomor"
-                    value={waNumber}
-                    onChange={e => setWaNumber(e.target.value)}
-                    disabled={waSending}
-                  />
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Format: 628xxxxxxxxx (tanpa + atau 0). Pisah koma untuk banyak nomor.</div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)', marginBottom: '10px' }}>Kirim ke:</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[{ key: 'admin', label: 'Admin', desc: 'Pesan pribadi ke nomor admin', color: '#4A7CC7', bg: '#EFF4FF', bdr: '#C7D4F0' },
+                      { key: 'group', label: 'Grup', desc: 'Kirim ke grup WhatsApp', color: '#10B981', bg: '#F0FDF4', bdr: '#A7F3D0' }
+                    ].map(opt => (
+                      <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px', border: '2px solid ' + (waTargets[opt.key] ? opt.bdr : 'var(--border)'), background: waTargets[opt.key] ? opt.bg : 'var(--surface)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={waTargets[opt.key]} onChange={e => setWaTargets(p => ({ ...p, [opt.key]: e.target.checked }))}
+                          style={{ width: '16px', height: '16px', accentColor: opt.color, cursor: 'pointer', flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: waTargets[opt.key] ? opt.color : 'var(--text)' }}>{opt.label}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{opt.desc}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               )}
               {waStatus === 'sending' && (
@@ -786,8 +794,8 @@ export default function StockOpnamePage() {
               ) : (
                 <>
                   <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowSendWA(false)} disabled={waSending}>Batal</button>
-                  <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E', opacity: !waNumber.trim() ? 0.5 : 1 }}
-                    onClick={handleSendWA} disabled={waSending || !waNumber.trim()}>
+                  <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E', opacity: (!waTargets.admin && !waTargets.group) ? 0.5 : 1 }}
+                    onClick={handleSendWA} disabled={waSending || (!waTargets.admin && !waTargets.group)}>
                     {waSending ? 'Mengirim...' : 'Kirim PDF'}
                   </button>
                 </>
