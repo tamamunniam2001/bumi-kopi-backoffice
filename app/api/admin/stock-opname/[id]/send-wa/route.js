@@ -21,29 +21,12 @@ async function generatePDFBuffer(opname, items) {
     doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
       .text('LAPORAN STOCK OPNAME', 55, 52)
     doc.fontSize(9).font('Helvetica')
-      .text(`Tanggal: ${fmtDate(opname.date)}  ·  Oleh: ${opname.user?.name}  ·  Status: ${opname.status}`, 55, 74)
+      .text(`Tanggal: ${fmtDate(opname.date)}  Oleh: ${opname.user?.name}  Status: ${opname.status}`, 55, 74)
     if (opname.note) doc.text(`Catatan: ${opname.note}`, 55, 86)
 
-    const totalItem = items.length
-    const sudahDiisi = items.filter(i => i.qtyActual > 0).length
-    const belumDiisi = items.filter(i => i.qtyActual === 0).length
     const totalNilai = items.reduce((s, i) => s + (i.qtyActual * (i.hargaTerakhir || 0)), 0)
 
-    const summaries = [
-      { label: 'Total Item', val: String(totalItem), color: '#4A7CC7' },
-      { label: 'Sudah Diisi', val: String(sudahDiisi), color: '#10B981' },
-      { label: 'Belum Diisi', val: String(belumDiisi), color: '#F59E0B' },
-      { label: 'Total Nilai', val: fmtRp(totalNilai), color: '#8B5CF6' },
-    ]
-    const boxW = W / 4
-    summaries.forEach((s, i) => {
-      const x = 40 + i * boxW
-      doc.rect(x, 110, boxW, 44).fill(i % 2 === 0 ? '#F8FAFC' : '#F1F5F9')
-      doc.fillColor(s.color).fontSize(13).font('Helvetica-Bold').text(s.val, x + 8, 118, { width: boxW - 16 })
-      doc.fillColor('#64748B').fontSize(8).font('Helvetica').text(s.label, x + 8, 133, { width: boxW - 16 })
-    })
-
-    const tableTop = 168
+    const tableTop = 120
     const cols = { no: 40, nama: 60, kategori: 200, qty: 310, harga: 380, nilai: 455 }
     const colW = { no: 18, nama: 138, kategori: 108, qty: 68, harga: 73, nilai: 100 }
 
@@ -84,9 +67,9 @@ async function generatePDFBuffer(opname, items) {
       doc.fillColor(item.qtyActual === 0 ? '#F59E0B' : '#1E293B')
         .text(`${fmt(qtyTampil)} ${satuanTampil}`, cols.qty, y + 4, { width: colW.qty, align: 'center' })
       doc.fillColor('#64748B')
-        .text(harga > 0 ? fmtRp(harga) : '—', cols.harga, y + 4, { width: colW.harga, align: 'right' })
+        .text(harga > 0 ? fmtRp(harga) : '-', cols.harga, y + 4, { width: colW.harga, align: 'right' })
       doc.fillColor('#8B5CF6').font('Helvetica-Bold')
-        .text(nilai > 0 ? fmtRp(nilai) : '—', cols.nilai, y + 4, { width: colW.nilai, align: 'right' })
+        .text(nilai > 0 ? fmtRp(nilai) : '-', cols.nilai, y + 4, { width: colW.nilai, align: 'right' })
       doc.moveTo(40, y + rowH).lineTo(555, y + rowH).strokeColor('#E2E8F0').lineWidth(0.5).stroke()
       y += rowH
     })
@@ -122,68 +105,85 @@ async function generatePDFBuffer(opname, items) {
 
 export async function POST(req, { params }) {
   try {
-  const { error } = verifyAuth(req)
-  if (error) return error
+    const { error } = verifyAuth(req)
+    if (error) return error
 
-  const { id } = await params
-  const { targets, caption } = await req.json()
+    const { id } = await params
+    const { targets, caption } = await req.json()
 
-  if (!targets?.length) return NextResponse.json({ message: 'Pilih minimal satu tujuan' }, { status: 400 })
+    if (!targets?.length) return NextResponse.json({ message: 'Pilih minimal satu tujuan' }, { status: 400 })
 
-  const token = process.env.FONNTE_TOKEN
-  if (!token) return NextResponse.json({ message: 'FONNTE_TOKEN belum diset di environment variable' }, { status: 500 })
+    const token = process.env.FONNTE_TOKEN
+    if (!token) return NextResponse.json({ message: 'FONNTE_TOKEN belum diset' }, { status: 500 })
 
-  const opname = await prisma.stockOpname.findUnique({
-    where: { id },
-    include: {
-      user: { select: { name: true } },
-      items: { include: { expenseItem: true, inventoryItem: true } },
-    },
-  })
-  if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
-
-  const expenseItemIds = opname.items.map(i => i.expenseItemId).filter(Boolean)
-  const lastPrices = await prisma.expenseDetail.findMany({
-    where: { expenseItemId: { in: expenseItemIds } },
-    orderBy: { expense: { date: 'desc' } },
-    distinct: ['expenseItemId'],
-    select: { expenseItemId: true, harga: true },
-  })
-  const priceMap = Object.fromEntries(lastPrices.map(p => [p.expenseItemId, Number(p.harga)]))
-
-  const items = opname.items.map(i => ({
-    ...i,
-    hargaTerakhir: i.isManual ? (i.hargaManual ?? null) : (i.expenseItemId ? (priceMap[i.expenseItemId] ?? null) : null),
-    satuanOpname: i.expenseItem?.satuanOpname || null,
-    konversi: i.expenseItem?.konversi || null,
-  })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
-
-  const pdfBuffer = await generatePDFBuffer(opname, items)
-
-  const results = []
-  for (const target of targets) {
-    const form = new FormData()
-    form.append('target', target)
-    form.append('message', caption || '')
-    form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `opname-${id}.pdf`)
-
-    const res = await fetch('https://api.fonnte.com/send', {
-      method: 'POST',
-      headers: { Authorization: token },
-      body: form,
+    const opname = await prisma.stockOpname.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true } },
+        items: { include: { expenseItem: true, inventoryItem: true } },
+      },
     })
-    const result = await res.json()
-    results.push({ target, success: result.status === true, detail: result })
-  }
+    if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
 
-  const allFailed = results.every(r => !r.success)
-  if (allFailed) {
-    return NextResponse.json({ message: results[0]?.detail?.reason || results[0]?.detail?.message || 'Gagal mengirim', debug: results }, { status: 500 })
-  }
+    const expenseItemIds = opname.items.map(i => i.expenseItemId).filter(Boolean)
+    const lastPrices = await prisma.expenseDetail.findMany({
+      where: { expenseItemId: { in: expenseItemIds } },
+      orderBy: { expense: { date: 'desc' } },
+      distinct: ['expenseItemId'],
+      select: { expenseItemId: true, harga: true },
+    })
+    const priceMap = Object.fromEntries(lastPrices.map(p => [p.expenseItemId, Number(p.harga)]))
 
-  return NextResponse.json({ success: true, results })
+    const items = opname.items.map(i => ({
+      ...i,
+      hargaTerakhir: i.isManual ? (i.hargaManual ?? null) : (i.expenseItemId ? (priceMap[i.expenseItemId] ?? null) : null),
+      satuanOpname: i.expenseItem?.satuanOpname || null,
+      konversi: i.expenseItem?.konversi || null,
+    })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
+
+    // Generate PDF
+    let pdfBuffer
+    try {
+      pdfBuffer = await generatePDFBuffer(opname, items)
+    } catch (pdfErr) {
+      console.error('PDF error:', pdfErr)
+      return NextResponse.json({ message: `Gagal generate PDF: ${pdfErr.message}` }, { status: 500 })
+    }
+
+    // Kirim via Fonnte
+    const results = []
+    for (const target of targets) {
+      try {
+        const form = new FormData()
+        form.append('target', target)
+        form.append('message', caption || '')
+        form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `opname-${id}.pdf`)
+
+        const res = await fetch('https://api.fonnte.com/send', {
+          method: 'POST',
+          headers: { Authorization: token },
+          body: form,
+        })
+        const result = await res.json()
+        console.log('Fonnte response:', JSON.stringify(result))
+        results.push({ target, success: result.status === true, detail: result })
+      } catch (sendErr) {
+        console.error('Fonnte send error:', sendErr)
+        results.push({ target, success: false, detail: { reason: sendErr.message } })
+      }
+    }
+
+    const allFailed = results.every(r => !r.success)
+    if (allFailed) {
+      return NextResponse.json({
+        message: results[0]?.detail?.reason || results[0]?.detail?.message || 'Gagal mengirim',
+        debug: results
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, results })
   } catch (e) {
     console.error('send-wa error:', e)
-    return NextResponse.json({ message: e.message || 'Internal server error', stack: e.stack }, { status: 500 })
+    return NextResponse.json({ message: e.message || 'Internal server error' }, { status: 500 })
   }
 }
