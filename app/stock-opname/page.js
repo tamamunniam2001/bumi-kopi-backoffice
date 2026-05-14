@@ -54,14 +54,16 @@ export default function StockOpnamePage() {
 
   async function handleSendWA() {
     const targets = []
-    if (waTargets.admin) targets.push(process.env.NEXT_PUBLIC_WA_ADMIN || 'admin')
-    if (waTargets.group) targets.push(process.env.NEXT_PUBLIC_WA_GROUP || 'group')
+    if (waTargets.admin) targets.push(process.env.NEXT_PUBLIC_WA_ADMIN_NUMBER || '')
+    if (waTargets.group) targets.push(process.env.NEXT_PUBLIC_WA_GROUP_NUMBER || '')
+    const filtered = targets.filter(Boolean)
+    if (!filtered.length) return alert('Nomor tujuan belum diset di environment variable')
     if (!targets.length) return alert('Pilih minimal satu tujuan')
     const opname = waOpname
     setWaSending(true); setWaStatus('sending')
     try {
       const res = await api.post(`/admin/stock-opname/${opname.id}/send-wa`, {
-        targets,
+        targets: filtered,
         caption: `📋 *Laporan Stock Opname*\n${new Date(opname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\nOleh: ${opname.user?.name}\nStatus: ${opname.status}${opname.note ? `\nCatatan: ${opname.note}` : ''}`,
       })
       setWaStatus('success')

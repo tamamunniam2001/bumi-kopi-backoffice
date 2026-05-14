@@ -1,7 +1,6 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js')
 const qrcode = require('qrcode-terminal')
 const http = require('http')
-const fs = require('fs')
 
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: './.wa-session' }),
@@ -59,14 +58,13 @@ const server = http.createServer(async (req, res) => {
           return res.end(JSON.stringify({ error: 'WhatsApp belum terhubung' }))
         }
 
-        const { targets, pdfPath, caption } = JSON.parse(body)
-        if (!targets?.length || !pdfPath) {
+        const { targets, pdfBase64, caption } = JSON.parse(body)
+        if (!targets?.length || !pdfBase64) {
           res.writeHead(400)
-          return res.end(JSON.stringify({ error: 'targets dan pdfPath wajib diisi' }))
+          return res.end(JSON.stringify({ error: 'targets dan pdfBase64 wajib diisi' }))
         }
 
-        const pdfBuffer = fs.readFileSync(pdfPath)
-        const media = new MessageMedia('application/pdf', pdfBuffer.toString('base64'), 'stock-opname.pdf')
+        const media = new MessageMedia('application/pdf', pdfBase64, 'stock-opname.pdf')
 
         const results = []
         for (const target of targets) {
@@ -79,9 +77,6 @@ const server = http.createServer(async (req, res) => {
             results.push({ target, success: false, error: e.message })
           }
         }
-
-        // Hapus file PDF sementara setelah dikirim
-        try { fs.unlinkSync(pdfPath) } catch {}
 
         res.writeHead(200)
         res.end(JSON.stringify({ success: true, results }))
