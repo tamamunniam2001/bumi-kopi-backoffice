@@ -65,7 +65,7 @@ export default function StockOpnamePage() {
         caption: `📋 *Laporan Stock Opname*\n${new Date(opname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\nOleh: ${opname.user?.name}\nStatus: ${opname.status}${opname.note ? `\nCatatan: ${opname.note}` : ''}`,
       })
       setWaStatus('success')
-      setWaMessage(`Berhasil dikirim ke ${res.data.results?.filter(r => r.success).length} tujuan`)
+      setWaMessage(`Berhasil dikirim ke ${res.data.results?.filter(r => r.success).length} tujuan | Detail: ${JSON.stringify(res.data.results)}`)
     } catch (e) {
       setWaStatus('error')
       setWaMessage(e.response?.data?.message || JSON.stringify(e.response?.data?.debug) || 'Gagal mengirim')

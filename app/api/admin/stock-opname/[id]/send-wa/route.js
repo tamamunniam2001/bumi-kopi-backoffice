@@ -228,9 +228,6 @@ export async function POST(req, { params }) {
       }
     }
 
-    // Hapus blob setelah semua terkirim
-    try { await del(pdfUrl) } catch {}
-
     const allFailed = results.every(r => !r.success)
     if (allFailed) {
       return NextResponse.json({
@@ -239,7 +236,7 @@ export async function POST(req, { params }) {
       }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, results })
+    return NextResponse.json({ success: true, results, pdfUrl })
   } catch (e) {
     console.error('send-wa error:', e)
     return NextResponse.json({ message: e.message || 'Internal server error' }, { status: 500 })
