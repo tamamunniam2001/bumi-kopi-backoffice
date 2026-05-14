@@ -17,7 +17,6 @@ async function generatePDFBuffer(opname, items) {
 
     const W = 515
 
-    // Header
     doc.rect(40, 40, W, 60).fill('#1E2A3B')
     doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
       .text('LAPORAN STOCK OPNAME', 55, 52)
@@ -25,7 +24,6 @@ async function generatePDFBuffer(opname, items) {
       .text(`Tanggal: ${fmtDate(opname.date)}  ·  Oleh: ${opname.user?.name}  ·  Status: ${opname.status}`, 55, 74)
     if (opname.note) doc.text(`Catatan: ${opname.note}`, 55, 86)
 
-    // Summary bar
     const totalItem = items.length
     const sudahDiisi = items.filter(i => i.qtyActual > 0).length
     const belumDiisi = items.filter(i => i.qtyActual === 0).length
@@ -45,7 +43,6 @@ async function generatePDFBuffer(opname, items) {
       doc.fillColor('#64748B').fontSize(8).font('Helvetica').text(s.label, x + 8, 133, { width: boxW - 16 })
     })
 
-    // Tabel
     const tableTop = 168
     const cols = { no: 40, nama: 60, kategori: 200, qty: 310, harga: 380, nilai: 455 }
     const colW = { no: 18, nama: 138, kategori: 108, qty: 68, harga: 73, nilai: 100 }
@@ -67,22 +64,17 @@ async function generatePDFBuffer(opname, items) {
     items.forEach((item, idx) => {
       const rowH = 16
       if (y + rowH > 780) {
-        doc.addPage()
-        y = 40
-        drawTableHeader(y)
-        y += 18
+        doc.addPage(); y = 40
+        drawTableHeader(y); y += 18
       }
-
       const bg = item.qtyActual === 0 ? '#FFFBEB' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC')
       doc.rect(40, y, W, rowH).fill(bg)
-
       const nama = item.inventoryItem?.name || item.itemName || ''
       const kategori = item.inventoryItem?.category || item.expenseItem?.category || ''
       const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan || '')
       const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
       const harga = item.hargaTerakhir || 0
       const nilai = item.qtyActual * harga
-
       doc.fillColor('#1E293B').fontSize(7.5).font('Helvetica')
       doc.text(String(idx + 1), cols.no + 2, y + 4, { width: colW.no })
       doc.font(item.isManual ? 'Helvetica-Oblique' : 'Helvetica')
@@ -95,19 +87,16 @@ async function generatePDFBuffer(opname, items) {
         .text(harga > 0 ? fmtRp(harga) : '—', cols.harga, y + 4, { width: colW.harga, align: 'right' })
       doc.fillColor('#8B5CF6').font('Helvetica-Bold')
         .text(nilai > 0 ? fmtRp(nilai) : '—', cols.nilai, y + 4, { width: colW.nilai, align: 'right' })
-
       doc.moveTo(40, y + rowH).lineTo(555, y + rowH).strokeColor('#E2E8F0').lineWidth(0.5).stroke()
       y += rowH
     })
 
-    // Footer total
     y += 4
     doc.rect(40, y, W, 22).fill('#1E2A3B')
     doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
       .text('TOTAL NILAI STOK', 55, y + 7)
       .text(fmtRp(totalNilai), cols.nilai, y + 7, { width: colW.nilai, align: 'right' })
 
-    // Item request
     const requested = items.filter(i => i.isRequested)
     if (requested.length > 0) {
       y += 36
@@ -143,7 +132,6 @@ export async function POST(req, { params }) {
   const token = process.env.FONNTE_TOKEN
   if (!token) return NextResponse.json({ message: 'FONNTE_TOKEN belum diset di environment variable' }, { status: 500 })
 
-  // Ambil data opname
   const opname = await prisma.stockOpname.findUnique({
     where: { id },
     include: {
@@ -153,7 +141,6 @@ export async function POST(req, { params }) {
   })
   if (!opname) return NextResponse.json({ message: 'Opname tidak ditemukan' }, { status: 404 })
 
-  // Ambil harga terakhir
   const expenseItemIds = opname.items.map(i => i.expenseItemId).filter(Boolean)
   const lastPrices = await prisma.expenseDetail.findMany({
     where: { expenseItemId: { in: expenseItemIds } },
@@ -170,17 +157,13 @@ export async function POST(req, { params }) {
     konversi: i.expenseItem?.konversi || null,
   })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
 
-  // Generate PDF sebagai buffer
   const pdfBuffer = await generatePDFBuffer(opname, items)
-  const pdfBase64 = pdfBuffer.toString('base64')
 
-  // Kirim ke setiap target via Fonnte
   const results = []
   for (const target of targets) {
     const form = new FormData()
     form.append('target', target)
     form.append('message', caption || '')
-    // Kirim PDF sebagai file
     form.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), `opname-${id}.pdf`)
 
     const res = await fetch('https://api.fonnte.com/send', {
@@ -194,8 +177,7 @@ export async function POST(req, { params }) {
 
   const allFailed = results.every(r => !r.success)
   if (allFailed) {
-    // Return detail lengkap dari Fonnte untuk debug
-    return NextResponse.json({ message: 'Gagal mengirim', debug: results }, { status: 500 })
+    return NextResponse.json({ message: results[0]?.detail?.reason || results[0]?.detail?.message || 'Gagal mengirim', debug: results }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, results })
