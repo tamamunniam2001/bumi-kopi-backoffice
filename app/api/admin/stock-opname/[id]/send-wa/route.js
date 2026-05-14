@@ -205,14 +205,16 @@ export async function POST(req, { params }) {
     const filename = `opname-${id}-${Date.now()}.pdf`
     const blob = await put(filename, pdfBuffer, { access: 'public', contentType: 'application/pdf' })
     const pdfUrl = blob.url
+    console.log('PDF URL:', pdfUrl)
 
     const results = []
     for (const target of targets) {
       try {
         const form = new FormData()
         form.append('target', target)
+        form.append('message', caption || 'Laporan Stock Opname')
         form.append('file', pdfUrl)
-        // message dikirim terpisah setelah file
+
         const res = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
           headers: { Authorization: token },
@@ -220,18 +222,6 @@ export async function POST(req, { params }) {
         })
         const result = await res.json()
         console.log('Fonnte response:', JSON.stringify(result))
-
-        // Kirim caption sebagai pesan terpisah jika ada
-        if (caption && result.status === true) {
-          const form2 = new FormData()
-          form2.append('target', target)
-          form2.append('message', caption)
-          await fetch('https://api.fonnte.com/send', {
-            method: 'POST',
-            headers: { Authorization: token },
-            body: form2,
-          })
-        }
 
         results.push({ target, success: result.status === true, detail: result })
       } catch (sendErr) {
