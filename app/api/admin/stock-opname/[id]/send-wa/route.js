@@ -9,7 +9,7 @@ const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', m
 
 async function generatePDFBuffer(opname, items) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 40, size: 'A4' })
+    const doc = new PDFDocument({ margin: 40, size: 'A4', font: 'Courier' })
     const chunks = []
     doc.on('data', chunk => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
@@ -18,21 +18,38 @@ async function generatePDFBuffer(opname, items) {
     const W = 515
 
     doc.rect(40, 40, W, 60).fill('#1E2A3B')
-    doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
+    doc.fillColor('#FFFFFF').fontSize(16)
       .text('LAPORAN STOCK OPNAME', 55, 52)
-    doc.fontSize(9).font('Helvetica')
+    doc.fontSize(9)
       .text(`Tanggal: ${fmtDate(opname.date)}  Oleh: ${opname.user?.name}  Status: ${opname.status}`, 55, 74)
     if (opname.note) doc.text(`Catatan: ${opname.note}`, 55, 86)
 
     const totalNilai = items.reduce((s, i) => s + (i.qtyActual * (i.hargaTerakhir || 0)), 0)
+    const totalItem = items.length
+    const sudahDiisi = items.filter(i => i.qtyActual > 0).length
+    const belumDiisi = items.filter(i => i.qtyActual === 0).length
 
-    const tableTop = 120
+    const summaries = [
+      { label: 'Total Item', val: String(totalItem), color: '#4A7CC7' },
+      { label: 'Sudah Diisi', val: String(sudahDiisi), color: '#10B981' },
+      { label: 'Belum Diisi', val: String(belumDiisi), color: '#F59E0B' },
+      { label: 'Total Nilai', val: fmtRp(totalNilai), color: '#8B5CF6' },
+    ]
+    const boxW = W / 4
+    summaries.forEach((s, i) => {
+      const x = 40 + i * boxW
+      doc.rect(x, 110, boxW, 44).fill(i % 2 === 0 ? '#F8FAFC' : '#F1F5F9')
+      doc.fillColor(s.color).fontSize(11).text(s.val, x + 8, 118, { width: boxW - 16 })
+      doc.fillColor('#64748B').fontSize(8).text(s.label, x + 8, 133, { width: boxW - 16 })
+    })
+
+    const tableTop = 168
     const cols = { no: 40, nama: 60, kategori: 200, qty: 310, harga: 380, nilai: 455 }
     const colW = { no: 18, nama: 138, kategori: 108, qty: 68, harga: 73, nilai: 100 }
 
     const drawTableHeader = (y) => {
       doc.rect(40, y, W, 18).fill('#1E2A3B')
-      doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold')
+      doc.fillColor('#FFFFFF').fontSize(8)
       doc.text('No', cols.no + 2, y + 5, { width: colW.no })
       doc.text('Nama Barang', cols.nama, y + 5, { width: colW.nama })
       doc.text('Kategori', cols.kategori, y + 5, { width: colW.kategori })
@@ -58,17 +75,16 @@ async function generatePDFBuffer(opname, items) {
       const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
       const harga = item.hargaTerakhir || 0
       const nilai = item.qtyActual * harga
-      doc.fillColor('#1E293B').fontSize(7.5).font('Helvetica')
+      doc.fillColor('#1E293B').fontSize(7.5)
       doc.text(String(idx + 1), cols.no + 2, y + 4, { width: colW.no })
-      doc.font(item.isManual ? 'Helvetica-Oblique' : 'Helvetica')
-        .text(nama, cols.nama, y + 4, { width: colW.nama - 4, ellipsis: true })
-      doc.font('Helvetica').fillColor('#64748B')
+      doc.text(nama, cols.nama, y + 4, { width: colW.nama - 4, ellipsis: true })
+      doc.fillColor('#64748B')
         .text(kategori, cols.kategori, y + 4, { width: colW.kategori - 4, ellipsis: true })
       doc.fillColor(item.qtyActual === 0 ? '#F59E0B' : '#1E293B')
         .text(`${fmt(qtyTampil)} ${satuanTampil}`, cols.qty, y + 4, { width: colW.qty, align: 'center' })
       doc.fillColor('#64748B')
         .text(harga > 0 ? fmtRp(harga) : '-', cols.harga, y + 4, { width: colW.harga, align: 'right' })
-      doc.fillColor('#8B5CF6').font('Helvetica-Bold')
+      doc.fillColor('#8B5CF6')
         .text(nilai > 0 ? fmtRp(nilai) : '-', cols.nilai, y + 4, { width: colW.nilai, align: 'right' })
       doc.moveTo(40, y + rowH).lineTo(555, y + rowH).strokeColor('#E2E8F0').lineWidth(0.5).stroke()
       y += rowH
@@ -76,7 +92,7 @@ async function generatePDFBuffer(opname, items) {
 
     y += 4
     doc.rect(40, y, W, 22).fill('#1E2A3B')
-    doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
+    doc.fillColor('#FFFFFF').fontSize(9)
       .text('TOTAL NILAI STOK', 55, y + 7)
       .text(fmtRp(totalNilai), cols.nilai, y + 7, { width: colW.nilai, align: 'right' })
 
@@ -85,18 +101,18 @@ async function generatePDFBuffer(opname, items) {
       y += 36
       doc.rect(40, y, W, 18).fill('#FFF7ED')
       doc.rect(40, y, 4, 18).fill('#F59E0B')
-      doc.fillColor('#92400E').fontSize(9).font('Helvetica-Bold')
+      doc.fillColor('#92400E').fontSize(9)
         .text(`Perlu Restock (${requested.length} item)`, 52, y + 5)
       y += 18
       requested.forEach((item, idx) => {
         doc.rect(40, y, W, 14).fill(idx % 2 === 0 ? '#FFFBEB' : '#FFF7ED')
-        doc.fillColor('#92400E').fontSize(7.5).font('Helvetica')
+        doc.fillColor('#92400E').fontSize(7.5)
           .text(`${idx + 1}. ${item.inventoryItem?.name || item.itemName}`, 52, y + 3, { width: W - 20 })
         y += 14
       })
     }
 
-    doc.fillColor('#94A3B8').fontSize(7).font('Helvetica')
+    doc.fillColor('#94A3B8').fontSize(7)
       .text(`Dicetak: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, 40, doc.page.height - 30, { width: W, align: 'right' })
 
     doc.end()
@@ -141,7 +157,6 @@ export async function POST(req, { params }) {
       konversi: i.expenseItem?.konversi || null,
     })).sort((a, b) => (a.inventoryItem?.name || a.itemName || '').localeCompare(b.inventoryItem?.name || b.itemName || ''))
 
-    // Generate PDF
     let pdfBuffer
     try {
       pdfBuffer = await generatePDFBuffer(opname, items)
@@ -150,7 +165,6 @@ export async function POST(req, { params }) {
       return NextResponse.json({ message: `Gagal generate PDF: ${pdfErr.message}` }, { status: 500 })
     }
 
-    // Kirim via Fonnte
     const results = []
     for (const target of targets) {
       try {
@@ -168,7 +182,6 @@ export async function POST(req, { params }) {
         console.log('Fonnte response:', JSON.stringify(result))
         results.push({ target, success: result.status === true, detail: result })
       } catch (sendErr) {
-        console.error('Fonnte send error:', sendErr)
         results.push({ target, success: false, detail: { reason: sendErr.message } })
       }
     }
