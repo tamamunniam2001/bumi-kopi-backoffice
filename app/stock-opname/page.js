@@ -46,8 +46,9 @@ export default function StockOpnamePage() {
   const [showSendWA, setShowSendWA] = useState(false)
   const [waSending, setWaSending] = useState(false)
   const [waTargets, setWaTargets] = useState({ admin: false, group: false })
-  const [waStatus, setWaStatus] = useState(null) // null | 'sending' | 'success' | 'error'
+  const [waStatus, setWaStatus] = useState(null)
   const [waMessage, setWaMessage] = useState('')
+  const [waOpname, setWaOpname] = useState(null) // opname yang dipilih untuk dikirim
 
   const [syncing, setSyncing] = useState(false)
 
@@ -56,11 +57,12 @@ export default function StockOpnamePage() {
     if (waTargets.admin) targets.push(process.env.NEXT_PUBLIC_WA_ADMIN || 'admin')
     if (waTargets.group) targets.push(process.env.NEXT_PUBLIC_WA_GROUP || 'group')
     if (!targets.length) return alert('Pilih minimal satu tujuan')
+    const opname = waOpname
     setWaSending(true); setWaStatus('sending')
     try {
-      const res = await api.post(`/admin/stock-opname/${detail.id}/send-wa`, {
+      const res = await api.post(`/admin/stock-opname/${opname.id}/send-wa`, {
         targets,
-        caption: `📋 *Laporan Stock Opname*\n${new Date(detail.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\nOleh: ${detail.user?.name}\nStatus: ${detail.status}${detail.note ? `\nCatatan: ${detail.note}` : ''}`,
+        caption: `📋 *Laporan Stock Opname*\n${new Date(opname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })}\nOleh: ${opname.user?.name}\nStatus: ${opname.status}${opname.note ? `\nCatatan: ${opname.note}` : ''}`,
       })
       setWaStatus('success')
       setWaMessage(`Berhasil dikirim ke ${res.data.results?.filter(r => r.success).length} tujuan`)
@@ -288,13 +290,6 @@ export default function StockOpnamePage() {
                 <button className="btn btn-ghost" onClick={handleReopen} disabled={reopening}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   {reopening ? 'Membuka...' : 'Edit Opname'}
-                </button>
-              )}
-              {detail && (
-                <button className="btn" style={{ background: '#F0FDF4', color: '#10B981', border: '1px solid #A7F3D0' }}
-                  onClick={() => { setShowSendWA(true); setWaStatus(null); setWaTargets({ admin: false, group: false }) }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                  Kirim WhatsApp
                 </button>
               )}
             </div>
@@ -590,7 +585,7 @@ export default function StockOpnamePage() {
       })()}
 
       {/* Modal Kirim WhatsApp */}
-      {showSendWA && detail && (
+      {showSendWA && waOpname && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 800, backdropFilter: 'blur(6px)' }}
           onClick={e => { if (e.target === e.currentTarget && !waSending) setShowSendWA(false) }}>
           <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
@@ -612,7 +607,7 @@ export default function StockOpnamePage() {
               {/* Info opname */}
               <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
                 <div style={{ fontWeight: '700', color: 'var(--text)', marginBottom: '2px' }}>Stock Opname</div>
-                <div>{new Date(detail.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })} · {detail.items.length} item · {detail.status}</div>
+                <div>{new Date(waOpname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })} · {waOpname.totalItems} item · {waOpname.status}</div>
               </div>
 
               {/* Pilih tujuan */}
@@ -774,6 +769,10 @@ export default function StockOpnamePage() {
                         <div style={{ display: 'flex', gap: '5px' }}>
                           <button className="btn" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid #C7D4F0', padding: '5px 10px', fontSize: '12px' }} onClick={() => openDetail(o.id)}>
                             {o.status === 'DRAFT' ? 'Isi' : 'Lihat'}
+                          </button>
+                          <button className="btn" style={{ background: '#F0FDF4', color: '#22C55E', border: '1px solid #A7F3D0', padding: '5px 10px', fontSize: '12px' }}
+                            onClick={() => { setWaOpname(o); setShowSendWA(true); setWaStatus(null); setWaTargets({ admin: false, group: false }) }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                           </button>
                           <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }} onClick={() => handleDelete(o.id)}>Hapus</button>
                         </div>
