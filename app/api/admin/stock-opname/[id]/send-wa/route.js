@@ -211,10 +211,8 @@ export async function POST(req, { params }) {
       try {
         const form = new FormData()
         form.append('target', target)
-        form.append('message', caption || '')
         form.append('file', pdfUrl)
-        form.append('filename', `Laporan-Opname-${fmtDate(opname.date)}.pdf`)
-
+        // message dikirim terpisah setelah file
         const res = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
           headers: { Authorization: token },
@@ -222,6 +220,19 @@ export async function POST(req, { params }) {
         })
         const result = await res.json()
         console.log('Fonnte response:', JSON.stringify(result))
+
+        // Kirim caption sebagai pesan terpisah jika ada
+        if (caption && result.status === true) {
+          const form2 = new FormData()
+          form2.append('target', target)
+          form2.append('message', caption)
+          await fetch('https://api.fonnte.com/send', {
+            method: 'POST',
+            headers: { Authorization: token },
+            body: form2,
+          })
+        }
+
         results.push({ target, success: result.status === true, detail: result })
       } catch (sendErr) {
         results.push({ target, success: false, detail: { reason: sendErr.message } })
