@@ -194,8 +194,8 @@ export async function POST(req, { params }) {
 
   const allFailed = results.every(r => !r.success)
   if (allFailed) {
-    const firstError = results[0]?.detail?.reason || results[0]?.detail?.message || 'Gagal mengirim'
-    return NextResponse.json({ message: firstError }, { status: 500 })
+    // Return detail lengkap dari Fonnte untuk debug
+    return NextResponse.json({ message: 'Gagal mengirim', debug: results }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, results })

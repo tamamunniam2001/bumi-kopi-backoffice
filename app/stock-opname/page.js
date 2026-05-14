@@ -70,7 +70,7 @@ export default function StockOpnamePage() {
       setWaMessage(`Berhasil dikirim ke ${res.data.results?.filter(r => r.success).length} tujuan`)
     } catch (e) {
       setWaStatus('error')
-      setWaMessage(e.response?.data?.message || 'Gagal mengirim')
+      setWaMessage(e.response?.data?.message || JSON.stringify(e.response?.data?.debug) || 'Gagal mengirim')
     } finally { setWaSending(false) }
   }
 
