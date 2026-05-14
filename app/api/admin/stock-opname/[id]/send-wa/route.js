@@ -121,6 +121,7 @@ async function generatePDFBuffer(opname, items) {
 }
 
 export async function POST(req, { params }) {
+  try {
   const { error } = verifyAuth(req)
   if (error) return error
 
@@ -181,4 +182,8 @@ export async function POST(req, { params }) {
   }
 
   return NextResponse.json({ success: true, results })
+  } catch (e) {
+    console.error('send-wa error:', e)
+    return NextResponse.json({ message: e.message || 'Internal server error', stack: e.stack }, { status: 500 })
+  }
 }
