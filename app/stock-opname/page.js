@@ -583,100 +583,6 @@ export default function StockOpnamePage() {
           </div>
         )
       })()}
-
-      {/* Modal Kirim WhatsApp */}
-      {showSendWA && waOpname && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 800, backdropFilter: 'blur(6px)' }}
-          onClick={e => { if (e.target === e.currentTarget && !waSending) setShowSendWA(false) }}>
-          <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
-
-            {/* Header */}
-            <div style={{ padding: '18px 20px', background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)', borderBottom: '1px solid #A7F3D0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Kirim ke WhatsApp</div>
-                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>PDF akan digenerate otomatis</div>
-              </div>
-              {!waSending && <button onClick={() => setShowSendWA(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>}
-            </div>
-
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-              {/* Info opname */}
-              <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
-                <div style={{ fontWeight: '700', color: 'var(--text)', marginBottom: '2px' }}>Stock Opname</div>
-                <div>{new Date(waOpname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })} · {waOpname.totalItems} item · {waOpname.status}</div>
-              </div>
-
-              {/* Pilih tujuan */}
-              {waStatus !== 'success' && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)', marginBottom: '10px' }}>Kirim ke:</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {[{ key: 'admin', label: 'Admin', desc: 'Pesan pribadi ke nomor admin', icon: '👤', color: '#4A7CC7', bg: '#EFF4FF', border: '#C7D4F0' },
-                      { key: 'group', label: 'Grup', desc: 'Kirim ke grup WhatsApp', icon: '👥', color: '#10B981', bg: '#F0FDF4', border: '#A7F3D0' }
-                    ].map(opt => (
-                      <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px', border: `2px solid ${waTargets[opt.key] ? opt.border : 'var(--border)'}`, background: waTargets[opt.key] ? opt.bg : 'var(--surface)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                        <input type="checkbox" checked={waTargets[opt.key]} onChange={e => setWaTargets(p => ({ ...p, [opt.key]: e.target.checked }))}
-                          style={{ width: '16px', height: '16px', accentColor: opt.color, cursor: 'pointer', flexShrink: 0 }} />
-                        <span style={{ fontSize: '18px' }}>{opt.icon}</span>
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: waTargets[opt.key] ? opt.color : 'var(--text)' }}>{opt.label}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{opt.desc}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Status sending */}
-              {waStatus === 'sending' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: '#F0FDF4', borderRadius: '10px', border: '1px solid #A7F3D0' }}>
-                  <span style={{ width: '18px', height: '18px', border: '2px solid #A7F3D0', borderTopColor: '#22C55E', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block', flexShrink: 0 }} />
-                  <div style={{ fontSize: '13px', color: '#15803D', fontWeight: '600' }}>Membuat PDF & mengirim...</div>
-                </div>
-              )}
-
-              {/* Status success */}
-              {waStatus === 'success' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px', textAlign: 'center' }}>
-                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#F0FDF4', border: '2px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Terkirim!</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{waMessage}</div>
-                </div>
-              )}
-
-              {/* Status error */}
-              {waStatus === 'error' && (
-                <div style={{ padding: '12px 14px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', fontSize: '12px', color: '#EF4444', fontWeight: '600' }}>
-                  ❌ {waMessage}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', gap: '8px' }}>
-              {waStatus === 'success' ? (
-                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E' }} onClick={() => setShowSendWA(false)}>Tutup</button>
-              ) : (
-                <>
-                  <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowSendWA(false)} disabled={waSending}>Batal</button>
-                  <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E', opacity: (!waTargets.admin && !waTargets.group) ? 0.5 : 1 }}
-                    onClick={handleSendWA} disabled={waSending || (!waTargets.admin && !waTargets.group)}>
-                    {waSending ? 'Mengirim...' : 'Kirim PDF'}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       </div>
     )
   }
@@ -821,6 +727,84 @@ export default function StockOpnamePage() {
           </div>
         </div>
       )}
+
+      {/* Modal Kirim WhatsApp */}
+      {showSendWA && waOpname && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 800, backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget && !waSending) setShowSendWA(false) }}>
+          <div className="card fade-in" style={{ width: '380px', maxWidth: '96vw', overflow: 'hidden' }}>
+            <div style={{ padding: '18px 20px', background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)', borderBottom: '1px solid #A7F3D0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Kirim ke WhatsApp</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>PDF akan digenerate otomatis</div>
+              </div>
+              {!waSending && <button onClick={() => setShowSendWA(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '20px', lineHeight: 1 }}>×</button>}
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
+                <div style={{ fontWeight: '700', color: 'var(--text)', marginBottom: '2px' }}>Stock Opname</div>
+                <div>{new Date(waOpname.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })} · {waOpname.totalItems} item · {waOpname.status}</div>
+              </div>
+              {waStatus !== 'success' && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)', marginBottom: '10px' }}>Kirim ke:</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[{ key: 'admin', label: 'Admin', desc: 'Pesan pribadi ke nomor admin', color: '#4A7CC7', bg: '#EFF4FF', bdr: '#C7D4F0' },
+                      { key: 'group', label: 'Grup', desc: 'Kirim ke grup WhatsApp', color: '#10B981', bg: '#F0FDF4', bdr: '#A7F3D0' }
+                    ].map(opt => (
+                      <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px', border: '2px solid ' + (waTargets[opt.key] ? opt.bdr : 'var(--border)'), background: waTargets[opt.key] ? opt.bg : 'var(--surface)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={waTargets[opt.key]} onChange={e => setWaTargets(p => ({ ...p, [opt.key]: e.target.checked }))}
+                          style={{ width: '16px', height: '16px', accentColor: opt.color, cursor: 'pointer', flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: waTargets[opt.key] ? opt.color : 'var(--text)' }}>{opt.label}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{opt.desc}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {waStatus === 'sending' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: '#F0FDF4', borderRadius: '10px', border: '1px solid #A7F3D0' }}>
+                  <span style={{ width: '18px', height: '18px', border: '2px solid #A7F3D0', borderTopColor: '#22C55E', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                  <div style={{ fontSize: '13px', color: '#15803D', fontWeight: '600' }}>Membuat PDF dan mengirim...</div>
+                </div>
+              )}
+              {waStatus === 'success' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px', textAlign: 'center' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#F0FDF4', border: '2px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text)' }}>Terkirim!</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{waMessage}</div>
+                </div>
+              )}
+              {waStatus === 'error' && (
+                <div style={{ padding: '12px 14px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', fontSize: '12px', color: '#EF4444', fontWeight: '600' }}>
+                  Gagal: {waMessage}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', gap: '8px' }}>
+              {waStatus === 'success' ? (
+                <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E' }} onClick={() => setShowSendWA(false)}>Tutup</button>
+              ) : (
+                <>
+                  <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowSendWA(false)} disabled={waSending}>Batal</button>
+                  <button className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', background: '#22C55E', borderColor: '#22C55E', opacity: (!waTargets.admin && !waTargets.group) ? 0.5 : 1 }}
+                    onClick={handleSendWA} disabled={waSending || (!waTargets.admin && !waTargets.group)}>
+                    {waSending ? 'Mengirim...' : 'Kirim PDF'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
 
     </div>
   )
