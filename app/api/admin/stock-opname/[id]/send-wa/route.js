@@ -1,122 +1,161 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { verifyAuth } from '@/lib/auth'
-import PDFDocument from 'pdfkit'
+import { jsPDF } from 'jspdf'
 
 const fmtRp = n => 'Rp ' + Number(n).toLocaleString('id-ID', { maximumFractionDigits: 0 })
 const fmt = n => Number(n) % 1 !== 0 ? Number(n).toLocaleString('id-ID', { maximumFractionDigits: 4 }) : Number(n).toLocaleString('id-ID')
 const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })
 
-async function generatePDFBuffer(opname, items) {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 40, size: 'A4', font: 'Courier' })
-    const chunks = []
-    doc.on('data', chunk => chunks.push(chunk))
-    doc.on('end', () => resolve(Buffer.concat(chunks)))
-    doc.on('error', reject)
+function generatePDFBuffer(opname, items) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+  const W = 515
+  const ML = 40
 
-    const W = 515
+  // Header
+  doc.setFillColor(30, 42, 59)
+  doc.rect(ML, 40, W, 55, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('LAPORAN STOCK OPNAME', ML + 15, 68)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Tanggal: ${fmtDate(opname.date)}  |  Oleh: ${opname.user?.name}  |  Status: ${opname.status}`, ML + 15, 84)
+  if (opname.note) doc.text(`Catatan: ${opname.note}`, ML + 15, 96)
 
-    doc.rect(40, 40, W, 60).fill('#1E2A3B')
-    doc.fillColor('#FFFFFF').fontSize(16)
-      .text('LAPORAN STOCK OPNAME', 55, 52)
-    doc.fontSize(9)
-      .text(`Tanggal: ${fmtDate(opname.date)}  Oleh: ${opname.user?.name}  Status: ${opname.status}`, 55, 74)
-    if (opname.note) doc.text(`Catatan: ${opname.note}`, 55, 86)
+  // Summary bar
+  const totalItem = items.length
+  const sudahDiisi = items.filter(i => i.qtyActual > 0).length
+  const belumDiisi = items.filter(i => i.qtyActual === 0).length
+  const totalNilai = items.reduce((s, i) => s + (i.qtyActual * (i.hargaTerakhir || 0)), 0)
 
-    const totalNilai = items.reduce((s, i) => s + (i.qtyActual * (i.hargaTerakhir || 0)), 0)
-    const totalItem = items.length
-    const sudahDiisi = items.filter(i => i.qtyActual > 0).length
-    const belumDiisi = items.filter(i => i.qtyActual === 0).length
-
-    const summaries = [
-      { label: 'Total Item', val: String(totalItem), color: '#4A7CC7' },
-      { label: 'Sudah Diisi', val: String(sudahDiisi), color: '#10B981' },
-      { label: 'Belum Diisi', val: String(belumDiisi), color: '#F59E0B' },
-      { label: 'Total Nilai', val: fmtRp(totalNilai), color: '#8B5CF6' },
-    ]
-    const boxW = W / 4
-    summaries.forEach((s, i) => {
-      const x = 40 + i * boxW
-      doc.rect(x, 110, boxW, 44).fill(i % 2 === 0 ? '#F8FAFC' : '#F1F5F9')
-      doc.fillColor(s.color).fontSize(11).text(s.val, x + 8, 118, { width: boxW - 16 })
-      doc.fillColor('#64748B').fontSize(8).text(s.label, x + 8, 133, { width: boxW - 16 })
-    })
-
-    const tableTop = 168
-    const cols = { no: 40, nama: 60, kategori: 200, qty: 310, harga: 380, nilai: 455 }
-    const colW = { no: 18, nama: 138, kategori: 108, qty: 68, harga: 73, nilai: 100 }
-
-    const drawTableHeader = (y) => {
-      doc.rect(40, y, W, 18).fill('#1E2A3B')
-      doc.fillColor('#FFFFFF').fontSize(8)
-      doc.text('No', cols.no + 2, y + 5, { width: colW.no })
-      doc.text('Nama Barang', cols.nama, y + 5, { width: colW.nama })
-      doc.text('Kategori', cols.kategori, y + 5, { width: colW.kategori })
-      doc.text('Qty Aktual', cols.qty, y + 5, { width: colW.qty, align: 'center' })
-      doc.text('Harga Satuan', cols.harga, y + 5, { width: colW.harga, align: 'right' })
-      doc.text('Nilai Stok', cols.nilai, y + 5, { width: colW.nilai, align: 'right' })
-    }
-
-    drawTableHeader(tableTop)
-    let y = tableTop + 18
-
-    items.forEach((item, idx) => {
-      const rowH = 16
-      if (y + rowH > 780) {
-        doc.addPage(); y = 40
-        drawTableHeader(y); y += 18
-      }
-      const bg = item.qtyActual === 0 ? '#FFFBEB' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC')
-      doc.rect(40, y, W, rowH).fill(bg)
-      const nama = item.inventoryItem?.name || item.itemName || ''
-      const kategori = item.inventoryItem?.category || item.expenseItem?.category || ''
-      const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan || '')
-      const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
-      const harga = item.hargaTerakhir || 0
-      const nilai = item.qtyActual * harga
-      doc.fillColor('#1E293B').fontSize(7.5)
-      doc.text(String(idx + 1), cols.no + 2, y + 4, { width: colW.no })
-      doc.text(nama, cols.nama, y + 4, { width: colW.nama - 4, ellipsis: true })
-      doc.fillColor('#64748B')
-        .text(kategori, cols.kategori, y + 4, { width: colW.kategori - 4, ellipsis: true })
-      doc.fillColor(item.qtyActual === 0 ? '#F59E0B' : '#1E293B')
-        .text(`${fmt(qtyTampil)} ${satuanTampil}`, cols.qty, y + 4, { width: colW.qty, align: 'center' })
-      doc.fillColor('#64748B')
-        .text(harga > 0 ? fmtRp(harga) : '-', cols.harga, y + 4, { width: colW.harga, align: 'right' })
-      doc.fillColor('#8B5CF6')
-        .text(nilai > 0 ? fmtRp(nilai) : '-', cols.nilai, y + 4, { width: colW.nilai, align: 'right' })
-      doc.moveTo(40, y + rowH).lineTo(555, y + rowH).strokeColor('#E2E8F0').lineWidth(0.5).stroke()
-      y += rowH
-    })
-
-    y += 4
-    doc.rect(40, y, W, 22).fill('#1E2A3B')
-    doc.fillColor('#FFFFFF').fontSize(9)
-      .text('TOTAL NILAI STOK', 55, y + 7)
-      .text(fmtRp(totalNilai), cols.nilai, y + 7, { width: colW.nilai, align: 'right' })
-
-    const requested = items.filter(i => i.isRequested)
-    if (requested.length > 0) {
-      y += 36
-      doc.rect(40, y, W, 18).fill('#FFF7ED')
-      doc.rect(40, y, 4, 18).fill('#F59E0B')
-      doc.fillColor('#92400E').fontSize(9)
-        .text(`Perlu Restock (${requested.length} item)`, 52, y + 5)
-      y += 18
-      requested.forEach((item, idx) => {
-        doc.rect(40, y, W, 14).fill(idx % 2 === 0 ? '#FFFBEB' : '#FFF7ED')
-        doc.fillColor('#92400E').fontSize(7.5)
-          .text(`${idx + 1}. ${item.inventoryItem?.name || item.itemName}`, 52, y + 3, { width: W - 20 })
-        y += 14
-      })
-    }
-
-    doc.fillColor('#94A3B8').fontSize(7)
-      .text(`Dicetak: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, 40, doc.page.height - 30, { width: W, align: 'right' })
-
-    doc.end()
+  const summaries = [
+    { label: 'Total Item', val: String(totalItem), r: 74, g: 124, b: 199 },
+    { label: 'Sudah Diisi', val: String(sudahDiisi), r: 16, g: 185, b: 129 },
+    { label: 'Belum Diisi', val: String(belumDiisi), r: 245, g: 158, b: 11 },
+    { label: 'Total Nilai', val: fmtRp(totalNilai), r: 139, g: 92, b: 246 },
+  ]
+  const boxW = W / 4
+  summaries.forEach((s, i) => {
+    const x = ML + i * boxW
+    doc.setFillColor(i % 2 === 0 ? 248 : 241, i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 252 : 249)
+    doc.rect(x, 105, boxW, 40, 'F')
+    doc.setTextColor(s.r, s.g, s.b)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(s.val, x + 8, 122, { maxWidth: boxW - 16 })
+    doc.setTextColor(100, 116, 139)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text(s.label, x + 8, 136)
   })
+
+  // Tabel header
+  const cols = { no: ML, nama: ML + 20, kategori: ML + 158, qty: ML + 266, harga: ML + 334, nilai: ML + 407 }
+  const colW = { no: 18, nama: 136, kategori: 106, qty: 66, harga: 71, nilai: 108 }
+  let y = 158
+
+  const drawHeader = (y) => {
+    doc.setFillColor(30, 42, 59)
+    doc.rect(ML, y, W, 18, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text('No', cols.no + 2, y + 12)
+    doc.text('Nama Barang', cols.nama, y + 12)
+    doc.text('Kategori', cols.kategori, y + 12)
+    doc.text('Qty Aktual', cols.qty + colW.qty / 2, y + 12, { align: 'center' })
+    doc.text('Harga', cols.harga + colW.harga, y + 12, { align: 'right' })
+    doc.text('Nilai Stok', cols.nilai + colW.nilai, y + 12, { align: 'right' })
+  }
+
+  drawHeader(y)
+  y += 18
+
+  items.forEach((item, idx) => {
+    const rowH = 15
+    if (y + rowH > 800) {
+      doc.addPage()
+      y = 40
+      drawHeader(y)
+      y += 18
+    }
+
+    const isZero = item.qtyActual === 0
+    if (isZero) doc.setFillColor(255, 251, 235)
+    else if (idx % 2 === 0) doc.setFillColor(255, 255, 255)
+    else doc.setFillColor(248, 250, 252)
+    doc.rect(ML, y, W, rowH, 'F')
+
+    const nama = item.inventoryItem?.name || item.itemName || ''
+    const kategori = item.inventoryItem?.category || item.expenseItem?.category || ''
+    const satuanTampil = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan || '')
+    const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
+    const harga = item.hargaTerakhir || 0
+    const nilai = item.qtyActual * harga
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(30, 41, 59)
+    doc.text(String(idx + 1), cols.no + 2, y + 10)
+    doc.text(doc.splitTextToSize(nama, colW.nama - 4)[0], cols.nama, y + 10)
+    doc.setTextColor(100, 116, 139)
+    doc.text(doc.splitTextToSize(kategori, colW.kategori - 4)[0], cols.kategori, y + 10)
+    doc.setTextColor(isZero ? 245 : 30, isZero ? 158 : 41, isZero ? 11 : 59)
+    doc.text(`${fmt(qtyTampil)} ${satuanTampil}`, cols.qty + colW.qty / 2, y + 10, { align: 'center' })
+    doc.setTextColor(100, 116, 139)
+    doc.text(harga > 0 ? fmtRp(harga) : '-', cols.harga + colW.harga, y + 10, { align: 'right' })
+    doc.setTextColor(139, 92, 246)
+    doc.text(nilai > 0 ? fmtRp(nilai) : '-', cols.nilai + colW.nilai, y + 10, { align: 'right' })
+
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.5)
+    doc.line(ML, y + rowH, ML + W, y + rowH)
+    y += rowH
+  })
+
+  // Footer total
+  y += 4
+  doc.setFillColor(30, 42, 59)
+  doc.rect(ML, y, W, 22, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('TOTAL NILAI STOK', ML + 15, y + 14)
+  doc.text(fmtRp(totalNilai), cols.nilai + colW.nilai, y + 14, { align: 'right' })
+
+  // Restock
+  const requested = items.filter(i => i.isRequested)
+  if (requested.length > 0) {
+    y += 36
+    doc.setFillColor(255, 247, 237)
+    doc.rect(ML, y, W, 18, 'F')
+    doc.setFillColor(245, 158, 11)
+    doc.rect(ML, y, 4, 18, 'F')
+    doc.setTextColor(146, 64, 14)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Perlu Restock (${requested.length} item)`, ML + 12, y + 12)
+    y += 18
+    requested.forEach((item, idx) => {
+      doc.setFillColor(idx % 2 === 0 ? 255 : 255, idx % 2 === 0 ? 251 : 247, idx % 2 === 0 ? 235 : 237)
+      doc.rect(ML, y, W, 14, 'F')
+      doc.setTextColor(146, 64, 14)
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`${idx + 1}. ${item.inventoryItem?.name || item.itemName}`, ML + 12, y + 10)
+      y += 14
+    })
+  }
+
+  // Timestamp
+  doc.setTextColor(148, 163, 184)
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Dicetak: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`, ML + W, doc.internal.pageSize.height - 20, { align: 'right' })
+
+  return Buffer.from(doc.output('arraybuffer'))
 }
 
 export async function POST(req, { params }) {
@@ -159,7 +198,7 @@ export async function POST(req, { params }) {
 
     let pdfBuffer
     try {
-      pdfBuffer = await generatePDFBuffer(opname, items)
+      pdfBuffer = generatePDFBuffer(opname, items)
     } catch (pdfErr) {
       console.error('PDF error:', pdfErr)
       return NextResponse.json({ message: `Gagal generate PDF: ${pdfErr.message}` }, { status: 500 })
