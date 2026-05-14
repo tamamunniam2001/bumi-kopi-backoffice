@@ -212,7 +212,7 @@ export async function POST(req, { params }) {
         const form = new FormData()
         form.append('target', target)
         form.append('message', caption || '')
-        form.append('url', pdfUrl)
+        form.append('file', pdfUrl)
         form.append('filename', `Laporan-Opname-${fmtDate(opname.date)}.pdf`)
 
         const res = await fetch('https://api.fonnte.com/send', {
