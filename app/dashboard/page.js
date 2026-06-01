@@ -74,6 +74,47 @@ function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeM
 
   const periodLabel = filterMode === 'year' ? `Tahun ${year}` : `${MONTHS[filterMonth]} ${year}`
 
+  function downloadCSV() {
+    const fmtNum = n => Number(n || 0)
+    const rows = []
+    const header = ['Kategori', ...colLabels, 'Total']
+    rows.push(header)
+
+    rows.push(['--- PEMASUKAN ---', ...colKeys.map(() => ''), ''])
+    salesTable.forEach(row => {
+      rows.push([row.cat, ...colKeys.map(k => fmtNum(row.cols[k] || 0)), fmtNum(row.total)])
+    })
+    rows.push(['TOTAL PEMASUKAN', ...colKeys.map(k => fmtNum(salesTotals[k] || 0)), fmtNum(grandSalesTotal)])
+
+    rows.push(['', ...colKeys.map(() => ''), ''])
+    rows.push(['--- PENGELUARAN ---', ...colKeys.map(() => ''), ''])
+    expTable.forEach(row => {
+      rows.push([row.cat, ...colKeys.map(k => fmtNum(row.cols[k] || 0)), fmtNum(row.total)])
+    })
+    rows.push(['TOTAL PENGELUARAN', ...colKeys.map(k => fmtNum(expTotals[k] || 0)), fmtNum(grandExpTotal)])
+
+    rows.push(['', ...colKeys.map(() => ''), ''])
+    rows.push(['LABA BERSIH', ...colKeys.map(k => fmtNum((salesTotals[k] || 0) - (expTotals[k] || 0))), fmtNum(grandLaba)])
+    rows.push(['', ...colKeys.map(() => ''), ''])
+    rows.push(['Kas Awal Bulan', ...colKeys.map(() => ''), fmtNum(kasAwal)])
+    rows.push(['Total Penjualan', ...colKeys.map(() => ''), fmtNum(grandSalesTotal)])
+    rows.push(['Total Pengeluaran', ...colKeys.map(() => ''), fmtNum(grandExpTotal)])
+    rows.push(['KAS AKHIR BULAN', ...colKeys.map(() => ''), fmtNum(kasAkhir)])
+    rows.push(['Net Margin %', ...colKeys.map(k => {
+      const s = salesTotals[k] || 0; const e = expTotals[k] || 0
+      return s > 0 ? `${Math.round(((s - e) / s) * 100)}%` : '-'
+    }), grandSalesTotal > 0 ? `${Math.round(((grandSalesTotal - grandExpTotal) / grandSalesTotal) * 100)}%` : '-'])
+
+    const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `rekap-${periodLabel.replace(/\s/g, '-')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #E2E8F8', boxShadow: '0 2px 16px rgba(15,23,41,0.06)', overflow: 'hidden' }}>
       {/* Header kontrol */}
@@ -83,6 +124,13 @@ function RekapTable({ catData, filterMonth, filterMode, onChangeMonth, onChangeM
           <p style={{ fontSize: '12px', color: '#8896B3', marginTop: '3px' }}>{periodLabel}</p>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            onClick={downloadCSV}
+            style={{ padding: '6px 12px', borderRadius: '9px', border: '1.5px solid #E2E8F8', background: '#F8FAFF', color: '#4A7CC7', fontSize: '12px', fontWeight: '600', fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
           <select
             value={filterMode === 'year' ? '' : filterMonth}
             onChange={e => { onChangeMode('month'); onChangeMonth(Number(e.target.value)) }}
