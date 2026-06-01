@@ -9,41 +9,39 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const now = new Date()
 
-  const reqMonth = searchParams.get('month')
-  const reqYear = searchParams.get('year')
   const mode = searchParams.get('mode') || 'month'
+  const year = searchParams.get('year') ? Number(searchParams.get('year')) : now.getFullYear()
 
-  const year = reqYear ? Number(reqYear) : now.getFullYear()
-  const month = reqMonth !== null ? Number(reqMonth) : now.getMonth()
+  // Untuk bulan: jika tidak ada parameter, default ke bulan sekarang WIB
+  const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000)
+  const defaultMonth = wibNow.getUTCMonth()
+  const month = searchParams.get('month') !== null && searchParams.get('month') !== ''
+    ? Number(searchParams.get('month'))
+    : defaultMonth
 
-  // Buat range dalam WIB (UTC+7) dengan format ISO string
+  // Range dalam WIB menggunakan ISO string +07:00 — tidak ada ambiguitas timezone
+  const pad = n => String(n).padStart(2, '0')
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
+
   const rangeStart = mode === 'year'
     ? new Date(`${year}-01-01T00:00:00+07:00`)
-    : new Date(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+07:00`)
+    : new Date(`${year}-${pad(month + 1)}-01T00:00:00+07:00`)
 
   const rangeEnd = mode === 'year'
-    ? new Date(`${year}-12-31T23:59:59+07:00`)
-    : new Date(year, month + 1, 0, 23, 59, 59, 999 - 7 * 60 * 60 * 1000) // last day of month WIB
-
-  // Untuk mode year: last day of year WIB
-  const rangeEndFixed = mode === 'year'
-    ? new Date(`${year}-12-31T23:59:59+07:00`)
-    : (() => {
-        const lastDay = new Date(year, month + 1, 0) // last day of month
-        return new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}T23:59:59+07:00`)
-      })()
+    ? new Date(`${year}-12-31T23:59:59.999+07:00`)
+    : new Date(`${year}-${pad(month + 1)}-${pad(lastDayOfMonth)}T23:59:59.999+07:00`)
 
   const [salesRaw, expRaw, kasData] = await Promise.all([
     prisma.orderItem.findMany({
-      where: { transaction: { status: 'COMPLETED', createdAt: { gte: rangeStart, lte: rangeEndFixed } } },
+      where: { transaction: { status: 'COMPLETED', createdAt: { gte: rangeStart, lte: rangeEnd } } },
       select: {
-        category: true, subtotal: true, qty: true,
+        category: true, subtotal: true,
         transaction: { select: { createdAt: true } },
         product: { select: { category: { select: { name: true } } } },
       },
     }),
     prisma.expenseDetail.findMany({
-      where: { expense: { date: { gte: rangeStart, lte: rangeEndFixed } } },
+      where: { expense: { date: { gte: rangeStart, lte: rangeEnd } } },
       select: {
         category: true, subtotal: true,
         expense: { select: { date: true } },
@@ -53,68 +51,60 @@ export async function GET(req) {
     prisma.monthlyKas.findMany({ where: { year } }),
   ])
 
-  // Helper: konversi UTC ke WIB untuk ambil tanggal/bulan yang benar
-  function toWIBDate(d) {
+  // Konversi UTC ke WIB — kembalikan month (0-11) dan date (1-31)
+  function toWIB(d) {
     const wib = new Date(new Date(d).getTime() + 7 * 60 * 60 * 1000)
     return { month: wib.getUTCMonth(), date: wib.getUTCDate() }
   }
 
-  // Tentukan minggu ke-berapa dalam bulan (1-4)
-  function getWeekOfMonth(day) {
-    return Math.min(Math.ceil(day / 7), 4)
-  }
-
+  // Kolom: untuk year = bulan (key: 0-11), untuk month = minggu (key: 1-4)
   const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
   const cols = mode === 'year'
     ? Array.from({ length: 12 }, (_, i) => ({ key: i, label: MONTHS[i] }))
     : [{ key: 1, label: 'Mg1' }, { key: 2, label: 'Mg2' }, { key: 3, label: 'Mg3' }, { key: 4, label: 'Mg4' }]
 
   function getColKey(rawDate) {
-    const { month: m, date: d } = toWIBDate(rawDate)
+    const { month: m, date: d } = toWIB(rawDate)
     if (mode === 'year') return m
-    return getWeekOfMonth(d)
+    return Math.min(Math.ceil(d / 7), 4)
   }
 
-  // Build tabel: { [category]: { [colKey]: total } }
+  // Build tabel — key selalu number agar konsisten dengan frontend
   function buildTable(items, getCat) {
     const map = {}
     items.forEach(item => {
-      const cat = getCat(item)
-      const col = getColKey(item._date)
+      const cat = getCat(item) || 'Lainnya'
+      const col = getColKey(item._date) // number
       if (!map[cat]) map[cat] = {}
       map[cat][col] = (map[cat][col] || 0) + item.subtotal
     })
     return Object.entries(map)
-      .map(([cat, cols]) => ({ cat, cols, total: Object.values(cols).reduce((s, v) => s + v, 0) }))
+      .map(([cat, colMap]) => ({
+        cat,
+        cols: colMap, // key = number
+        total: Object.values(colMap).reduce((s, v) => s + v, 0),
+      }))
       .sort((a, b) => b.total - a.total)
   }
 
-  const salesItems = salesRaw.map(i => ({
-    ...i,
-    subtotal: i.subtotal,
-    _date: i.transaction.createdAt,
-  }))
-  const expItems = expRaw.map(i => ({
-    ...i,
-    subtotal: i.subtotal,
-    _date: i.expense.date,
-  }))
+  const salesItems = salesRaw.map(i => ({ ...i, _date: i.transaction.createdAt }))
+  const expItems = expRaw.map(i => ({ ...i, _date: i.expense.date }))
 
-  const salesTable = buildTable(salesItems, i => i.product?.category?.name || i.category || 'Lainnya')
-  const expTable = buildTable(expItems, i => i.expenseItem?.category || i.category || 'Lainnya')
+  const salesTable = buildTable(salesItems, i => i.product?.category?.name || i.category)
+  const expTable = buildTable(expItems, i => i.expenseItem?.category || i.category)
 
-  // Hitung total per kolom
+  // Total per kolom — key tetap number
   function colTotals(table) {
     const totals = {}
-    table.forEach(({ cols }) => {
-      Object.entries(cols).forEach(([k, v]) => {
-        totals[k] = (totals[k] || 0) + v
+    table.forEach(({ cols: colMap }) => {
+      Object.entries(colMap).forEach(([k, v]) => {
+        const numKey = Number(k)
+        totals[numKey] = (totals[numKey] || 0) + v
       })
     })
     return totals
   }
 
-  // Kas awal untuk bulan/mode yang diminta
   const kasAwal = mode === 'year'
     ? kasData.reduce((s, k) => s + k.kasAwal, 0)
     : (kasData.find(k => k.month === month)?.kasAwal || 0)

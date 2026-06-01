@@ -326,6 +326,7 @@ export default function DashboardPage() {
   const pathname = usePathname()
 
   const loadCat = useCallback((month, mode, year) => {
+    if (month === null || month === undefined || !year) return
     setCatLoading(true)
     setCatData(null)
     api.get(`/admin/dashboard-categories?month=${month}&mode=${mode}&year=${year}`)
