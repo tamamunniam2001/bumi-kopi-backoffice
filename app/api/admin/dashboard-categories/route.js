@@ -8,28 +8,34 @@ export async function GET(req) {
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
-  const TZ_OFFSET = 7 * 60 * 60 * 1000
-  const toWIB = (d) => new Date(new Date(d).getTime() + TZ_OFFSET)
 
-  // Ambil parameter bulan/tahun dari query, default bulan ini
-  const reqMonth = searchParams.get('month') // 0-11 atau null
-  const reqYear = searchParams.get('year')   // tahun atau null
-  const mode = searchParams.get('mode') || 'month' // 'month' | 'year'
+  const reqMonth = searchParams.get('month')
+  const reqYear = searchParams.get('year')
+  const mode = searchParams.get('mode') || 'month'
 
   const year = reqYear ? Number(reqYear) : now.getFullYear()
   const month = reqMonth !== null ? Number(reqMonth) : now.getMonth()
 
-  const yearStart = new Date(year, 0, 1); yearStart.setTime(yearStart.getTime() - TZ_OFFSET)
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999); yearEnd.setTime(yearEnd.getTime() - TZ_OFFSET)
-  const monthStart = new Date(year, month, 1); monthStart.setTime(monthStart.getTime() - TZ_OFFSET)
-  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999); monthEnd.setTime(monthEnd.getTime() - TZ_OFFSET)
+  // Buat range dalam WIB (UTC+7) dengan format ISO string
+  const rangeStart = mode === 'year'
+    ? new Date(`${year}-01-01T00:00:00+07:00`)
+    : new Date(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+07:00`)
 
-  const rangeStart = mode === 'year' ? yearStart : monthStart
-  const rangeEnd = mode === 'year' ? yearEnd : monthEnd
+  const rangeEnd = mode === 'year'
+    ? new Date(`${year}-12-31T23:59:59+07:00`)
+    : new Date(year, month + 1, 0, 23, 59, 59, 999 - 7 * 60 * 60 * 1000) // last day of month WIB
+
+  // Untuk mode year: last day of year WIB
+  const rangeEndFixed = mode === 'year'
+    ? new Date(`${year}-12-31T23:59:59+07:00`)
+    : (() => {
+        const lastDay = new Date(year, month + 1, 0) // last day of month
+        return new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}T23:59:59+07:00`)
+      })()
 
   const [salesRaw, expRaw, kasData] = await Promise.all([
     prisma.orderItem.findMany({
-      where: { transaction: { status: 'COMPLETED', createdAt: { gte: rangeStart, lte: rangeEnd } } },
+      where: { transaction: { status: 'COMPLETED', createdAt: { gte: rangeStart, lte: rangeEndFixed } } },
       select: {
         category: true, subtotal: true, qty: true,
         transaction: { select: { createdAt: true } },
@@ -37,7 +43,7 @@ export async function GET(req) {
       },
     }),
     prisma.expenseDetail.findMany({
-      where: { expense: { date: { gte: rangeStart, lte: rangeEnd } } },
+      where: { expense: { date: { gte: rangeStart, lte: rangeEndFixed } } },
       select: {
         category: true, subtotal: true,
         expense: { select: { date: true } },
@@ -47,34 +53,37 @@ export async function GET(req) {
     prisma.monthlyKas.findMany({ where: { year } }),
   ])
 
-  // Tentukan minggu ke-berapa dalam bulan (1-4+)
-  function getWeekOfMonth(dateWIB) {
-    const day = dateWIB.getUTCDate()
-    return Math.min(Math.ceil(day / 7), 4) // max 4 minggu
+  // Helper: konversi UTC ke WIB untuk ambil tanggal/bulan yang benar
+  function toWIBDate(d) {
+    const wib = new Date(new Date(d).getTime() + 7 * 60 * 60 * 1000)
+    return { month: wib.getUTCMonth(), date: wib.getUTCDate() }
   }
 
-  // Untuk mode year: kolom = bulan (Jan-Des), untuk mode month: kolom = minggu (Mg1-Mg4)
+  // Tentukan minggu ke-berapa dalam bulan (1-4)
+  function getWeekOfMonth(day) {
+    return Math.min(Math.ceil(day / 7), 4)
+  }
+
   const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
   const cols = mode === 'year'
     ? Array.from({ length: 12 }, (_, i) => ({ key: i, label: MONTHS[i] }))
     : [{ key: 1, label: 'Mg1' }, { key: 2, label: 'Mg2' }, { key: 3, label: 'Mg3' }, { key: 4, label: 'Mg4' }]
 
-  function getColKey(dateWIB) {
-    if (mode === 'year') return dateWIB.getUTCMonth()
-    return getWeekOfMonth(dateWIB)
+  function getColKey(rawDate) {
+    const { month: m, date: d } = toWIBDate(rawDate)
+    if (mode === 'year') return m
+    return getWeekOfMonth(d)
   }
 
   // Build tabel: { [category]: { [colKey]: total } }
   function buildTable(items, getCat) {
-    const map = {} // cat -> { colKey -> total }
+    const map = {}
     items.forEach(item => {
       const cat = getCat(item)
-      const dateWIB = toWIB(item._date)
-      const col = getColKey(dateWIB)
+      const col = getColKey(item._date)
       if (!map[cat]) map[cat] = {}
       map[cat][col] = (map[cat][col] || 0) + item.subtotal
     })
-    // Urutkan berdasarkan total keseluruhan
     return Object.entries(map)
       .map(([cat, cols]) => ({ cat, cols, total: Object.values(cols).reduce((s, v) => s + v, 0) }))
       .sort((a, b) => b.total - a.total)

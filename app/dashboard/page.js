@@ -316,6 +316,7 @@ export default function DashboardPage() {
 
   function handleChangeMonth(m) {
     setFilterMonth(m)
+    setFilterMode('month')
     loadCat(m, 'month', year)
   }
   function handleChangeMode(mode) {
