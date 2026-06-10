@@ -100,6 +100,15 @@ export default function RekapProdukPage() {
   function handleFilter() { setPage(1); load(1, nullOnly, from, to, activeKategori); loadByKategori(from, to) }
   function handleReset() { setFrom(''); setTo(''); setNullOnly(false); setActiveKategori(''); setPage(1); setTimeout(() => { load(1, false, '', '', ''); loadByKategori('', '') }, 0) }
 
+  function handleClickMonth(i) {
+    const f = `${year}-${String(i + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(year, i + 1, 0).getDate()
+    const t = `${year}-${String(i + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    setFrom(f); setTo(t); setPage(1); setActiveKategori(''); setSelected(new Set())
+    load(1, nullOnly, f, t, '')
+    loadByKategori(f, t)
+  }
+
   function handleClickKategori(kat) {
     const newKat = activeKategori === kat ? '' : kat
     setActiveKategori(newKat); setPage(1)
@@ -337,18 +346,17 @@ export default function RekapProdukPage() {
                     {monthly.map((m, i) => {
                       const pct = Math.round((m.total / maxTotal) * 100)
                       const isCurrentMonth = new Date().getFullYear() === year && new Date().getMonth() === i
+                      const isActive = from === `${year}-${String(i + 1).padStart(2, '0')}-01`
                       return (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                          {/* Bar */}
-                          <div style={{ width: '100%', height: '60px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: '1px solid var(--border)' }}>
-                            <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isCurrentMonth ? 'var(--accent)' : m.total > 0 ? '#93C5FD' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
+                        <div key={i} onClick={() => m.total > 0 && handleClickMonth(i)}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: m.total > 0 ? 'pointer' : 'default' }}>
+                          <div style={{ width: '100%', height: '60px', background: isActive ? '#DBEAFE' : 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`, transition: 'border 0.15s' }}>
+                            <div style={{ width: '100%', height: `${Math.max(pct, m.total > 0 ? 4 : 0)}%`, background: isActive ? 'var(--accent)' : isCurrentMonth ? 'var(--accent)' : m.total > 0 ? '#93C5FD' : 'transparent', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
                           </div>
-                          {/* Total */}
                           <div style={{ fontSize: '10px', fontWeight: '700', color: m.total > 0 ? 'var(--accent)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
                             {m.total > 0 ? `Rp ${m.total.toLocaleString('id-ID')}` : '-'}
                           </div>
-                          {/* Nama bulan */}
-                          <div style={{ fontSize: '11px', fontWeight: isCurrentMonth ? '700' : '500', color: isCurrentMonth ? 'var(--accent)' : 'var(--muted)' }}>{MONTHS[i]}</div>
+                          <div style={{ fontSize: '11px', fontWeight: isActive || isCurrentMonth ? '700' : '500', color: isActive ? 'var(--accent)' : isCurrentMonth ? 'var(--accent)' : 'var(--muted)' }}>{MONTHS[i]}</div>
                         </div>
                       )
                     })}
