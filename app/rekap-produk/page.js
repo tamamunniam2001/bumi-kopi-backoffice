@@ -29,6 +29,9 @@ export default function RekapProdukPage() {
   const [editForm, setEditForm] = useState({})
   const [editSaving, setEditSaving] = useState(false)
   const [categories, setCategories] = useState([])
+  const [byKategori, setByKategori] = useState([])
+  const [byKategoriLoading, setByKategoriLoading] = useState(true)
+  const [activeKategori, setActiveKategori] = useState('')
   const [exportModal, setExportModal] = useState(false)
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
@@ -39,6 +42,17 @@ export default function RekapProdukPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [monthlyLoading, setMonthlyLoading] = useState(true)
 
+  async function loadByKategori(f = from, t = to) {
+    setByKategoriLoading(true)
+    try {
+      const params = new URLSearchParams({ bykategori: 1 })
+      if (f) params.append('from', f)
+      if (t) params.append('to', t)
+      const res = await api.get(`/admin/product-sales?${params}`)
+      setByKategori(res.data.byKategori)
+    } catch { } finally { setByKategoriLoading(false) }
+  }
+
   async function loadMonthly(y = year) {
     setMonthlyLoading(true)
     try {
@@ -48,22 +62,23 @@ export default function RekapProdukPage() {
     finally { setMonthlyLoading(false) }
   }
 
-  async function load(p = page, overrideNullOnly = nullOnly) {
+  async function load(p = page, overrideNullOnly = nullOnly, f = from, t = to, kat = activeKategori) {
     setLoading(true)
     setSelected(new Set())
     try {
       const params = new URLSearchParams({ page: p })
-      if (from) params.append('from', from)
-      if (to) params.append('to', to)
+      if (f) params.append('from', f)
+      if (t) params.append('to', t)
       if (overrideNullOnly) params.append('nullOnly', '1')
+      if (kat) params.append('category', kat)
       const res = await api.get(`/admin/product-sales?${params}`)
       setData(res.data)
     } catch { }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [page])
-  useEffect(() => { loadMonthly() }, [])
+  useEffect(() => { load(page, nullOnly, from, to, activeKategori) }, [page])
+  useEffect(() => { loadMonthly(); loadByKategori() }, [])
   useEffect(() => {
     api.get('/admin/categories').then(r => setCategories(r.data.map(c => c.name))).catch(() => {})
     api.get('/admin/product-sales/backfill').then(r => { if (r.data.total > 0) setNullStats(r.data) }).catch(() => {})
@@ -82,14 +97,20 @@ export default function RekapProdukPage() {
     finally { setBackfilling(false) }
   }
 
-  function handleFilter() { setPage(1); load(1) }
-  function handleReset() { setFrom(''); setTo(''); setNullOnly(false); setPage(1); setTimeout(() => load(1, false), 0) }
+  function handleFilter() { setPage(1); load(1, nullOnly, from, to, activeKategori); loadByKategori(from, to) }
+  function handleReset() { setFrom(''); setTo(''); setNullOnly(false); setActiveKategori(''); setPage(1); setTimeout(() => { load(1, false, '', '', ''); loadByKategori('', '') }, 0) }
+
+  function handleClickKategori(kat) {
+    const newKat = activeKategori === kat ? '' : kat
+    setActiveKategori(newKat); setPage(1)
+    load(1, nullOnly, from, to, newKat)
+  }
 
   function toggleNullOnly() {
     const next = !nullOnly
     setNullOnly(next)
     setPage(1)
-    load(1, next)
+    load(1, next, from, to, activeKategori)
   }
 
   // ── Select ──
@@ -343,6 +364,50 @@ export default function RekapProdukPage() {
             })()}
           </div>
 
+          {/* Rekap Per Kategori */}
+          {(byKategoriLoading || byKategori.length > 0) && (
+            <div className="card" style={{ padding: '20px 24px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>Penjualan per Kategori</div>
+              {byKategoriLoading ? (
+                <div style={{ color: 'var(--muted)', fontSize: '13px' }}>Memuat...</div>
+              ) : (() => {
+                const maxKat = Math.max(...byKategori.map(k => k.total), 1)
+                const totalKat = byKategori.reduce((s, k) => s + k.total, 0)
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(byKategori.length, 12)}, 1fr)`, gap: '8px' }}>
+                      {byKategori.map((k, i) => {
+                        const pct = Math.round((k.total / maxKat) * 100)
+                        const isTop = i === 0
+                        const isActive = activeKategori === k.category
+                        return (
+                          <div key={i} onClick={() => handleClickKategori(k.category)}
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                            <div style={{ width: '100%', height: '60px', background: isActive ? '#DBEAFE' : 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'flex-end', border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`, transition: 'border 0.15s' }}>
+                              <div style={{ width: '100%', height: `${Math.max(pct, k.total > 0 ? 4 : 0)}%`, background: isActive ? 'var(--accent)' : isTop ? 'var(--accent)' : '#93C5FD', borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }} />
+                            </div>
+                            <div style={{ fontSize: '10px', fontWeight: '700', color: k.total > 0 ? 'var(--accent)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>
+                              {fmt(k.total)}
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: isActive || isTop ? '700' : '500', color: isActive ? 'var(--accent)' : isTop ? 'var(--accent)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                              {k.category}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {totalKat > 0 && (
+                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '24px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Total: <span style={{ fontWeight: '800', color: 'var(--accent)', fontSize: '13px' }}>{fmt(totalKat)}</span></div>
+                        <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Terbesar: <span style={{ fontWeight: '700', color: 'var(--text)' }}>{byKategori[0]?.category}</span></div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
           {/* Filter */}
           <div className="card" style={{ padding: '18px 24px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
@@ -357,7 +422,8 @@ export default function RekapProdukPage() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Filter
             </button>
-            {(from || to || nullOnly) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            {(from || to || nullOnly || activeKategori) && <button className="btn btn-ghost" onClick={handleReset}>Reset</button>}
+            {activeKategori && <span style={{ fontSize: '12px', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', border: '1px solid #C7D4F0', fontWeight: '600' }}>Kategori: {activeKategori}</span>}
             <button onClick={toggleNullOnly}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '9px', border: `1.5px solid ${nullOnly ? '#FECACA' : 'var(--border)'}`, background: nullOnly ? '#FEF2F2' : 'var(--surface)', color: nullOnly ? 'var(--red)' : 'var(--text2)', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
               <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `2px solid ${nullOnly ? 'var(--red)' : 'var(--muted)'}`, background: nullOnly ? 'var(--red)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>

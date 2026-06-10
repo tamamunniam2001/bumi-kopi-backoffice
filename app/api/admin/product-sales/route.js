@@ -15,6 +15,28 @@ export async function GET(req) {
   const year = Number(searchParams.get('year') || new Date().getFullYear())
   const limit = 50
 
+  // Mode by kategori
+  if (searchParams.get('bykategori') === '1') {
+    const katWhere = { transaction: { status: 'COMPLETED' } }
+    if (from && to) katWhere.transaction.createdAt = {
+      gte: new Date(`${from}T00:00:00+07:00`),
+      lte: new Date(`${to}T23:59:59.999+07:00`),
+    }
+    const items = await prisma.orderItem.findMany({
+      where: katWhere,
+      select: { subtotal: true, qty: true, category: true, product: { select: { category: { select: { name: true } } } } },
+    })
+    const map = {}
+    for (const item of items) {
+      const kat = item.product?.category?.name || item.category || '-'
+      if (!map[kat]) map[kat] = { category: kat, total: 0, qty: 0 }
+      map[kat].total += item.subtotal
+      map[kat].qty += item.qty
+    }
+    const byKategori = Object.values(map).sort((a, b) => b.total - a.total)
+    return NextResponse.json({ byKategori })
+  }
+
   // Mode monthly summary
   if (searchParams.get('monthly') === '1') {
     const start = new Date(year, 0, 1)
@@ -34,6 +56,7 @@ export async function GET(req) {
   }
 
   const nullOnly = searchParams.get('nullOnly') === '1'
+  const categoryFilter = searchParams.get('category') || ''
   const txWhere = { status: 'COMPLETED' }
   if (from && to) txWhere.createdAt = {
     gte: new Date(`${from}T00:00:00+07:00`),
@@ -42,6 +65,10 @@ export async function GET(req) {
   const itemWhere = {
     transaction: txWhere,
     ...(nullOnly ? { OR: [{ name: null }, { name: '' }] } : {}),
+    ...(categoryFilter ? { OR: [
+      { product: { category: { name: categoryFilter } } },
+      { category: categoryFilter },
+    ] } : {}),
   }
 
   const [rows, total] = await Promise.all([
