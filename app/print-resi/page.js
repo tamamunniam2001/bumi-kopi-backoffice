@@ -577,7 +577,7 @@ export default function PrintResiPage() {
         pw = imageData.width
       }
       const imgBytes = toEscPos(imageData, pw)
-      await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
+      await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x01, GS, 0x56, 0x41, 0x00])
     } catch (e) { alert(e.message || 'Gagal mencetak') }
     finally { setManualPrinting(false) }
   }
@@ -594,7 +594,7 @@ export default function PrintResiPage() {
         pw = imageData.width
       }
       const imgBytes = toEscPos(imageData, pw, sharpenAmt)
-      await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
+      await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x01, GS, 0x56, 0x41, 0x00])
       const updated = await api.patch(`/resi/${resi.id}`, { printed: true })
       setList(prev => prev.map(r => r.id === resi.id ? updated.data : r))
       if (selected?.id === resi.id) setSelected(updated.data)
