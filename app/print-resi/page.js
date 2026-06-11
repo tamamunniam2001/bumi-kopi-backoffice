@@ -195,7 +195,7 @@ function fileToBase64(file) {
 }
 
 // ── Buat Resi Manual ke Canvas ───────────────────────────────────────────────
-function buildResiCanvas(data, printWidth) {
+function buildResiCanvas(data, printWidth, fontSize = 13) {
   const W = printWidth
   const pad = 16
   const inner = W - pad * 2
@@ -203,11 +203,18 @@ function buildResiCanvas(data, printWidth) {
   cv.width = W; cv.height = 10
   const ctx = cv.getContext('2d')
 
+  const fs = fontSize          // ukuran font konten
+  const fsLabel = Math.max(8, Math.round(fs * 0.78))   // label section
+  const fsPhone = Math.max(9, Math.round(fs * 0.88))   // nomor hp & alamat
+  const lineH   = Math.round(fs * 1.3)
+  const lineHSm = Math.round(fsPhone * 1.25)
+
   function setFont(size, bold = false) {
     ctx.font = `${bold ? '700' : '400'} ${size}px Arial, sans-serif`
   }
 
-  function wrapText(text, maxW) {
+  function wrapText(text, maxW, size) {
+    setFont(size)
     const words = text.split(' ')
     const lines = []
     let cur = ''
@@ -227,20 +234,19 @@ function buildResiCanvas(data, printWidth) {
     let y = pad
 
     function section(label, name, phone, alamat) {
-      setFont(10, true)
+      setFont(fsLabel, true)
       ctx.textAlign = 'left'
       ctx.fillStyle = '#555'
-      ctx.fillText(label.toUpperCase(), pad, y + 10); y += 14
-      setFont(13, true)
+      ctx.fillText(label.toUpperCase(), pad, y + fsLabel); y += fsLabel + 4
+      setFont(fs, true)
       ctx.fillStyle = '#000'
-      wrapText(name || '-', inner).forEach(l => { ctx.fillText(l, pad, y + 13); y += 16 })
-      setFont(11)
+      wrapText(name || '-', inner, fs).forEach(l => { ctx.fillText(l, pad, y + fs); y += lineH })
+      setFont(fsPhone)
       ctx.fillStyle = '#333'
-      ctx.fillText(phone || '-', pad, y + 11); y += 14
+      ctx.fillText(phone || '-', pad, y + fsPhone); y += lineHSm
       if (alamat) {
-        setFont(11)
         ctx.fillStyle = '#555'
-        wrapText(alamat, inner).forEach(l => { ctx.fillText(l, pad, y + 11); y += 13 })
+        wrapText(alamat, inner, fsPhone).forEach(l => { ctx.fillText(l, pad, y + fsPhone); y += lineHSm })
       }
     }
 
@@ -457,6 +463,7 @@ export default function PrintResiPage() {
   const [manualPreview, setManualPreview] = useState(null)
   const [manualSaving, setManualSaving] = useState(false)
   const [manualPrinting, setManualPrinting] = useState(false)
+  const [fontSize, setFontSize] = useState(13)
   const [showEditor, setShowEditor] = useState(false)
   const [imgSrc, setImgSrc]         = useState(null)   // src final (sudah di-edit)
   const [rawImgSrc, setRawImgSrc]   = useState(null)   // src asli untuk editor
@@ -524,12 +531,12 @@ export default function PrintResiPage() {
   }
 
   function previewManual() {
-    const cv = buildResiCanvas(manualForm, printWidth)
+    const cv = buildResiCanvas(manualForm, printWidth, fontSize)
     setManualPreview(cv.toDataURL())
   }
 
   async function saveManual() {
-    const cv = buildResiCanvas(manualForm, printWidth)
+    const cv = buildResiCanvas(manualForm, printWidth, fontSize)
     const dataUrl = cv.toDataURL('image/jpeg', 0.95)
     const nama = `Resi - ${manualForm.namaPenerima || 'Manual'}`
     setManualSaving(true)
@@ -546,7 +553,7 @@ export default function PrintResiPage() {
   async function printManual() {
     setManualPrinting(true)
     try {
-      const cv = buildResiCanvas(manualForm, printWidth)
+      const cv = buildResiCanvas(manualForm, printWidth, fontSize)
       const ctx = cv.getContext('2d')
       let imageData = ctx.getImageData(0, 0, cv.width, cv.height)
       let pw = printWidth
@@ -680,6 +687,21 @@ export default function PrintResiPage() {
                   </div>
 
                   {/* Orientasi cetak */}
+                  <div>
+                    <label className="label">Ukuran Font: {fontSize}px</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                      <input type="range" min="8" max="28" value={fontSize}
+                        onChange={e => { setFontSize(Number(e.target.value)); setManualPreview(null) }}
+                        style={{ flex: 1, accentColor: 'var(--accent)' }} />
+                      <input type="number" min="8" max="28" value={fontSize}
+                        onChange={e => { setFontSize(Number(e.target.value)); setManualPreview(null) }}
+                        style={{ width: '52px', padding: '4px 6px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', fontFamily: 'inherit', textAlign: 'center' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>
+                      <span>Kecil (8px)</span><span>Besar (28px)</span>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="label">Orientasi Cetak</label>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
