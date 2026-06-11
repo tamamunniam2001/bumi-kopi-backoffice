@@ -6,13 +6,57 @@ import Sidebar from '@/components/Sidebar'
 const ESC = 0x1b
 const GS  = 0x1d
 
-// Konversi ImageData ke ESC/POS raster bitmap (GS v 0)
-function imageDataToEscPos(imageData, printWidth = 384) {
-  const { width, height, data } = imageData
+// Resize gambar ke canvas dengan lebar printWidth, tinggi proporsional
+function renderImageToCanvas(imgEl, printWidth, contrast = 0) {
+  const ratio = printWidth / imgEl.naturalWidth
+  const printHeight = Math.round(imgEl.naturalHeight * ratio)
+  const canvas = document.createElement('canvas')
+  canvas.width = printWidth
+  canvas.height = printHeight
+  const ctx = canvas.getContext('2d')
+  // Terapkan contrast via CSS filter sebelum draw
+  ctx.filter = `contrast(${100 + contrast}%)`
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, printWidth, printHeight)
+  ctx.drawImage(imgEl, 0, 0, printWidth, printHeight)
+  return { imageData: ctx.getImageData(0, 0, printWidth, printHeight), height: printHeight }
+}
+
+// Floyd-Steinberg dithering → array 1D nilai 0/1 (0=putih, 1=hitam)
+function ditherFloydSteinberg(imageData, width, height) {
+  // Salin ke array float grayscale
+  const gray = new Float32Array(width * height)
+  const { data } = imageData
+  for (let i = 0; i < width * height; i++) {
+    gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]
+  }
+  const pixels = new Uint8Array(width * height) // hasil: 1=hitam, 0=putih
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x
+      const old = gray[idx]
+      const newVal = old < 128 ? 0 : 255
+      pixels[idx] = newVal === 0 ? 1 : 0
+      const err = old - newVal
+      if (x + 1 < width)             gray[idx + 1]         += err * 7 / 16
+      if (y + 1 < height) {
+        if (x > 0)                   gray[idx + width - 1] += err * 3 / 16
+                                     gray[idx + width]     += err * 5 / 16
+        if (x + 1 < width)           gray[idx + width + 1] += err * 1 / 16
+      }
+    }
+  }
+  return pixels
+}
+
+// Konversi pixels dithered ke ESC/POS raster (GS v 0)
+function imageDataToEscPos(imageData, printWidth) {
+  const { width, height } = imageData
+  const pixels = ditherFloydSteinberg(imageData, width, height)
   const bytesPerRow = Math.ceil(printWidth / 8)
   const bytes = []
 
-  // GS v 0 header
+  // GS v 0 — raster bit image
   bytes.push(GS, 0x76, 0x30, 0x00)
   bytes.push(bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff)
   bytes.push(height & 0xff, (height >> 8) & 0xff)
@@ -22,31 +66,12 @@ function imageDataToEscPos(imageData, printWidth = 384) {
       let byte = 0
       for (let bit = 0; bit < 8; bit++) {
         const px = bx * 8 + bit
-        if (px < width) {
-          const idx = (y * width + px) * 4
-          const r = data[idx], g = data[idx + 1], b = data[idx + 2]
-          const gray = 0.299 * r + 0.587 * g + 0.114 * b
-          if (gray < 128) byte |= (0x80 >> bit)
-        }
+        if (px < width && pixels[y * width + px] === 1) byte |= (0x80 >> bit)
       }
       bytes.push(byte)
     }
   }
   return bytes
-}
-
-// Resize + render gambar ke canvas, kembalikan ImageData dengan lebar printWidth
-function renderImageToCanvas(imgEl, printWidth) {
-  const ratio = printWidth / imgEl.naturalWidth
-  const printHeight = Math.round(imgEl.naturalHeight * ratio)
-  const canvas = document.createElement('canvas')
-  canvas.width = printWidth
-  canvas.height = printHeight
-  const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, printWidth, printHeight)
-  ctx.drawImage(imgEl, 0, 0, printWidth, printHeight)
-  return { imageData: ctx.getImageData(0, 0, printWidth, printHeight), height: printHeight }
 }
 
 // Cache BT device & characteristic
@@ -103,7 +128,8 @@ async function findChar(server) {
 async function sendBytes(bytes) {
   const char = await getBtCharacteristic()
   const data = new Uint8Array(bytes)
-  const chunkSize = 512
+  // Chunk kecil (128 byte) + delay lebih panjang agar printer tidak overflow buffer
+  const chunkSize = 128
   for (let i = 0; i < data.length; i += chunkSize) {
     const chunk = data.slice(i, i + chunkSize)
     if (char.properties.writeWithoutResponse) {
@@ -111,18 +137,20 @@ async function sendBytes(bytes) {
     } else {
       await char.writeValue(chunk)
     }
-    await new Promise(r => setTimeout(r, 60))
+    await new Promise(r => setTimeout(r, 30))
   }
 }
 
 // ── Komponen utama ────────────────────────────────────────────────────────────
 export default function PrintResiPage() {
-  const [imgSrc, setImgSrc]       = useState(null)
-  const [imgFile, setImgFile]     = useState(null)
-  const [printing, setPrinting]   = useState(false)
-  const [status, setStatus]       = useState(null)   // { type: 'success'|'error', msg }
-  const [printWidth, setPrintWidth] = useState(384)  // lebar cetak dalam piksel (384 = 58mm, 576 = 80mm)
-  const [dragging, setDragging]   = useState(false)
+  const [imgSrc, setImgSrc]         = useState(null)
+  const [imgFile, setImgFile]       = useState(null)
+  const [printing, setPrinting]     = useState(false)
+  const [status, setStatus]         = useState(null)
+  const [printWidth, setPrintWidth] = useState(384)
+  const [dragging, setDragging]     = useState(false)
+  const [previewSrc, setPreviewSrc] = useState(null)  // preview hasil dither
+  const [contrast, setContrast]     = useState(0)     // -100 s/d +100
   const imgRef  = useRef(null)
   const fileRef = useRef(null)
 
@@ -130,6 +158,7 @@ export default function PrintResiPage() {
     if (!file || !file.type.startsWith('image/')) return
     setImgFile(file)
     setStatus(null)
+    setPreviewSrc(null)
     const url = URL.createObjectURL(file)
     setImgSrc(url)
   }
@@ -149,11 +178,28 @@ export default function PrintResiPage() {
     if (item) handleFile(item.getAsFile())
   }
 
+  // Render preview dithered ke canvas lalu jadikan dataURL
+  function generatePreview() {
+    if (!imgRef.current) return
+    const { imageData, height } = renderImageToCanvas(imgRef.current, printWidth, contrast)
+    const pixels = ditherFloydSteinberg(imageData, printWidth, height)
+    const canvas = document.createElement('canvas')
+    canvas.width = printWidth; canvas.height = height
+    const ctx = canvas.getContext('2d')
+    const out = ctx.createImageData(printWidth, height)
+    for (let i = 0; i < printWidth * height; i++) {
+      const v = pixels[i] === 1 ? 0 : 255
+      out.data[i * 4] = v; out.data[i * 4 + 1] = v; out.data[i * 4 + 2] = v; out.data[i * 4 + 3] = 255
+    }
+    ctx.putImageData(out, 0, 0)
+    setPreviewSrc(canvas.toDataURL())
+  }
+
   async function handlePrint() {
     if (!imgRef.current) return
     setPrinting(true); setStatus(null)
     try {
-      const { imageData } = renderImageToCanvas(imgRef.current, printWidth)
+      const { imageData } = renderImageToCanvas(imgRef.current, printWidth, contrast)
       const imgBytes = imageDataToEscPos(imageData, printWidth)
 
       const header = [ESC, 0x40]                  // init
@@ -171,7 +217,7 @@ export default function PrintResiPage() {
   }
 
   function handleReset() {
-    setImgSrc(null); setImgFile(null); setStatus(null)
+    setImgSrc(null); setImgFile(null); setStatus(null); setPreviewSrc(null); setContrast(0)
   }
 
   return (
@@ -253,25 +299,29 @@ export default function PrintResiPage() {
                   </div>
                 </div>
               ) : (
-                <div className="card" style={{ overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Preview Gambar</div>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{imgFile?.name}</span>
+                <div>
+                  <div className="card" style={{ overflow: 'hidden', marginBottom: previewSrc ? '16px' : '0' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Gambar Asli</div>
+                      <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{imgFile?.name}</span>
+                    </div>
+                    <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', background: '#F8FAFF' }}>
+                      <img ref={imgRef} src={imgSrc} alt="resi"
+                        style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }} />
+                    </div>
                   </div>
-                  <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', background: '#F8FAFF' }}>
-                    <img
-                      ref={imgRef}
-                      src={imgSrc}
-                      alt="resi"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '600px',
-                        objectFit: 'contain',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                      }}
-                    />
-                  </div>
+                  {previewSrc && (
+                    <div className="card" style={{ overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Preview Hasil Cetak</div>
+                        <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '600' }}>Simulasi dither</span>
+                      </div>
+                      <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', background: '#fff' }}>
+                        <img src={previewSrc} alt="preview dither"
+                          style={{ maxWidth: '100%', imageRendering: 'pixelated', borderRadius: '4px', border: '1px solid var(--border)' }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInputChange} />
@@ -283,6 +333,17 @@ export default function PrintResiPage() {
                 <div className="card" style={{ padding: '18px 20px' }}>
                   <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', marginBottom: '16px' }}>
                     Pengaturan Cetak
+                  </div>
+
+                  {/* Contrast */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <label className="label">Kontras: {contrast > 0 ? `+${contrast}` : contrast}%</label>
+                    <input type="range" min="-50" max="150" value={contrast}
+                      onChange={e => { setContrast(Number(e.target.value)); setPreviewSrc(null) }}
+                      style={{ width: '100%', accentColor: 'var(--accent)', marginTop: '6px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>
+                      <span>Lebih terang</span><span>Lebih gelap</span>
+                    </div>
                   </div>
 
                   {/* Ukuran kertas */}
@@ -309,10 +370,17 @@ export default function PrintResiPage() {
                   {/* Info */}
                   <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)', lineHeight: '1.6' }}>
                     <div>🖨️ Printer thermal Bluetooth</div>
-                    <div>🧾 Gambar akan otomatis di-resize</div>
+                    <div>🎨 Floyd-Steinberg dithering</div>
                     <div>⬛ Dikonversi ke hitam-putih</div>
                   </div>
                 </div>
+
+                {/* Tombol preview */}
+                <button className="btn btn-ghost" onClick={generatePreview}
+                  style={{ width: '100%', justifyContent: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Preview Hasil Cetak
+                </button>
 
                 {/* Tombol print */}
                 <button className="btn btn-primary" onClick={handlePrint} disabled={printing}
