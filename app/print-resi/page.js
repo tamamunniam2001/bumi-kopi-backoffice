@@ -177,7 +177,107 @@ function fileToBase64(file) {
   })
 }
 
-// ── Editor Crop & Rotate ─────────────────────────────────────────────────────
+// ── Buat Resi Manual ke Canvas ───────────────────────────────────────────────
+function buildResiCanvas(data, printWidth) {
+  const W = printWidth
+  const pad = 16
+  const inner = W - pad * 2
+  const cv = document.createElement('canvas')
+  // Hitung tinggi dulu
+  cv.width = W; cv.height = 10
+  const ctx = cv.getContext('2d')
+
+  function setFont(size, bold = false) {
+    ctx.font = `${bold ? '700' : '400'} ${size}px Arial, sans-serif`
+  }
+
+  // Helper wrap text, return array baris
+  function wrapText(text, maxW) {
+    const words = text.split(' ')
+    const lines = []
+    let cur = ''
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w }
+      else cur = test
+    }
+    if (cur) lines.push(cur)
+    return lines.length ? lines : ['']
+  }
+
+  // Render ke canvas dengan tinggi tertentu
+  function render(height) {
+    cv.height = height
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, W, height)
+    let y = pad
+
+    // Header toko
+    setFont(18, true)
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'center'
+    ctx.fillText('BUMI KOPI', W / 2, y + 18); y += 26
+    setFont(11)
+    ctx.fillText('Jl. Contoh No. 1, Kota', W / 2, y + 11); y += 18
+
+    // Garis
+    ctx.fillStyle = '#000'
+    ctx.fillRect(pad, y, inner, 2); y += 8
+
+    // Judul RESI
+    setFont(15, true)
+    ctx.textAlign = 'center'
+    ctx.fillText('RESI PENGIRIMAN', W / 2, y + 15); y += 22
+
+    // Tanggal
+    setFont(10)
+    ctx.fillStyle = '#444'
+    const now = new Date()
+    ctx.fillText(now.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }), W / 2, y + 10); y += 16
+
+    ctx.fillStyle = '#000'
+    ctx.fillRect(pad, y, inner, 1); y += 8
+
+    // Section pengirim
+    function section(label, name, phone) {
+      setFont(10, true)
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#555'
+      ctx.fillText(label.toUpperCase(), pad, y + 10); y += 14
+      setFont(13, true)
+      ctx.fillStyle = '#000'
+      const nameLines = wrapText(name || '-', inner)
+      nameLines.forEach(l => { ctx.fillText(l, pad, y + 13); y += 16 })
+      setFont(11)
+      ctx.fillStyle = '#333'
+      ctx.fillText(phone || '-', pad, y + 11); y += 16
+    }
+
+    section('Pengirim', data.namaPengirim, data.telpPengirim)
+    ctx.fillStyle = '#ccc'; ctx.fillRect(pad, y, inner, 1); y += 8
+    section('Penerima', data.namaPenerima, data.telpPenerima)
+
+    if (data.catatan) {
+      ctx.fillStyle = '#ccc'; ctx.fillRect(pad, y, inner, 1); y += 8
+      setFont(10, true); ctx.fillStyle = '#555'; ctx.textAlign = 'left'
+      ctx.fillText('CATATAN', pad, y + 10); y += 14
+      setFont(11); ctx.fillStyle = '#333'
+      wrapText(data.catatan, inner).forEach(l => { ctx.fillText(l, pad, y + 11); y += 14 })
+    }
+
+    ctx.fillStyle = '#000'; ctx.fillRect(pad, y, inner, 2); y += 10
+    setFont(10); ctx.fillStyle = '#888'; ctx.textAlign = 'center'
+    ctx.fillText('Terima kasih', W / 2, y + 10); y += 20
+
+    return y
+  }
+
+  // Render sekali untuk hitung tinggi, lalu render ulang dengan tinggi yang benar
+  const estimatedH = render(800)
+  render(estimatedH + pad)
+  return cv
+}
+
 function ImageEditor({ src, onDone, onCancel }) {
   const canvasRef  = useRef(null)
   const [rotation, setRotation]   = useState(0)   // derajat: 0 90 180 270
@@ -374,6 +474,11 @@ export default function PrintResiPage() {
   const [list, setList]             = useState([])
   const [loadingList, setLoadingList] = useState(true)
   const [showForm, setShowForm]     = useState(false)
+  const [showManual, setShowManual] = useState(false)
+  const [manualForm, setManualForm] = useState({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', catatan: '' })
+  const [manualPreview, setManualPreview] = useState(null)
+  const [manualSaving, setManualSaving] = useState(false)
+  const [manualPrinting, setManualPrinting] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
   const [imgSrc, setImgSrc]         = useState(null)   // src final (sudah di-edit)
   const [rawImgSrc, setRawImgSrc]   = useState(null)   // src asli untuk editor
@@ -434,6 +539,43 @@ export default function PrintResiPage() {
     finally { setSaving(false) }
   }
 
+  function updateManual(field, val) {
+    setManualForm(f => ({ ...f, [field]: val }))
+    setManualPreview(null)
+  }
+
+  function previewManual() {
+    const cv = buildResiCanvas(manualForm, printWidth)
+    setManualPreview(cv.toDataURL())
+  }
+
+  async function saveManual() {
+    const cv = buildResiCanvas(manualForm, printWidth)
+    const dataUrl = cv.toDataURL('image/jpeg', 0.95)
+    const nama = `Resi - ${manualForm.namaPenerima || 'Manual'}`
+    setManualSaving(true)
+    try {
+      const r = await api.post('/resi', { nama, imageUrl: dataUrl })
+      setList(prev => [r.data, ...prev])
+      setShowManual(false)
+      setManualForm({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', catatan: '' })
+      setManualPreview(null)
+    } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
+    finally { setManualSaving(false) }
+  }
+
+  async function printManual() {
+    setManualPrinting(true)
+    try {
+      const cv = buildResiCanvas(manualForm, printWidth)
+      const ctx = cv.getContext('2d')
+      const imageData = ctx.getImageData(0, 0, cv.width, cv.height)
+      const imgBytes = toEscPos(imageData, printWidth)
+      await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
+    } catch (e) { alert(e.message || 'Gagal mencetak') }
+    finally { setManualPrinting(false) }
+  }
+
   async function handlePrint(resi) {
     setPrinting(resi.id)
     try {
@@ -477,13 +619,112 @@ export default function PrintResiPage() {
             <div className="topbar-title">Print Resi</div>
             <div className="topbar-sub">{list.length} resi tersimpan</div>
           </div>
-          <button className="btn btn-primary" onClick={() => { setShowForm(true); setImgSrc(null); setImgFile(null); setNamaResi(''); setPreviewSrc(null) }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" onClick={() => { setShowManual(true); setManualPreview(null) }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Buat Resi
+            </button>
+            <button className="btn btn-primary" onClick={() => { setShowForm(true); setImgSrc(null); setImgFile(null); setNamaResi(''); setPreviewSrc(null) }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Upload Resi
           </button>
+          </div>
         </div>
 
         <div className="content">
+          {/* ── Form Resi Manual ── */}
+          {showManual && (
+            <div className="card slide-down" style={{ padding: '20px 24px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)' }}>Buat Resi Manual</div>
+                <button onClick={() => setShowManual(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                {/* Kolom kiri: form */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Pengirim */}
+                  <div style={{ padding: '14px 16px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Pengirim</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div>
+                        <label className="label">Nama Pengirim</label>
+                        <input className="input" value={manualForm.namaPengirim} onChange={e => updateManual('namaPengirim', e.target.value)} placeholder="Nama lengkap pengirim" />
+                      </div>
+                      <div>
+                        <label className="label">No. Telepon Pengirim</label>
+                        <input className="input" type="tel" value={manualForm.telpPengirim} onChange={e => updateManual('telpPengirim', e.target.value)} placeholder="08xxxxxxxxxx" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Penerima */}
+                  <div style={{ padding: '14px 16px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Penerima</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div>
+                        <label className="label">Nama Penerima</label>
+                        <input className="input" value={manualForm.namaPenerima} onChange={e => updateManual('namaPenerima', e.target.value)} placeholder="Nama lengkap penerima" />
+                      </div>
+                      <div>
+                        <label className="label">No. Telepon Penerima</label>
+                        <input className="input" type="tel" value={manualForm.telpPenerima} onChange={e => updateManual('telpPenerima', e.target.value)} placeholder="08xxxxxxxxxx" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
+                    <textarea className="input" rows={2} style={{ resize: 'none' }} value={manualForm.catatan} onChange={e => updateManual('catatan', e.target.value)} placeholder="Catatan pengiriman..." />
+                  </div>
+
+                  {/* Ukuran kertas */}
+                  <div>
+                    <label className="label">Ukuran Kertas</label>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      {[{ val: 384, label: '58mm' }, { val: 576, label: '80mm' }].map(o => (
+                        <label key={o.val} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                          <input type="radio" checked={printWidth === o.val} onChange={() => { setPrintWidth(o.val); setManualPreview(null) }} style={{ accentColor: 'var(--accent)' }} />
+                          {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn btn-ghost" onClick={previewManual} style={{ flex: 1, justifyContent: 'center' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      Preview
+                    </button>
+                    <button className="btn btn-ghost" onClick={printManual} disabled={manualPrinting} style={{ flex: 1, justifyContent: 'center' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                      {manualPrinting ? 'Mencetak...' : 'Print'}
+                    </button>
+                    <button className="btn btn-primary" onClick={saveManual} disabled={manualSaving} style={{ flex: 1, justifyContent: 'center' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                      {manualSaving ? 'Menyimpan...' : 'Simpan'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Kolom kanan: preview */}
+                <div style={{ background: '#f0f4f8', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: manualPreview ? 'flex-start' : 'center', padding: '20px', minHeight: '300px' }}>
+                  {manualPreview ? (
+                    <img src={manualPreview} alt="preview resi"
+                      style={{ maxWidth: '100%', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                  ) : (
+                    <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>🧾</div>
+                      <div style={{ fontSize: '12px' }}>Klik Preview untuk melihat hasil resi</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Form Upload ── */}
           {showForm && (
             <div className="card slide-down" style={{ padding: '20px 24px', marginBottom: '20px' }}>
