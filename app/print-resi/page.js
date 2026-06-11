@@ -268,26 +268,36 @@ function ImageEditor({ src, onDone, onCancel }) {
 
   function handleApply() {
     if (!imgNatural) return
-    const { w, h, scale } = getDisplaySize(imgNatural, rotation)
-    // Buat canvas dengan rotasi
+    const iw = imgNatural.naturalWidth
+    const ih = imgNatural.naturalHeight
+    const swapped = rotation === 90 || rotation === 270
+    // Canvas output dalam resolusi asli
+    const outW = swapped ? ih : iw
+    const outH = swapped ? iw : ih
     const rotCv = document.createElement('canvas')
-    rotCv.width = w; rotCv.height = h
+    rotCv.width = outW; rotCv.height = outH
     const rotCtx = rotCv.getContext('2d')
+    rotCtx.fillStyle = '#fff'
+    rotCtx.fillRect(0, 0, outW, outH)
     rotCtx.save()
-    rotCtx.translate(w / 2, h / 2)
+    rotCtx.translate(outW / 2, outH / 2)
     rotCtx.rotate((rotation * Math.PI) / 180)
-    rotCtx.drawImage(imgNatural, -imgNatural.naturalWidth / 2 * scale, -imgNatural.naturalHeight / 2 * scale,
-      imgNatural.naturalWidth * scale, imgNatural.naturalHeight * scale)
+    rotCtx.drawImage(imgNatural, -iw / 2, -ih / 2, iw, ih)
     rotCtx.restore()
-    // Crop jika ada area yang cukup besar
+    // Crop — koordinat crop ada di display canvas, konversi ke skala asli
     let finalCv = rotCv
     if (crop && crop.w > 10 && crop.h > 10) {
+      const { w: dw, h: dh } = getDisplaySize(imgNatural, rotation)
+      const sx = (crop.x / dw) * outW
+      const sy = (crop.y / dh) * outH
+      const sw = (crop.w / dw) * outW
+      const sh = (crop.h / dh) * outH
       const cropCv = document.createElement('canvas')
-      cropCv.width = Math.round(crop.w); cropCv.height = Math.round(crop.h)
-      cropCv.getContext('2d').drawImage(rotCv, Math.round(crop.x), Math.round(crop.y), Math.round(crop.w), Math.round(crop.h), 0, 0, Math.round(crop.w), Math.round(crop.h))
+      cropCv.width = Math.round(sw); cropCv.height = Math.round(sh)
+      cropCv.getContext('2d').drawImage(rotCv, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, Math.round(sw), Math.round(sh))
       finalCv = cropCv
     }
-    onDone(finalCv.toDataURL('image/jpeg', 0.92))
+    onDone(finalCv.toDataURL('image/jpeg', 0.95))
   }
 
   function handleReset() { setRotation(0); setCrop(null) }
