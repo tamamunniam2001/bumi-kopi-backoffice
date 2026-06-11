@@ -71,18 +71,27 @@ function toEscPos(imageData, printWidth) {
   const px = dither(sharpened, width, height)
   const bpr = Math.ceil(printWidth / 8)
   const bytes = []
-  bytes.push(GS, 0x76, 0x30, 0x00)
-  bytes.push(bpr & 0xff, (bpr >> 8) & 0xff)
-  bytes.push(height & 0xff, (height >> 8) & 0xff)
-  for (let y = 0; y < height; y++) {
-    for (let bx = 0; bx < bpr; bx++) {
-      let b = 0
-      for (let bit = 0; bit < 8; bit++) {
-        const x = bx * 8 + bit
-        if (x < width && px[y * width + x] === 1) b |= (0x80 >> bit)
+
+  // Kirim per strip 24 baris via ESC * m nL nH — lebih kompatibel & tidak overflow buffer
+  const STRIP = 24
+  for (let y = 0; y < height; y += STRIP) {
+    const rows = Math.min(STRIP, height - y)
+    // ESC * 33 nL nH — 24-dot double density
+    bytes.push(ESC, 0x2a, 33)
+    bytes.push(bpr & 0xff, (bpr >> 8) & 0xff)
+    for (let x = 0; x < printWidth; x++) {
+      // 3 byte per kolom = 24 dot vertikal
+      for (let byteRow = 0; byteRow < 3; byteRow++) {
+        let b = 0
+        for (let bit = 0; bit < 8; bit++) {
+          const row = y + byteRow * 8 + bit
+          if (row < height && x < width && px[row * width + x] === 1)
+            b |= (0x80 >> bit)
+        }
+        bytes.push(b)
       }
-      bytes.push(b)
     }
+    bytes.push(ESC, 0x4a, STRIP * 2)  // ESC J — feed sesuai tinggi strip
   }
   return bytes
 }
@@ -141,12 +150,19 @@ async function findChar(server) {
 async function sendBytes(bytes) {
   const char = await getChar()
   const data = new Uint8Array(bytes)
-  for (let i = 0; i < data.length; i += 128) {
-    const chunk = data.slice(i, i + 128)
-    char.properties.writeWithoutResponse
-      ? await char.writeValueWithoutResponse(chunk)
-      : await char.writeValue(chunk)
-    await new Promise(r => setTimeout(r, 30))
+  const useAck = char.properties.write  // writeValue menunggu ACK dari printer
+  // Chunk 128 byte — cukup kecil untuk buffer BLE MTU standar (20-512 byte)
+  const CHUNK = 128
+  for (let i = 0; i < data.length; i += CHUNK) {
+    const chunk = data.slice(i, i + CHUNK)
+    if (useAck) {
+      await char.writeValue(chunk)         // blokir sampai printer ACK
+    } else {
+      await char.writeValueWithoutResponse(chunk)
+      // Delay adaptif: makin besar data, makin lama jeda
+      const delay = Math.max(20, Math.floor(data.length / 5000) * 10 + 20)
+      await new Promise(r => setTimeout(r, delay))
+    }
   }
 }
 
