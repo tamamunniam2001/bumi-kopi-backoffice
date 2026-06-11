@@ -7,16 +7,29 @@ import api from '@/lib/api'
 const ESC = 0x1b
 const GS  = 0x1d
 
-function renderToCanvas(imgEl, printWidth, contrast = 0) {
-  const ratio = printWidth / imgEl.naturalWidth
+function renderToCanvas(imgEl, printWidth, contrast = 0, scale = 1.0) {
+  // Render di 2x resolusi dulu untuk kualitas lebih baik, lalu downscale
+  const OVERSAMPLE = 2
+  const ratio = (printWidth * scale) / imgEl.naturalWidth
   const h = Math.round(imgEl.naturalHeight * ratio)
+  const hiW = printWidth * OVERSAMPLE
+  const hiH = h * OVERSAMPLE
+  const hi = document.createElement('canvas')
+  hi.width = hiW; hi.height = hiH
+  const hiCtx = hi.getContext('2d')
+  hiCtx.filter = `contrast(${100 + contrast}%)`
+  hiCtx.fillStyle = '#fff'
+  hiCtx.fillRect(0, 0, hiW, hiH)
+  hiCtx.drawImage(imgEl, 0, 0, hiW, hiH)
+  // Downscale ke printWidth
   const cv = document.createElement('canvas')
   cv.width = printWidth; cv.height = h
   const ctx = cv.getContext('2d')
-  ctx.filter = `contrast(${100 + contrast}%)`
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, printWidth, h)
-  ctx.drawImage(imgEl, 0, 0, printWidth, h)
+  ctx.drawImage(hi, 0, 0, printWidth, h)
   return { imageData: ctx.getImageData(0, 0, printWidth, h), width: printWidth, height: h }
 }
 
@@ -82,9 +95,9 @@ function rotateImageData90(imageData, width, height) {
   return new ImageData(out, height, width)
 }
 
-function toEscPos(imageData, printWidth) {
+function toEscPos(imageData, printWidth, sharpenAmt = 1.5) {
   const { width, height } = imageData
-  const sharpened = sharpen(imageData, width, height, 1.5)
+  const sharpened = sharpen(imageData, width, height, sharpenAmt)
   const px = dither(sharpened, width, height)
   const bpr = Math.ceil(printWidth / 8)
   const bytes = []
@@ -112,9 +125,9 @@ function toEscPos(imageData, printWidth) {
   return bytes
 }
 
-function previewDither(imgEl, printWidth, contrast) {
-  const { imageData, width, height } = renderToCanvas(imgEl, printWidth, contrast)
-  const sharpened = sharpen(imageData, width, height, 1.5)
+function previewDither(imgEl, printWidth, contrast, scale = 1.0, sharpenAmt = 1.5) {
+  const { imageData, width, height } = renderToCanvas(imgEl, printWidth, contrast, scale)
+  const sharpened = sharpen(imageData, width, height, sharpenAmt)
   const px = dither(sharpened, width, height)
   const cv = document.createElement('canvas')
   cv.width = width; cv.height = height
@@ -472,8 +485,10 @@ export default function PrintResiPage() {
   const [saving, setSaving]         = useState(false)
   const [printing, setPrinting]     = useState(null)   // id resi yang sedang dicetak
   const [printWidth, setPrintWidth] = useState(384)
-  const [orientation, setOrientation] = useState('portrait') // 'portrait' | 'landscape'
+  const [orientation, setOrientation] = useState('portrait')
   const [contrast, setContrast]     = useState(30)
+  const [imgScale, setImgScale]     = useState(1.0)   // zoom gambar 0.5–3.0
+  const [sharpenAmt, setSharpenAmt] = useState(1.5)   // ketajaman 0–4
   const [dragging, setDragging]     = useState(false)
   const [previewSrc, setPreviewSrc] = useState(null)
   const [selected, setSelected]     = useState(null)   // resi yang dibuka detail
@@ -572,13 +587,13 @@ export default function PrintResiPage() {
     try {
       const img = new Image()
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = resi.imageUrl })
-      let { imageData } = renderToCanvas(img, printWidth, contrast)
+      let { imageData } = renderToCanvas(img, printWidth, contrast, imgScale)
       let pw = printWidth
       if (orientation === 'landscape') {
         imageData = rotateImageData90(imageData, imageData.width, imageData.height)
         pw = imageData.width
       }
-      const imgBytes = toEscPos(imageData, pw)
+      const imgBytes = toEscPos(imageData, pw, sharpenAmt)
       await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
       const updated = await api.patch(`/resi/${resi.id}`, { printed: true })
       setList(prev => prev.map(r => r.id === resi.id ? updated.data : r))
@@ -820,6 +835,22 @@ export default function PrintResiPage() {
                       style={{ width: '100%', accentColor: 'var(--accent)', marginTop: '4px' }} />
                   </div>
 
+                  <div>
+                    <label className="label">Skala Gambar: {Math.round(imgScale * 100)}%</label>
+                    <input type="range" min="50" max="300" step="5" value={Math.round(imgScale * 100)}
+                      onChange={e => { setImgScale(Number(e.target.value) / 100); setPreviewSrc(null) }}
+                      style={{ width: '100%', accentColor: 'var(--accent)', marginTop: '4px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}><span>50%</span><span>100%</span><span>300%</span></div>
+                  </div>
+
+                  <div>
+                    <label className="label">Ketajaman: {sharpenAmt.toFixed(1)}</label>
+                    <input type="range" min="0" max="4" step="0.1" value={sharpenAmt}
+                      onChange={e => { setSharpenAmt(Number(e.target.value)); setPreviewSrc(null) }}
+                      style={{ width: '100%', accentColor: 'var(--accent)', marginTop: '4px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}><span>Lembut</span><span>Tajam</span></div>
+                  </div>
+
                   {imgSrc && (
                     <button className="btn btn-ghost" onClick={() => { setRawImgSrc(imgSrc); setShowEditor(true) }}
                       style={{ justifyContent: 'center' }}>
@@ -829,7 +860,7 @@ export default function PrintResiPage() {
                   )}
 
                   {imgSrc && (
-                    <button className="btn btn-ghost" onClick={() => imgRef.current && setPreviewSrc(previewDither(imgRef.current, printWidth, contrast))}
+                    <button className="btn btn-ghost" onClick={() => imgRef.current && setPreviewSrc(previewDither(imgRef.current, printWidth, contrast, imgScale, sharpenAmt))}
                       style={{ justifyContent: 'center' }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       Preview Hasil Cetak
@@ -927,29 +958,38 @@ export default function PrintResiPage() {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
               {/* Setting print di modal */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {[{ val: 384, label: '58mm' }, { val: 576, label: '80mm' }].map(o => (
-                    <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                      <input type="radio" checked={printWidth === o.val} onChange={() => setPrintWidth(o.val)} style={{ accentColor: 'var(--accent)' }} />
-                      {o.label}
-                    </label>
-                  ))}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[{ val: 384, label: '58mm' }, { val: 576, label: '80mm' }].map(o => (
+                      <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                        <input type="radio" checked={printWidth === o.val} onChange={() => setPrintWidth(o.val)} style={{ accentColor: 'var(--accent)' }} />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[{ val: 'portrait', label: '↕ Portrait' }, { val: 'landscape', label: '↔ Landscape' }].map(o => (
+                      <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${orientation === o.val ? 'var(--accent)' : 'var(--border)'}`, background: orientation === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                        <input type="radio" checked={orientation === o.val} onChange={() => setOrientation(o.val)} style={{ accentColor: 'var(--accent)' }} />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {[{ val: 'portrait', label: '↕ Portrait' }, { val: 'landscape', label: '↔ Landscape' }].map(o => (
-                    <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${orientation === o.val ? 'var(--accent)' : 'var(--border)'}`, background: orientation === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                      <input type="radio" checked={orientation === o.val} onChange={() => setOrientation(o.val)} style={{ accentColor: 'var(--accent)' }} />
-                      {o.label}
-                    </label>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', minWidth: '120px' }}>Kontras {contrast > 0 ? `+${contrast}` : contrast}%</span>
+                    <input type="range" min="-50" max="150" value={contrast} onChange={e => setContrast(Number(e.target.value))} style={{ flex: 1, accentColor: 'var(--accent)' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', minWidth: '120px' }}>Skala {Math.round(imgScale * 100)}%</span>
+                    <input type="range" min="50" max="300" step="5" value={Math.round(imgScale * 100)} onChange={e => setImgScale(Number(e.target.value) / 100)} style={{ flex: 1, accentColor: 'var(--accent)' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', minWidth: '120px' }}>Ketajaman {sharpenAmt.toFixed(1)}</span>
+                    <input type="range" min="0" max="4" step="0.1" value={sharpenAmt} onChange={e => setSharpenAmt(Number(e.target.value))} style={{ flex: 1, accentColor: 'var(--accent)' }} />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '160px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Kontras {contrast > 0 ? `+${contrast}` : contrast}%</span>
-                  <input type="range" min="-50" max="150" value={contrast} onChange={e => setContrast(Number(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--accent)' }} />
-                </div>
-              </div>
 
               <img src={selected.imageUrl} alt="resi"
                 style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--border)', display: 'block', background: '#f8faff' }} />
