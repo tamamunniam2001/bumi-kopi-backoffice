@@ -296,6 +296,17 @@ model StockOpnameItem {
   @@index([expenseItemId])
 }
 
+model Resi {
+  id        String   @id @default(cuid())
+  nama      String   @default("")
+  imageUrl  String   @db.Text
+  printed   Boolean  @default(false)
+  printedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 enum OpnameStatus {
   DRAFT
   SELESAI
