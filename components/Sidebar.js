@@ -21,6 +21,7 @@ const allNavGroups = [
       { href: '/kasir/laporan', label: 'Laporan Harian', icon: <IconReport />, roles: ['ADMIN', 'CASHIER'] },
       { href: '/absensi', label: 'Absensi', icon: <IconAbsensi />, roles: ['ADMIN', 'CASHIER'] },
       { href: '/pengeluaran', label: 'Pengeluaran', icon: <IconReceipt />, roles: ['ADMIN', 'CASHIER'] },
+      { href: '/print-resi', label: 'Print Resi', icon: <IconPrinter />, roles: ['ADMIN', 'CASHIER'] },
     ]
   },
   {
@@ -229,4 +230,5 @@ function IconSettings() { return <svg width="16" height="16" viewBox="0 0 24 24"
 function IconMoney() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> }
 function IconTag() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> }
 function IconInventory() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14M5 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM19 8a2 2 0 1 1 4 0 2 2 0 0 1-4 0zM3 8v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8M10 12h4"/></svg> }
+function IconPrinter() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> }
 function IconOpname() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> }
