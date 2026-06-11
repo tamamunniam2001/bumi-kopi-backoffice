@@ -65,6 +65,23 @@ function dither(imageData, width, height) {
   return px
 }
 
+// Rotasi ImageData 90 derajat searah jarum jam
+function rotateImageData90(imageData, width, height) {
+  const src = imageData.data
+  const out = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const si = (y * width + x) * 4
+      // posisi di canvas hasil rotasi (newW=height, newH=width)
+      const nx = height - 1 - y
+      const ny = x
+      const di = (ny * height + nx) * 4
+      out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2]; out[di+3] = src[si+3]
+    }
+  }
+  return new ImageData(out, height, width)
+}
+
 function toEscPos(imageData, printWidth) {
   const { width, height } = imageData
   const sharpened = sharpen(imageData, width, height, 1.5)
@@ -183,7 +200,6 @@ function buildResiCanvas(data, printWidth) {
   const pad = 16
   const inner = W - pad * 2
   const cv = document.createElement('canvas')
-  // Hitung tinggi dulu
   cv.width = W; cv.height = 10
   const ctx = cv.getContext('2d')
 
@@ -191,7 +207,6 @@ function buildResiCanvas(data, printWidth) {
     ctx.font = `${bold ? '700' : '400'} ${size}px Arial, sans-serif`
   }
 
-  // Helper wrap text, return array baris
   function wrapText(text, maxW) {
     const words = text.split(' ')
     const lines = []
@@ -205,74 +220,37 @@ function buildResiCanvas(data, printWidth) {
     return lines.length ? lines : ['']
   }
 
-  // Render ke canvas dengan tinggi tertentu
   function render(height) {
     cv.height = height
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, W, height)
     let y = pad
 
-    // Header toko
-    setFont(18, true)
-    ctx.fillStyle = '#000'
-    ctx.textAlign = 'center'
-    ctx.fillText('BUMI KOPI', W / 2, y + 18); y += 26
-    setFont(11)
-    ctx.fillText('Jl. Contoh No. 1, Kota', W / 2, y + 11); y += 18
-
-    // Garis
-    ctx.fillStyle = '#000'
-    ctx.fillRect(pad, y, inner, 2); y += 8
-
-    // Judul RESI
-    setFont(15, true)
-    ctx.textAlign = 'center'
-    ctx.fillText('RESI PENGIRIMAN', W / 2, y + 15); y += 22
-
-    // Tanggal
-    setFont(10)
-    ctx.fillStyle = '#444'
-    const now = new Date()
-    ctx.fillText(now.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }), W / 2, y + 10); y += 16
-
-    ctx.fillStyle = '#000'
-    ctx.fillRect(pad, y, inner, 1); y += 8
-
-    // Section pengirim
-    function section(label, name, phone) {
+    function section(label, name, phone, alamat) {
       setFont(10, true)
       ctx.textAlign = 'left'
       ctx.fillStyle = '#555'
       ctx.fillText(label.toUpperCase(), pad, y + 10); y += 14
       setFont(13, true)
       ctx.fillStyle = '#000'
-      const nameLines = wrapText(name || '-', inner)
-      nameLines.forEach(l => { ctx.fillText(l, pad, y + 13); y += 16 })
+      wrapText(name || '-', inner).forEach(l => { ctx.fillText(l, pad, y + 13); y += 16 })
       setFont(11)
       ctx.fillStyle = '#333'
-      ctx.fillText(phone || '-', pad, y + 11); y += 16
+      ctx.fillText(phone || '-', pad, y + 11); y += 14
+      if (alamat) {
+        setFont(11)
+        ctx.fillStyle = '#555'
+        wrapText(alamat, inner).forEach(l => { ctx.fillText(l, pad, y + 11); y += 13 })
+      }
     }
 
     section('Pengirim', data.namaPengirim, data.telpPengirim)
-    ctx.fillStyle = '#ccc'; ctx.fillRect(pad, y, inner, 1); y += 8
-    section('Penerima', data.namaPenerima, data.telpPenerima)
-
-    if (data.catatan) {
-      ctx.fillStyle = '#ccc'; ctx.fillRect(pad, y, inner, 1); y += 8
-      setFont(10, true); ctx.fillStyle = '#555'; ctx.textAlign = 'left'
-      ctx.fillText('CATATAN', pad, y + 10); y += 14
-      setFont(11); ctx.fillStyle = '#333'
-      wrapText(data.catatan, inner).forEach(l => { ctx.fillText(l, pad, y + 11); y += 14 })
-    }
-
-    ctx.fillStyle = '#000'; ctx.fillRect(pad, y, inner, 2); y += 10
-    setFont(10); ctx.fillStyle = '#888'; ctx.textAlign = 'center'
-    ctx.fillText('Terima kasih', W / 2, y + 10); y += 20
+    ctx.fillStyle = '#000'; ctx.fillRect(pad, y, inner, 1); y += 8
+    section('Penerima', data.namaPenerima, data.telpPenerima, data.alamatPenerima)
 
     return y
   }
 
-  // Render sekali untuk hitung tinggi, lalu render ulang dengan tinggi yang benar
   const estimatedH = render(800)
   render(estimatedH + pad)
   return cv
@@ -475,7 +453,7 @@ export default function PrintResiPage() {
   const [loadingList, setLoadingList] = useState(true)
   const [showForm, setShowForm]     = useState(false)
   const [showManual, setShowManual] = useState(false)
-  const [manualForm, setManualForm] = useState({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', catatan: '' })
+  const [manualForm, setManualForm] = useState({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', alamatPenerima: '' })
   const [manualPreview, setManualPreview] = useState(null)
   const [manualSaving, setManualSaving] = useState(false)
   const [manualPrinting, setManualPrinting] = useState(false)
@@ -487,6 +465,7 @@ export default function PrintResiPage() {
   const [saving, setSaving]         = useState(false)
   const [printing, setPrinting]     = useState(null)   // id resi yang sedang dicetak
   const [printWidth, setPrintWidth] = useState(384)
+  const [orientation, setOrientation] = useState('portrait') // 'portrait' | 'landscape'
   const [contrast, setContrast]     = useState(30)
   const [dragging, setDragging]     = useState(false)
   const [previewSrc, setPreviewSrc] = useState(null)
@@ -558,7 +537,7 @@ export default function PrintResiPage() {
       const r = await api.post('/resi', { nama, imageUrl: dataUrl })
       setList(prev => [r.data, ...prev])
       setShowManual(false)
-      setManualForm({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', catatan: '' })
+      setManualForm({ namaPengirim: '', telpPengirim: '', namaPenerima: '', telpPenerima: '', alamatPenerima: '' })
       setManualPreview(null)
     } catch (e) { alert(e.response?.data?.message || 'Gagal menyimpan') }
     finally { setManualSaving(false) }
@@ -569,8 +548,13 @@ export default function PrintResiPage() {
     try {
       const cv = buildResiCanvas(manualForm, printWidth)
       const ctx = cv.getContext('2d')
-      const imageData = ctx.getImageData(0, 0, cv.width, cv.height)
-      const imgBytes = toEscPos(imageData, printWidth)
+      let imageData = ctx.getImageData(0, 0, cv.width, cv.height)
+      let pw = printWidth
+      if (orientation === 'landscape') {
+        imageData = rotateImageData90(imageData, cv.width, cv.height)
+        pw = imageData.width
+      }
+      const imgBytes = toEscPos(imageData, pw)
       await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
     } catch (e) { alert(e.message || 'Gagal mencetak') }
     finally { setManualPrinting(false) }
@@ -579,13 +563,16 @@ export default function PrintResiPage() {
   async function handlePrint(resi) {
     setPrinting(resi.id)
     try {
-      // Load gambar dari base64 ke Image element
       const img = new Image()
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = resi.imageUrl })
-      const { imageData } = renderToCanvas(img, printWidth, contrast)
-      const imgBytes = toEscPos(imageData, printWidth)
+      let { imageData } = renderToCanvas(img, printWidth, contrast)
+      let pw = printWidth
+      if (orientation === 'landscape') {
+        imageData = rotateImageData90(imageData, imageData.width, imageData.height)
+        pw = imageData.width
+      }
+      const imgBytes = toEscPos(imageData, pw)
       await sendBytes([ESC, 0x40, ESC, 0x61, 0x01, ...imgBytes, ESC, 0x64, 0x04, GS, 0x56, 0x41, 0x04])
-      // Mark as printed
       const updated = await api.patch(`/resi/${resi.id}`, { printed: true })
       setList(prev => prev.map(r => r.id === resi.id ? updated.data : r))
       if (selected?.id === resi.id) setSelected(updated.data)
@@ -672,12 +659,11 @@ export default function PrintResiPage() {
                         <label className="label">No. Telepon Penerima</label>
                         <input className="input" type="tel" value={manualForm.telpPenerima} onChange={e => updateManual('telpPenerima', e.target.value)} placeholder="08xxxxxxxxxx" />
                       </div>
+                      <div>
+                        <label className="label">Alamat Penerima</label>
+                        <textarea className="input" rows={2} style={{ resize: 'none' }} value={manualForm.alamatPenerima} onChange={e => updateManual('alamatPenerima', e.target.value)} placeholder="Alamat lengkap penerima" />
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Catatan <span style={{ color: 'var(--muted)', fontWeight: '400' }}>(opsional)</span></label>
-                    <textarea className="input" rows={2} style={{ resize: 'none' }} value={manualForm.catatan} onChange={e => updateManual('catatan', e.target.value)} placeholder="Catatan pengiriman..." />
                   </div>
 
                   {/* Ukuran kertas */}
@@ -688,6 +674,19 @@ export default function PrintResiPage() {
                         <label key={o.val} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                           <input type="radio" checked={printWidth === o.val} onChange={() => { setPrintWidth(o.val); setManualPreview(null) }} style={{ accentColor: 'var(--accent)' }} />
                           {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Orientasi cetak */}
+                  <div>
+                    <label className="label">Orientasi Cetak</label>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      {[{ val: 'portrait', label: '↕ Portrait', sub: 'Normal' }, { val: 'landscape', label: '↔ Landscape', sub: 'Diputar 90°' }].map(o => (
+                        <label key={o.val} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${orientation === o.val ? 'var(--accent)' : 'var(--border)'}`, background: orientation === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                          <input type="radio" checked={orientation === o.val} onChange={() => { setOrientation(o.val); setManualPreview(null) }} style={{ accentColor: 'var(--accent)' }} />
+                          <div><div>{o.label}</div><div style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: '400' }}>{o.sub}</div></div>
                         </label>
                       ))}
                     </div>
@@ -774,6 +773,18 @@ export default function PrintResiPage() {
                       {[{ val: 384, label: '58mm' }, { val: 576, label: '80mm' }].map(o => (
                         <label key={o.val} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                           <input type="radio" checked={printWidth === o.val} onChange={() => { setPrintWidth(o.val); setPreviewSrc(null) }} style={{ accentColor: 'var(--accent)' }} />
+                          {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Orientasi Cetak</label>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      {[{ val: 'portrait', label: '↕ Portrait' }, { val: 'landscape', label: '↔ Landscape' }].map(o => (
+                        <label key={o.val} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${orientation === o.val ? 'var(--accent)' : 'var(--border)'}`, background: orientation === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                          <input type="radio" checked={orientation === o.val} onChange={() => { setOrientation(o.val); setPreviewSrc(null) }} style={{ accentColor: 'var(--accent)' }} />
                           {o.label}
                         </label>
                       ))}
@@ -899,6 +910,14 @@ export default function PrintResiPage() {
                   {[{ val: 384, label: '58mm' }, { val: 576, label: '80mm' }].map(o => (
                     <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${printWidth === o.val ? 'var(--accent)' : 'var(--border)'}`, background: printWidth === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
                       <input type="radio" checked={printWidth === o.val} onChange={() => setPrintWidth(o.val)} style={{ accentColor: 'var(--accent)' }} />
+                      {o.label}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[{ val: 'portrait', label: '↕ Portrait' }, { val: 'landscape', label: '↔ Landscape' }].map(o => (
+                    <label key={o.val} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '7px', border: `1.5px solid ${orientation === o.val ? 'var(--accent)' : 'var(--border)'}`, background: orientation === o.val ? 'var(--accent-light)' : 'var(--surface)', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+                      <input type="radio" checked={orientation === o.val} onChange={() => setOrientation(o.val)} style={{ accentColor: 'var(--accent)' }} />
                       {o.label}
                     </label>
                   ))}
