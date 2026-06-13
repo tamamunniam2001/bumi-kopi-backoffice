@@ -307,6 +307,43 @@ model Resi {
   @@index([createdAt])
 }
 
+model SelfOrder {
+  id           String          @id @default(cuid())
+  orderNo      String          @unique
+  tableNo      String          @default("")
+  customerName String          @default("")
+  note         String?         @default("")
+  total        Int
+  status       SelfOrderStatus @default(PENDING)
+  items        SelfOrderItem[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SelfOrderItem {
+  id          String    @id @default(cuid())
+  selfOrderId String
+  selfOrder   SelfOrder @relation(fields: [selfOrderId], references: [id], onDelete: Cascade)
+  productId   String?
+  name        String
+  price       Int
+  qty         Int
+  subtotal    Int
+  imageUrl    String?
+
+  @@index([selfOrderId])
+}
+
+enum SelfOrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum OpnameStatus {
   DRAFT
   SELESAI
