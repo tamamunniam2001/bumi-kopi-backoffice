@@ -15,31 +15,145 @@ const WHITE = '#FFFFFF'
 const TEXT = '#1C1209'
 const TEXT2 = '#4B3A2A'
 
+// ── QR Code display component ────────────────────────────────────────────────
+function QrisPanel({ orderId, total, onPaid }) {
+  const [qris, setQris] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [expired, setExpired] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [countdown, setCountdown] = useState('')
+
+  const loadQris = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Coba ambil QR yang sudah ada dulu, jika belum ada generate baru
+      const r = await fetch(`/api/self-orders/${orderId}`)
+      const orderData = await r.json()
+      if (orderData.qrisUrl || orderData.qrisString || orderData.dokuPaymentUrl) {
+        setQris({
+          qrisUrl: orderData.qrisUrl,
+          qrisString: orderData.qrisString,
+          paymentUrl: orderData.dokuPaymentUrl,
+          expiredAt: orderData.qrisExpiredAt,
+        })
+      } else {
+        // Generate baru
+        const pr = await fetch(`/api/self-orders/${orderId}/pay`, { method: 'POST' })
+        const pdata = await pr.json()
+        if (!pr.ok) throw new Error(pdata.message)
+        setQris(pdata)
+      }
+    } catch (e) { alert('Gagal memuat QRIS: ' + e.message) }
+    finally { setLoading(false) }
+  }, [orderId])
+
+  useEffect(() => { loadQris() }, [loadQris])
+
+  // Countdown timer
+  useEffect(() => {
+    if (!qris?.expiredAt) return
+    const iv = setInterval(() => {
+      const diff = new Date(qris.expiredAt).getTime() - Date.now()
+      if (diff <= 0) { setExpired(true); clearInterval(iv); return }
+      const m = Math.floor(diff / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setCountdown(`${m}:${String(s).padStart(2, '0')}`)
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [qris?.expiredAt])
+
+  // Auto-check status setiap 5 detik
+  useEffect(() => {
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/self-orders/${orderId}/check`)
+        const data = await r.json()
+        if (data.paid) { clearInterval(iv); onPaid() }
+      } catch {}
+    }, 5000)
+    return () => clearInterval(iv)
+  }, [orderId, onPaid])
+
+  async function handleCheckManual() {
+    setChecking(true)
+    try {
+      const r = await fetch(`/api/self-orders/${orderId}/check`)
+      const data = await r.json()
+      if (data.paid) onPaid()
+      else alert('Pembayaran belum diterima. Coba beberapa saat lagi.')
+    } catch { alert('Gagal cek status') }
+    finally { setChecking(false) }
+  }
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+      <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
+      <div style={{ fontSize: '14px', color: GRAY2 }}>Memuat QRIS...</div>
+    </div>
+  )
+
+  if (expired) return (
+    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+      <div style={{ fontSize: '32px', marginBottom: '12px' }}>⌛</div>
+      <div style={{ fontSize: '15px', fontWeight: '700', color: '#DC2626', marginBottom: '8px' }}>QRIS Kadaluarsa</div>
+      <button onClick={() => { setExpired(false); setQris(null); loadQris() }} style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: A, color: '#fff', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px' }}>Generate Ulang</button>
+    </div>
+  )
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      {/* QR Image */}
+      {qris?.qrisUrl ? (
+        <div style={{ display: 'inline-block', padding: '12px', background: WHITE, borderRadius: '16px', border: `2px solid ${AB}`, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', marginBottom: '14px' }}>
+          <img src={qris.qrisUrl} alt="QRIS" style={{ width: '200px', height: '200px', display: 'block' }} />
+        </div>
+      ) : qris?.qrisString ? (
+        <div style={{ display: 'inline-block', padding: '12px', background: WHITE, borderRadius: '16px', border: `2px solid ${AB}`, marginBottom: '14px' }}>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qris.qrisString)}`} alt="QRIS" style={{ width: '200px', height: '200px', display: 'block' }} />
+        </div>
+      ) : qris?.paymentUrl ? (
+        <a href={qris.paymentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', padding: '14px', borderRadius: '14px', background: A, color: '#fff', fontWeight: '800', fontSize: '15px', textDecoration: 'none', marginBottom: '14px' }}>Buka Halaman Pembayaran →</a>
+      ) : null}
+
+      <div style={{ fontSize: '13px', color: GRAY2, marginBottom: '4px' }}>Scan QR dengan aplikasi apapun</div>
+      <div style={{ fontSize: '22px', fontWeight: '900', color: A, marginBottom: '4px' }}>Rp {fmt(total)}</div>
+      {countdown && <div style={{ fontSize: '12px', color: '#D97706', fontWeight: '600', marginBottom: '14px' }}>⏱ Berlaku {countdown}</div>}
+
+      <button onClick={handleCheckManual} disabled={checking} style={{ width: '100%', padding: '13px', borderRadius: '12px', border: `1.5px solid ${AB}`, background: AL, color: A, fontWeight: '700', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>
+        {checking ? '⏳ Mengecek...' : '🔄 Cek Status Pembayaran'}
+      </button>
+      <div style={{ fontSize: '11px', color: GRAY, marginTop: '8px' }}>Status dicek otomatis setiap 5 detik</div>
+    </div>
+  )
+}
+
 // ── Order Tracker ────────────────────────────────────────────────────────────
 function OrderTracker({ orderId, onBack }) {
   const [order, setOrder] = useState(null)
   const [tick, setTick] = useState(0)
+  const [showQris, setShowQris] = useState(false)
+
+  const fetchOrder = useCallback(async () => {
+    try { const r = await fetch(`/api/self-orders/${orderId}`); setOrder(await r.json()) } catch {}
+  }, [orderId])
 
   useEffect(() => {
-    const go = async () => {
-      try { const r = await fetch(`/api/self-orders/${orderId}`); setOrder(await r.json()) } catch {}
-    }
-    go()
-    const iv = setInterval(() => { go(); setTick(t => t + 1) }, 3000)
+    fetchOrder()
+    const iv = setInterval(() => { fetchOrder(); setTick(t => t + 1) }, 3000)
     return () => clearInterval(iv)
-  }, [orderId])
+  }, [fetchOrder])
 
   const dots = '.'.repeat((tick % 3) + 1)
   const cfg = {
-    PENDING:   { emoji: '⏳', title: 'Menunggu Konfirmasi', sub: `Pesananmu sedang diterima kasir${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
-    APPROVED:  { emoji: '✅', title: 'Pesanan Dikonfirmasi!', sub: 'Silahkan ke kasir untuk pembayaran', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
+    PENDING:   { emoji: '⏳', title: 'Memproses Pesanan...', sub: `Menyiapkan QR pembayaran${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
+    APPROVED:  { emoji: '💳', title: 'Scan & Bayar', sub: 'Scan QR code di bawah untuk menyelesaikan pembayaran', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
     REJECTED:  { emoji: '❌', title: 'Pesanan Ditolak', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 0 },
-    COMPLETED: { emoji: '🎉', title: 'Terima Kasih!', sub: 'Pesananmu selesai. Sampai jumpa lagi!', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
+    COMPLETED: { emoji: '🎉', title: 'Pembayaran Berhasil!', sub: 'Terima kasih! Pesananmu sedang diproses.', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
   }
   const c = cfg[order?.status || 'PENDING']
 
   return (
-    <div style={{ minHeight: '100dvh', background: BG, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: "'Inter',system-ui,sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: BG, fontFamily: "'Inter',system-ui,sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
@@ -47,58 +161,75 @@ function OrderTracker({ orderId, onBack }) {
         @keyframes ping{0%{transform:scale(1);opacity:.5}80%,100%{transform:scale(1.5);opacity:0}}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
       `}</style>
-      <div style={{ width: '100%', maxWidth: '400px', animation: 'fadeUp .5s ease' }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-          <div style={{ fontSize: '40px', animation: 'float 3s ease-in-out infinite', marginBottom: '8px' }}>☕</div>
-          <div style={{ fontSize: '10px', letterSpacing: '5px', color: A, fontWeight: '700', textTransform: 'uppercase' }}>BUMI KOPI</div>
-        </div>
 
+      {/* Header */}
+      <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: TEXT }}>☕ Bumi Kopi</div>
+          <div style={{ fontSize: '11px', color: GRAY, marginTop: '1px' }}>Status Pesanan</div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: '420px', margin: '0 auto', padding: '24px 20px', animation: 'fadeUp .4s ease' }}>
         {/* Status card */}
-        <div style={{ background: WHITE, borderRadius: '24px', border: `1.5px solid ${c.border}`, boxShadow: '0 4px 24px rgba(0,0,0,0.06)', padding: '32px 24px', textAlign: 'center', marginBottom: '14px' }}>
-          <div style={{ position: 'relative', width: '72px', height: '72px', margin: '0 auto 20px' }}>
+        <div style={{ background: WHITE, borderRadius: '24px', border: `1.5px solid ${c.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.06)', padding: '28px 24px', textAlign: 'center', marginBottom: '14px' }}>
+          <div style={{ position: 'relative', width: '68px', height: '68px', margin: '0 auto 18px' }}>
             <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: c.border, animation: 'ping 2s ease-in-out infinite' }} />
-            <div style={{ position: 'relative', width: '72px', height: '72px', borderRadius: '50%', background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>{c.emoji}</div>
+            <div style={{ position: 'relative', width: '68px', height: '68px', borderRadius: '50%', background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px' }}>{c.emoji}</div>
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: TEXT, marginBottom: '6px' }}>{c.title}</div>
+          <div style={{ fontSize: '19px', fontWeight: '800', color: TEXT, marginBottom: '6px' }}>{c.title}</div>
           <div style={{ fontSize: '13px', color: GRAY2, lineHeight: 1.7 }}>{c.sub}</div>
-          {order && <div style={{ marginTop: '12px', fontSize: '11px', color: A, fontFamily: 'monospace', letterSpacing: '2px', fontWeight: '600' }}>#{order.orderNo}</div>}
+          {order && <div style={{ marginTop: '10px', fontSize: '11px', color: A, fontFamily: 'monospace', letterSpacing: '2px', fontWeight: '600' }}>#{order.orderNo}</div>}
         </div>
 
-        {/* Detail */}
+        {/* QRIS Section — tampil jika APPROVED */}
+        {order?.status === 'APPROVED' && (
+          <div style={{ background: WHITE, borderRadius: '20px', border: `1.5px solid ${AB}`, boxShadow: '0 2px 12px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: AL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: TEXT }}>Bayar dengan QRIS</div>
+                <div style={{ fontSize: '11px', color: GRAY }}>Scan & bayar dalam 10 menit</div>
+              </div>
+            </div>
+            <QrisPanel orderId={orderId} total={order.total} onPaid={fetchOrder} />
+          </div>
+        )}
+
+        {/* Detail order */}
         {order && (
-          <div style={{ background: WHITE, borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '18px', marginBottom: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ background: WHITE, borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '16px', marginBottom: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: GRAY, letterSpacing: '1px', textTransform: 'uppercase' }}>Detail Pesanan</span>
               {order.tableNo && <span style={{ fontSize: '11px', fontWeight: '700', color: A, background: AL, padding: '3px 10px', borderRadius: '20px', border: `1px solid ${AB}` }}>Meja {order.tableNo}</span>}
             </div>
             {order.items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < order.items.length - 1 ? `1px solid ${BORDER}` : 'none', fontSize: '13px' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < order.items.length - 1 ? `1px solid ${BORDER}` : 'none', fontSize: '13px' }}>
                 <span style={{ color: TEXT2 }}>{item.name} <span style={{ color: GRAY }}>×{item.qty}</span></span>
                 <span style={{ fontWeight: '600', color: TEXT }}>Rp {fmt(item.subtotal)}</span>
               </div>
             ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${BORDER}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${BORDER}` }}>
               <span style={{ fontSize: '13px', fontWeight: '600', color: TEXT2 }}>Total</span>
               <span style={{ fontSize: '20px', fontWeight: '900', color: A }}>Rp {fmt(order.total)}</span>
             </div>
           </div>
         )}
 
-        {/* Steps */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-          {['Order', 'Konfirmasi', 'Selesai'].map((label, i) => {
+        {/* Step indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+          {['Order', 'Konfirmasi', 'Bayar'].map((label, i) => {
             const done = i <= c.step
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: done ? A : '#F3F4F6', border: `1.5px solid ${done ? A : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .3s' }}>
-                    {done ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: done ? A : '#F3F4F6', border: `1.5px solid ${done ? A : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .3s' }}>
+                    {done ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                     : <span style={{ fontSize: '11px', color: GRAY, fontWeight: '700' }}>{i + 1}</span>}
                   </div>
                   <span style={{ fontSize: '10px', color: done ? A : GRAY, fontWeight: done ? '700' : '400' }}>{label}</span>
                 </div>
-                {i < 2 && <div style={{ width: '32px', height: '1.5px', background: i < c.step ? A : '#E5E7EB', margin: '0 4px', marginBottom: '18px', transition: 'background .3s' }} />}
+                {i < 2 && <div style={{ width: '30px', height: '1.5px', background: i < c.step ? A : '#E5E7EB', margin: '0 4px', marginBottom: '18px', transition: 'background .3s' }} />}
               </div>
             )
           })}
@@ -130,6 +261,7 @@ export default function SelfOrderPage() {
   const [submitting, setSubmitting] = useState(false)
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [splash, setSplash] = useState(true)
+  const [autoPayOrderId, setAutoPayOrderId] = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -179,6 +311,10 @@ export default function SelfOrderPage() {
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.message)
+
+      // Langsung generate QR tanpa tunggu approval
+      await fetch(`/api/self-orders/${data.id}/pay`, { method: 'POST' })
+
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)
     } catch (e) { alert(e.message || 'Gagal mengirim order') }
@@ -405,11 +541,11 @@ export default function SelfOrderPage() {
                 ))}
               </div>
               {/* Info bayar */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '16px', flexShrink: 0 }}>💳</span>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '16px', flexShrink: 0 }}>📱</span>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#059669', marginBottom: '2px' }}>Bayar di Kasir</div>
-                  <div style={{ fontSize: '11px', color: '#047857', lineHeight: 1.6 }}>Setelah dikonfirmasi, langsung ke kasir untuk membayar. Cash, QRIS, atau Transfer.</div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '2px' }}>Bayar via QRIS</div>
+                  <div style={{ fontSize: '11px', color: '#1E40AF', lineHeight: 1.6 }}>Setelah kasir konfirmasi, QR code akan muncul. Scan untuk bayar langsung dari HP kamu.</div>
                 </div>
               </div>
             </div>

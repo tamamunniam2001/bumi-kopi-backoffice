@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/setup', '/self-order', '/api/self-orders', '/api/public']
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/setup', '/self-order', '/api/self-orders', '/api/public', '/api/webhooks/doku']
 
 // Halaman yang hanya boleh diakses ADMIN
 const ADMIN_ONLY_PATHS = [

@@ -41,7 +41,8 @@ export default function KasirPage() {
   const [selfOrderAlert, setSelfOrderAlert] = useState(null)
   const [selfOrdersExpanded, setSelfOrdersExpanded] = useState(true)
   const [approvingId, setApprovingId] = useState(null)
-  const audioRef = useRef(null)
+  const notifIntervalRef = useRef(null)
+
   const playNotif = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -50,11 +51,30 @@ export default function KasirPage() {
       osc.connect(gain); gain.connect(ctx.destination)
       osc.frequency.setValueAtTime(880, ctx.currentTime)
       osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1)
-      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.setValueAtTime(0.4, ctx.currentTime)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4)
     } catch {}
   }, [])
+
+  const startNotifLoop = useCallback(() => {
+    // Hentikan loop lama jika ada
+    if (notifIntervalRef.current) clearInterval(notifIntervalRef.current)
+    // Bunyi langsung sekali
+    playNotif()
+    // Lanjut bunyi setiap 2.5 detik
+    notifIntervalRef.current = setInterval(playNotif, 2500)
+  }, [playNotif])
+
+  const stopNotifLoop = useCallback(() => {
+    if (notifIntervalRef.current) {
+      clearInterval(notifIntervalRef.current)
+      notifIntervalRef.current = null
+    }
+  }, [])
+
+  // Bersihkan saat unmount
+  useEffect(() => () => stopNotifLoop(), [stopNotifLoop])
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
 
   const todayKey = new Date().toLocaleDateString('en-CA')
@@ -161,7 +181,7 @@ export default function KasirPage() {
               const ids = new Set(prev.map(o => o.id))
               const newOnes = data.orders.filter(o => !ids.has(o.id))
               if (!newOnes.length) return prev
-              try { playNotif() } catch {}
+              try { startNotifLoop() } catch {}
               setSelfOrderAlert(newOnes[0])
               return [...newOnes, ...prev]
             })
@@ -175,10 +195,15 @@ export default function KasirPage() {
   }, [])
 
   async function approveSelfOrder(id, status) {
+    stopNotifLoop()
     setApprovingId(id)
     try {
       await api.patch(`/self-orders/${id}`, { status })
-      setSelfOrders(prev => prev.filter(o => o.id !== id))
+      setSelfOrders(prev => {
+        const remaining = prev.filter(o => o.id !== id)
+        if (remaining.length > 0) startNotifLoop()
+        return remaining
+      })
       if (selfOrderAlert?.id === id) setSelfOrderAlert(null)
     } catch (e) { alert(e.response?.data?.message || 'Gagal') }
     finally { setApprovingId(null) }
@@ -259,7 +284,7 @@ export default function KasirPage() {
                 <div style={{ fontSize: '11px', opacity: 0.85 }}>#{selfOrderAlert.orderNo}</div>
               </div>
             </div>
-            <button onClick={() => setSelfOrderAlert(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
+            <button onClick={() => { stopNotifLoop(); setSelfOrderAlert(null) }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
           </div>
           <div style={{ padding: '12px 16px' }}>
             <div style={{ fontSize: '13px', fontWeight: '700', color: '#1A0F00', marginBottom: '4px' }}>
