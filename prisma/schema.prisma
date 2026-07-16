@@ -296,6 +296,16 @@ model StockOpnameItem {
   @@index([expenseItemId])
 }
 
+model ReceiptSettings {
+  id          String   @id @default("singleton")
+  storeName   String   @default("BUMI KOPI")
+  tagline     String   @default("Struk Pembayaran")
+  footer      String   @default("Terima kasih sudah berkunjung!")
+  footer2     String   @default("Bumi Kopi")
+  printWidth  Int      @default(32)
+  updatedAt   DateTime @updatedAt
+}
+
 model Resi {
   id        String   @id @default(cuid())
   nama      String   @default("")

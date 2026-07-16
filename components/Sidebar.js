@@ -50,6 +50,7 @@ const allNavGroups = [
     items: [
       { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },
       { href: '/expense-settings', label: 'Item Pengeluaran', icon: <IconTag />, roles: ['ADMIN'] },
+      { href: '/receipt-settings', label: 'Pengaturan Struk', icon: <IconPrinter />, roles: ['ADMIN'] },
       { href: '/users', label: 'Pengguna', icon: <IconUsers />, roles: ['ADMIN'] },
     ]
   },
