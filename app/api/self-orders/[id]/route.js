@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma'
 
 export async function PATCH(req, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
     const { status } = await req.json()
     if (!['APPROVED', 'REJECTED', 'COMPLETED'].includes(status))
       return NextResponse.json({ message: 'Status tidak valid' }, { status: 400 })
@@ -21,8 +21,9 @@ export async function PATCH(req, { params }) {
 
 export async function GET(req, { params }) {
   try {
+    const { id } = await params
     const order = await prisma.selfOrder.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { items: true },
     })
     if (!order) return NextResponse.json({ message: 'Tidak ditemukan' }, { status: 404 })

@@ -4,9 +4,7 @@ import { dokuRequest } from '@/lib/doku'
 
 export async function GET(req, { params }) {
   try {
-    const { id } = params
-    const order = await prisma.selfOrder.findUnique({ where: { id } })
-    if (!order) return NextResponse.json({ message: 'Order tidak ditemukan' }, { status: 404 })
+    const { id } = await params
 
     const invoiceNo = order.dokuInvoiceNo || order.orderNo
     const result = await dokuRequest({ method: 'GET', path: `/checkout/v1/payment/${invoiceNo}`, body: null })

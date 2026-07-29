@@ -4,7 +4,7 @@ import { dokuRequest } from '@/lib/doku'
 
 export async function POST(req, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
     const order = await prisma.selfOrder.findUnique({ where: { id }, include: { items: true } })
     if (!order) return NextResponse.json({ message: 'Order tidak ditemukan' }, { status: 404 })
     if (order.qrisExpiredAt && new Date(order.qrisExpiredAt) > new Date() && order.qrisUrl) {
