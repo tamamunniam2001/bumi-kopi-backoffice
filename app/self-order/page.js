@@ -133,7 +133,7 @@ function QrisPanel({ orderId, total, onPaid }) {
 }
 
 // ── Order Tracker ────────────────────────────────────────────────────────────
-function OrderTracker({ orderId, onBack }) {
+function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
   const [order, setOrder] = useState(null)
   const [tick, setTick] = useState(0)
   const [showQris, setShowQris] = useState(false)
@@ -150,8 +150,8 @@ function OrderTracker({ orderId, onBack }) {
 
   const dots = '.'.repeat((tick % 3) + 1)
   const cfg = {
-    PENDING:   { emoji: '⏳', title: 'Menyiapkan Pembayaran...', sub: `Sedang membuat QR code${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
-    APPROVED:  { emoji: '💳', title: 'Scan & Bayar', sub: 'Scan QR code di bawah untuk menyelesaikan pembayaran', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
+    PENDING:   { emoji: '⏳', title: 'Menyiapkan Pesanan...', sub: `Sedang memproses${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
+    APPROVED:  { emoji: paymentMethod === 'QRIS' ? '💳' : '💵', title: paymentMethod === 'QRIS' ? 'Scan & Bayar' : 'Bayar ke Kasir', sub: paymentMethod === 'QRIS' ? 'Scan QR code di bawah untuk menyelesaikan pembayaran' : 'Silakan bayar tunai ke kasir kami', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
     REJECTED:  { emoji: '❌', title: 'Pesanan Gagal', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 1 },
     COMPLETED: { emoji: '🎉', title: 'Pembayaran Berhasil!', sub: 'Terima kasih! Pesananmu sedang diproses.', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
   }
@@ -187,17 +187,30 @@ function OrderTracker({ orderId, onBack }) {
           {order && <div style={{ marginTop: '10px', fontSize: '11px', color: A, fontFamily: 'monospace', letterSpacing: '2px', fontWeight: '600' }}>#{order.orderNo}</div>}
         </div>
 
-        {/* QRIS Section — tampil jika APPROVED */}
+        {/* Payment Section — tampil jika APPROVED */}
         {order?.status === 'APPROVED' && (
           <div style={{ background: WHITE, borderRadius: '20px', border: `1.5px solid ${AB}`, boxShadow: '0 2px 12px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: AL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: TEXT }}>Bayar dengan QRIS</div>
-                <div style={{ fontSize: '11px', color: GRAY }}>Scan & bayar dalam 10 menit</div>
+            {paymentMethod === 'QRIS' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: AL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: TEXT }}>Bayar dengan QRIS</div>
+                    <div style={{ fontSize: '11px', color: GRAY }}>Scan & bayar dalam 10 menit</div>
+                  </div>
+                </div>
+                <QrisPanel orderId={orderId} total={order.total} onPaid={fetchOrder} />
+              </>
+            )}
+            {paymentMethod === 'CASH' && (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <div style={{ fontSize: '40px', marginBottom: '12px' }}>💵</div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: TEXT, marginBottom: '6px' }}>Bayar Tunai ke Kasir</div>
+                <div style={{ fontSize: '22px', fontWeight: '900', color: A, marginBottom: '8px' }}>Rp {fmt(order.total)}</div>
+                <div style={{ fontSize: '12px', color: GRAY2, lineHeight: 1.7 }}>Tunjukkan nomor pesanan <strong style={{ color: A }}>#{order.orderNo}</strong> ke kasir dan lakukan pembayaran tunai.</div>
               </div>
-            </div>
-            <QrisPanel orderId={orderId} total={order.total} onPaid={fetchOrder} />
+            )}
+
           </div>
         )}
 
@@ -263,6 +276,7 @@ export default function SelfOrderPage() {
   const [tableNo, setTableNo] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [note, setNote] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('QRIS')
   const [submitting, setSubmitting] = useState(false)
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [splash, setSplash] = useState(true)
@@ -312,13 +326,15 @@ export default function SelfOrderPage() {
       const r = await fetch('/api/self-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableNo, customerName, note, items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty, imageUrl: i.product.imageUrl || null })) }),
+        body: JSON.stringify({ tableNo, customerName, note, paymentMethod, items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty, imageUrl: i.product.imageUrl || null })) }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.message)
 
-      // Langsung generate QR tanpa tunggu approval
-      await fetch(`/api/self-orders/${data.id}/pay`, { method: 'POST' })
+      // Generate QR hanya jika QRIS
+      if (paymentMethod === 'QRIS') {
+        await fetch(`/api/self-orders/${data.id}/pay`, { method: 'POST' })
+      }
 
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)
@@ -326,7 +342,7 @@ export default function SelfOrderPage() {
     finally { setSubmitting(false) }
   }
 
-  if (activeOrderId) return <OrderTracker orderId={activeOrderId} onBack={() => { setActiveOrderId(null); setTableNo(''); setCustomerName(''); setNote('') }} />
+  if (activeOrderId) return <OrderTracker orderId={activeOrderId} paymentMethod={paymentMethod} onBack={() => { setActiveOrderId(null); setTableNo(''); setCustomerName(''); setNote(''); setPaymentMethod('QRIS') }} />
 
   // shared input style
   const inp = { width: '100%', padding: '11px 14px', borderRadius: '12px', border: `1.5px solid ${BORDER}`, background: '#FAFAFA', color: TEXT, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }
@@ -545,13 +561,23 @@ export default function SelfOrderPage() {
                   </div>
                 ))}
               </div>
-              {/* Info bayar */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '16px', flexShrink: 0 }}>📱</span>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '2px' }}>Bayar via QRIS</div>
-                  <div style={{ fontSize: '11px', color: '#1E40AF', lineHeight: 1.6 }}>QR code akan langsung muncul setelah order dikirim. Scan untuk bayar dari HP kamu.</div>
+              {/* Pilihan metode pembayaran */}
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Metode Pembayaran</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[{ value: 'QRIS', emoji: '📱', label: 'QRIS' }, { value: 'CASH', emoji: '💵', label: 'Tunai di Kasir' }].map(m => (
+                    <button key={m.value} onClick={() => setPaymentMethod(m.value)} style={{ padding: '12px 6px', borderRadius: '12px', border: `1.5px solid ${paymentMethod === m.value ? A : BORDER}`, background: paymentMethod === m.value ? AL : WHITE, color: paymentMethod === m.value ? A : TEXT2, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', transition: 'all .15s', boxShadow: paymentMethod === m.value ? `0 2px 10px ${A}25` : 'none' }}>
+                      <span style={{ fontSize: '20px' }}>{m.emoji}</span>
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
+                {paymentMethod === 'QRIS' && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#1E40AF', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '10px', padding: '9px 12px', lineHeight: 1.6 }}>QR code akan langsung muncul setelah order dikirim.</div>
+                )}
+                {paymentMethod === 'CASH' && (
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#065F46', background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: '10px', padding: '9px 12px', lineHeight: 1.6 }}>Bayar tunai ke kasir setelah pesanan selesai.</div>
+                )}
               </div>
             </div>
             <div style={{ padding: '16px 20px', borderTop: `1px solid ${BORDER}` }}>
