@@ -53,33 +53,31 @@ export async function POST(req, { params }) {
       throw e
     }
 
-    console.log('DOKU response:', JSON.stringify(result, null, 2))
+    console.log('DOKU response:', JSON.stringify(result))
 
-    // Cari QR dari berbagai kemungkinan struktur response DOKU
-    const qrisData = result.payment?.qris || result.payment?.virtual_account_info || {}
-    const qrisUrl = qrisData.qr_code_url || qrisData.url || ''
-    const qrisString = qrisData.qr_string || qrisData.qr || ''
-    const paymentUrl = result.response?.payment_url || result.payment?.url || result.checkout_url || ''
-    const invoiceNo = result.order?.invoice_number || order.orderNo
+    // DOKU Checkout V1 mengembalikan payment URL, bukan QR langsung
+    const paymentUrl = result.response?.payment?.url || ''
+    const invoiceNo = result.response?.order?.invoice_number || order.orderNo
+    const expiredDatetime = result.response?.payment?.expired_datetime
+    const actualExpiredAt = expiredDatetime ? new Date(expiredDatetime) : expiredAt
+
+    if (!paymentUrl) {
+      console.error('DOKU: tidak ada payment URL di response:', JSON.stringify(result))
+      return NextResponse.json({ message: 'DOKU tidak mengembalikan payment URL.' }, { status: 502 })
+    }
 
     await prisma.selfOrder.update({
       where: { id },
       data: {
-        qrisUrl,
-        qrisString,
-        qrisExpiredAt: expiredAt,
+        qrisUrl: '',
+        qrisString: '',
+        qrisExpiredAt: actualExpiredAt,
         dokuInvoiceNo: invoiceNo,
         dokuPaymentUrl: paymentUrl,
       },
     })
 
-    // Jika tidak ada QR tapi ada payment URL, tetap kembalikan payment URL
-    if (!qrisUrl && !qrisString && !paymentUrl) {
-      console.error('DOKU: tidak ada QR atau payment URL di response:', result)
-      return NextResponse.json({ message: 'DOKU tidak mengembalikan QR code. Cek log server.' }, { status: 502 })
-    }
-
-    return NextResponse.json({ qrisUrl, qrisString, expiredAt, invoiceNo, paymentUrl })
+    return NextResponse.json({ paymentUrl, expiredAt: actualExpiredAt, invoiceNo })
   } catch (e) {
     console.error('DOKU pay error:', e)
     return NextResponse.json({ message: e.message }, { status: 500 })
