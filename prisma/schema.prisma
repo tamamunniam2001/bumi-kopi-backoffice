@@ -302,6 +302,9 @@ model ReceiptSettings {
   tagline     String   @default("Struk Pembayaran")
   footer      String   @default("Terima kasih sudah berkunjung!")
   footer2     String   @default("Bumi Kopi")
+  footer3     String   @default("")
+  footer4     String   @default("")
+  footer5     String   @default("")
   printWidth  Int      @default(32)
   updatedAt   DateTime @updatedAt
 }

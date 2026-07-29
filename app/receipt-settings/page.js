@@ -9,6 +9,9 @@ const DEFAULTS = {
   tagline: 'Struk Pembayaran',
   footer: 'Terima kasih sudah berkunjung!',
   footer2: 'Bumi Kopi',
+  footer3: '',
+  footer4: '',
+  footer5: '',
   printWidth: 32,
 }
 
@@ -41,7 +44,6 @@ export default function ReceiptSettingsPage() {
   const w = Math.max(24, Math.min(48, form.printWidth))
   const hr = '-'.repeat(w)
   const fmtDemo = (n) => Number(n).toLocaleString('id-ID')
-
   const demoItems = [
     { name: 'Kopi Susu', qty: 2, price: 18000, subtotal: 36000 },
     { name: 'Matcha Latte', qty: 1, price: 22000, subtotal: 22000 },
@@ -52,6 +54,16 @@ export default function ReceiptSettingsPage() {
     const gap = w - left.length - right.length
     return left + ' '.repeat(Math.max(1, gap)) + right
   }
+
+  function center(str) {
+    if (!str) return ''
+    return str.padStart(Math.floor((w + str.length) / 2)).padEnd(w)
+  }
+
+  const footerLines = [form.footer, form.footer2, form.footer3, form.footer4, form.footer5]
+    .filter(f => f && f.trim())
+
+  const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   return (
     <div className="page">
@@ -73,7 +85,7 @@ export default function ReceiptSettingsPage() {
               {/* Form */}
               <div className="card" style={{ padding: '28px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-                  <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #2563EB, #60A5FA)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg,#2563EB,#60A5FA)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                   </div>
                   <div>
@@ -83,37 +95,51 @@ export default function ReceiptSettingsPage() {
                 </div>
 
                 <form onSubmit={handleSave}>
+                  {/* Header */}
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Header Struk</div>
                   <div className="form-grid" style={{ marginBottom: '20px' }}>
                     <div>
                       <label className="label">Nama Toko</label>
-                      <input className="input" value={form.storeName} onChange={e => setForm({ ...form, storeName: e.target.value })} placeholder="BUMI KOPI" maxLength={24} />
+                      <input className="input" value={form.storeName} onChange={set('storeName')} placeholder="BUMI KOPI" maxLength={24} />
                       <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Tampil besar di bagian atas struk</div>
                     </div>
                     <div>
                       <label className="label">Tagline / Sub-judul</label>
-                      <input className="input" value={form.tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} placeholder="Struk Pembayaran" maxLength={32} />
+                      <input className="input" value={form.tagline} onChange={set('tagline')} placeholder="Struk Pembayaran" maxLength={32} />
                       <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Tampil di bawah nama toko</div>
                     </div>
-                    <div>
-                      <label className="label">Pesan Footer</label>
-                      <input className="input" value={form.footer} onChange={e => setForm({ ...form, footer: e.target.value })} placeholder="Terima kasih sudah berkunjung!" maxLength={48} />
-                    </div>
-                    <div>
-                      <label className="label">Footer Baris 2</label>
-                      <input className="input" value={form.footer2} onChange={e => setForm({ ...form, footer2: e.target.value })} placeholder="Bumi Kopi" maxLength={32} />
-                    </div>
-                    <div>
-                      <label className="label">Lebar Kertas (karakter)</label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <input type="range" min="24" max="48" value={form.printWidth}
-                          onChange={e => setForm({ ...form, printWidth: Number(e.target.value) })}
-                          style={{ flex: 1 }} />
-                        <input type="number" className="input" min="24" max="48" value={form.printWidth}
-                          onChange={e => setForm({ ...form, printWidth: Number(e.target.value) || 32 })}
-                          style={{ width: '70px' }} />
+                  </div>
+
+                  {/* Footer */}
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Footer Struk (baris kosong tidak dicetak)</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    {[
+                      { key: 'footer',  label: 'Footer Baris 1', placeholder: 'Terima kasih sudah berkunjung!' },
+                      { key: 'footer2', label: 'Footer Baris 2', placeholder: 'Bumi Kopi' },
+                      { key: 'footer3', label: 'Footer Baris 3', placeholder: 'Instagram: @bumikopi' },
+                      { key: 'footer4', label: 'Footer Baris 4', placeholder: 'WA: 0812-xxxx-xxxx' },
+                      { key: 'footer5', label: 'Footer Baris 5', placeholder: 'Jl. Contoh No. 1, Kota' },
+                    ].map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <label className="label">{label}</label>
+                        <input className="input" value={form[key]} onChange={set(key)} placeholder={placeholder} maxLength={48} />
                       </div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Printer 58mm ≈ 32 karakter, 80mm ≈ 42 karakter</div>
+                    ))}
+                  </div>
+
+                  {/* Lebar kertas */}
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Ukuran Kertas</div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <label className="label">Lebar Kertas (karakter)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input type="range" min="24" max="48" value={form.printWidth}
+                        onChange={e => setForm(prev => ({ ...prev, printWidth: Number(e.target.value) }))}
+                        style={{ flex: 1, accentColor: 'var(--accent)' }} />
+                      <input type="number" className="input" min="24" max="48" value={form.printWidth}
+                        onChange={e => setForm(prev => ({ ...prev, printWidth: Number(e.target.value) || 32 }))}
+                        style={{ width: '70px' }} />
                     </div>
+                    <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Printer 58mm ≈ 32 karakter · 80mm ≈ 42 karakter</div>
                   </div>
 
                   <div className="divider" />
@@ -128,7 +154,7 @@ export default function ReceiptSettingsPage() {
               </div>
 
               {/* Preview */}
-              <div className="card" style={{ padding: '20px' }}>
+              <div className="card" style={{ padding: '20px', position: 'sticky', top: '80px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Preview Struk</div>
                 <div style={{
                   fontFamily: '"Courier New", Courier, monospace',
@@ -143,8 +169,8 @@ export default function ReceiptSettingsPage() {
                   color: '#1A202C',
                 }}>
                   {[
-                    form.storeName.toUpperCase().padStart(Math.floor((w + form.storeName.length) / 2)).padEnd(w),
-                    form.tagline.padStart(Math.floor((w + form.tagline.length) / 2)).padEnd(w),
+                    center(form.storeName.toUpperCase()),
+                    center(form.tagline),
                     hr,
                     `Invoice : BK-20250101`,
                     `Kasir   : Admin`,
@@ -157,12 +183,14 @@ export default function ReceiptSettingsPage() {
                     ]),
                     hr,
                     padRow('TOTAL', `Rp ${fmtDemo(demoTotal)}`),
-                    padRow(`Bayar (CASH)`, `Rp ${fmtDemo(60000)}`),
+                    padRow('Bayar (CASH)', `Rp ${fmtDemo(60000)}`),
                     padRow('Kembalian', `Rp ${fmtDemo(2000)}`),
                     hr,
-                    form.footer.padStart(Math.floor((w + form.footer.length) / 2)).padEnd(w),
-                    form.footer2.padStart(Math.floor((w + form.footer2.length) / 2)).padEnd(w),
+                    ...footerLines.map(f => center(f)),
                   ].join('\n')}
+                </div>
+                <div style={{ marginTop: '12px', fontSize: '11px', color: '#94A3B8', textAlign: 'center' }}>
+                  {footerLines.length} baris footer aktif
                 </div>
               </div>
 
