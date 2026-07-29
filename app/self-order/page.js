@@ -40,8 +40,13 @@ function QrisPanel({ orderId, total, onPaid }) {
         // Generate baru
         const pr = await fetch(`/api/self-orders/${orderId}/pay`, { method: 'POST' })
         const pdata = await pr.json()
-        if (!pr.ok) throw new Error(pdata.message)
-        setQris(pdata)
+        if (!pr.ok) throw new Error(pdata.message || 'Gagal generate QRIS')
+        setQris({
+          qrisUrl: pdata.qrisUrl || '',
+          qrisString: pdata.qrisString || '',
+          paymentUrl: pdata.paymentUrl || '',
+          expiredAt: pdata.expiredAt,
+        })
       }
     } catch (e) { alert('Gagal memuat QRIS: ' + e.message) }
     finally { setLoading(false) }

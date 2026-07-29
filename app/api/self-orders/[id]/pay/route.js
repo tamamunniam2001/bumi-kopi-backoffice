@@ -45,12 +45,22 @@ export async function POST(req, { params }) {
       },
     }
 
-    const result = await dokuRequest({ method: 'POST', path: '/checkout/v1/payment', body })
+    let result
+    try {
+      result = await dokuRequest({ method: 'POST', path: '/checkout/v1/payment', body })
+    } catch (e) {
+      console.error('DOKU API error:', e.message)
+      throw e
+    }
 
-    // Simpan data QR ke DB
-    const qrisData = result.payment?.qris || {}
-    const qrisUrl = qrisData.qr_code_url || result.response?.payment_url || ''
-    const qrisString = qrisData.qr_string || ''
+    console.log('DOKU response:', JSON.stringify(result, null, 2))
+
+    // Cari QR dari berbagai kemungkinan struktur response DOKU
+    const qrisData = result.payment?.qris || result.payment?.virtual_account_info || {}
+    const qrisUrl = qrisData.qr_code_url || qrisData.url || ''
+    const qrisString = qrisData.qr_string || qrisData.qr || ''
+    const paymentUrl = result.response?.payment_url || result.payment?.url || result.checkout_url || ''
+    const invoiceNo = result.order?.invoice_number || order.orderNo
 
     await prisma.selfOrder.update({
       where: { id },
@@ -58,12 +68,18 @@ export async function POST(req, { params }) {
         qrisUrl,
         qrisString,
         qrisExpiredAt: expiredAt,
-        dokuInvoiceNo: result.order?.invoice_number || order.orderNo,
-        dokuPaymentUrl: result.response?.payment_url || '',
+        dokuInvoiceNo: invoiceNo,
+        dokuPaymentUrl: paymentUrl,
       },
     })
 
-    return NextResponse.json({ qrisUrl, qrisString, expiredAt, invoiceNo: order.orderNo, paymentUrl: result.response?.payment_url })
+    // Jika tidak ada QR tapi ada payment URL, tetap kembalikan payment URL
+    if (!qrisUrl && !qrisString && !paymentUrl) {
+      console.error('DOKU: tidak ada QR atau payment URL di response:', result)
+      return NextResponse.json({ message: 'DOKU tidak mengembalikan QR code. Cek log server.' }, { status: 502 })
+    }
+
+    return NextResponse.json({ qrisUrl, qrisString, expiredAt, invoiceNo, paymentUrl })
   } catch (e) {
     console.error('DOKU pay error:', e)
     return NextResponse.json({ message: e.message }, { status: 500 })
