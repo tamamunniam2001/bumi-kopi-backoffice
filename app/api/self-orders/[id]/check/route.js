@@ -9,7 +9,7 @@ export async function GET(req, { params }) {
     if (!order) return NextResponse.json({ message: 'Order tidak ditemukan' }, { status: 404 })
 
     const invoiceNo = order.dokuInvoiceNo || order.orderNo
-    const result = await dokuRequest({ method: 'GET', path: `/orders/v1/status/${invoiceNo}`, body: null })
+    const result = await dokuRequest({ method: 'GET', path: `/checkout/v1/payment/${invoiceNo}`, body: null })
 
     const paid = result.transaction?.status === 'SUCCESS' || result.order?.status === 'PAID'
     if (paid && order.status !== 'COMPLETED') {

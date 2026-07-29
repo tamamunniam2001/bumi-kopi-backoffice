@@ -29,9 +29,10 @@ export async function POST(req, { params }) {
         language: 'ID',
         auto_redirect: false,
         session_id: order.id,
+        notification_url: `${appUrl}/api/webhooks/doku`,
       },
       payment: {
-        payment_due_date: 10, // menit
+        payment_due_date: 10,
         payment_method_types: ['QRIS'],
       },
       customer: {
@@ -41,9 +42,6 @@ export async function POST(req, { params }) {
         phone: '08000000000',
         address: '-',
         country: 'ID',
-      },
-      additional_info: {
-        notification_url: `${appUrl}/api/webhooks/doku`,
       },
     }
 

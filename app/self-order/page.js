@@ -145,9 +145,9 @@ function OrderTracker({ orderId, onBack }) {
 
   const dots = '.'.repeat((tick % 3) + 1)
   const cfg = {
-    PENDING:   { emoji: '⏳', title: 'Memproses Pesanan...', sub: `Menyiapkan QR pembayaran${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
+    PENDING:   { emoji: '⏳', title: 'Menyiapkan Pembayaran...', sub: `Sedang membuat QR code${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
     APPROVED:  { emoji: '💳', title: 'Scan & Bayar', sub: 'Scan QR code di bawah untuk menyelesaikan pembayaran', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
-    REJECTED:  { emoji: '❌', title: 'Pesanan Ditolak', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 0 },
+    REJECTED:  { emoji: '❌', title: 'Pesanan Gagal', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 1 },
     COMPLETED: { emoji: '🎉', title: 'Pembayaran Berhasil!', sub: 'Terima kasih! Pesananmu sedang diproses.', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
   }
   const c = cfg[order?.status || 'PENDING']
@@ -218,7 +218,7 @@ function OrderTracker({ orderId, onBack }) {
 
         {/* Step indicator */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-          {['Order', 'Konfirmasi', 'Bayar'].map((label, i) => {
+          {['Order', 'Bayar', 'Selesai'].map((label, i) => {
             const done = i <= c.step
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
@@ -545,7 +545,7 @@ export default function SelfOrderPage() {
                 <span style={{ fontSize: '16px', flexShrink: 0 }}>📱</span>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '2px' }}>Bayar via QRIS</div>
-                  <div style={{ fontSize: '11px', color: '#1E40AF', lineHeight: 1.6 }}>Setelah kasir konfirmasi, QR code akan muncul. Scan untuk bayar langsung dari HP kamu.</div>
+                  <div style={{ fontSize: '11px', color: '#1E40AF', lineHeight: 1.6 }}>QR code akan langsung muncul setelah order dikirim. Scan untuk bayar dari HP kamu.</div>
                 </div>
               </div>
             </div>
@@ -555,7 +555,7 @@ export default function SelfOrderPage() {
                 <span style={{ fontSize: '24px', fontWeight: '900', color: A }}>Rp {fmt(total)}</span>
               </div>
               <button onClick={handleSubmitOrder} disabled={submitting} style={{ width: '100%', padding: '17px', borderRadius: '14px', border: 'none', background: submitting ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: submitting ? 'none' : `0 6px 20px ${A}40`, transition: 'all .2s' }}>
-                {submitting ? '⏳ Mengirim...' : '🛎️ Kirim Pesanan ke Kasir'}
+                {submitting ? '⏳ Mengirim...' : '🛎️ Kirim Pesanan'}
               </button>
             </div>
           </div>
