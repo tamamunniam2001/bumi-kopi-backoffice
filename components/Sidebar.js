@@ -48,6 +48,7 @@ const allNavGroups = [
     label: 'Pengaturan',
     roles: ['ADMIN'],
     items: [
+      { href: '/self-order-settings', label: 'Pengaturan Self Order', icon: <IconSelfOrder />, roles: ['ADMIN'] },
       { href: '/absensi-settings', label: 'Pengaturan Absensi', icon: <IconSettings />, roles: ['ADMIN'] },
       { href: '/expense-settings', label: 'Item Pengeluaran', icon: <IconTag />, roles: ['ADMIN'] },
       { href: '/receipt-settings', label: 'Pengaturan Struk', icon: <IconPrinter />, roles: ['ADMIN'] },
@@ -62,6 +63,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState({})
+  const [dark, setDark] = useState(false)
   const user = (() => { try { return JSON.parse(Cookies.get('user') || '{}') } catch { return {} } })()
   const role = user.role || 'CASHIER'
   const navGroups = allNavGroups
@@ -72,14 +74,22 @@ export default function Sidebar() {
   useEffect(() => {
     const saved = localStorage.getItem('sidebar_collapsed')
     if (saved !== null) setCollapsed(saved === 'true')
-    // auto-open group yang berisi halaman aktif
     const initial = {}
     allNavGroups.forEach(g => {
       if (g.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/')))
         initial[g.label] = true
     })
     setOpenGroups(initial)
+    // sync dark state
+    setDark(document.documentElement.classList.contains('dark'))
   }, [pathname])
+
+  function toggleDark() {
+    const next = !dark
+    setDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
 
   function toggleCollapse() {
     const next = !collapsed
@@ -120,17 +130,17 @@ export default function Sidebar() {
         {/* Logo + toggle */}
         <div style={{ padding: '16px 14px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', minWidth: 0 }}>
-            <div style={{ width: '34px', height: '34px', flexShrink: 0, background: 'linear-gradient(135deg, #4A7CC7, #7AAAE0)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', boxShadow: '0 3px 10px rgba(74,124,199,0.25)' }}>☕</div>
+            <div style={{ width: '34px', height: '34px', flexShrink: 0, background: 'linear-gradient(135deg, var(--accent), var(--accent2))', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', boxShadow: 'var(--shadow-accent)' }}>☕</div>
             {!collapsed && (
               <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#1E2A3B', whiteSpace: 'nowrap' }}>Bumi Kopi</div>
-                <div style={{ fontSize: '11px', color: '#7A8FAF', marginTop: '1px' }}>Admin Panel</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)', whiteSpace: 'nowrap' }}>Bumi Kopi</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '1px' }}>Admin Panel</div>
               </div>
             )}
           </div>
           <button
             onClick={toggleCollapse}
-            style={{ flexShrink: 0, background: 'transparent', border: '1px solid #C8D4E8', borderRadius: '7px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A8FAF', transition: 'all 0.15s', marginLeft: collapsed ? 'auto' : '0' }}
+            style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--border)', borderRadius: '7px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s', marginLeft: collapsed ? 'auto' : '0' }}
             title={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
           >
             {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
@@ -169,7 +179,7 @@ export default function Sidebar() {
                         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '6px 10px', marginTop: gi > 0 ? '4px' : '0',
                         background: 'none', border: 'none', cursor: 'pointer', borderRadius: '7px',
-                        color: hasActive ? 'var(--sidebar-accent)' : 'var(--sidebar-muted)',
+                        color: hasActive ? 'var(--sidebar-active-color)' : 'var(--muted)',
                         fontFamily: 'inherit',
                       }}
                     >
@@ -197,6 +207,18 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="sidebar-footer">
+          {/* Dark mode toggle */}
+          <div className="sidebar-tooltip-wrap" style={{ marginBottom: '6px' }}>
+            <button
+              onClick={toggleDark}
+              className="sidebar-logout"
+              style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
+            >
+              {dark ? <IconSun /> : <IconMoon />}
+              <span className="logout-label">{dark ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+            {collapsed && <span className="tooltip">{dark ? 'Light Mode' : 'Dark Mode'}</span>}
+          </div>
           <div className="sidebar-tooltip-wrap">
             <button className="sidebar-logout" onClick={logout}>
               <IconLogout />
@@ -210,6 +232,9 @@ export default function Sidebar() {
   )
 }
 
+function IconMoon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> }
+function IconSun() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> }
+function IconSelfOrder() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg> }
 function IconGrid() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> }
 function IconAI() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> }
 function IconCashier() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> }

@@ -1,12 +1,14 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 const fmt = (n) => Number(n).toLocaleString('id-ID')
 
-// Warna aksen utama
-const A = '#6F4E37'       // coklat kopi — tombol, harga, aktif
-const AL = '#FDF6EF'      // latar aksen muda
-const AB = '#E8D5C0'      // border aksen
+// ── Design tokens ─────────────────────────────────────────────────────────────
+// Brand ink & paper (kept close to the original brand brown so the checkout /
+// tracker screens still feel like the same shop)
+const A = '#6F4E37'       // coffee brown — primary buttons, price, active state
+const AL = '#FDF6EF'      // pale wash of A
+const AB = '#E8D5C0'      // border wash of A
 const GRAY = '#9CA3AF'
 const GRAY2 = '#6B7280'
 const BORDER = '#F0EBE3'
@@ -15,6 +17,57 @@ const WHITE = '#FFFFFF'
 const TEXT = '#1C1209'
 const TEXT2 = '#4B3A2A'
 
+// New tokens for the "roastery ticket" menu identity
+const INK = '#241509'          // near-black espresso, headline ink
+const PAPER = '#F6F0E6'        // warm kraft-paper background for the menu
+const PAPER2 = '#FFFDF9'       // card/row surface, slightly warmer than white
+const HAIRLINE = '#E4D8C6'     // dotted rule / divider colour
+const GOLD = '#A9762F'         // brass accent — "new" + premium touches
+const SERIF = "'Fraunces',Georgia,serif"
+const MONO = "'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace"
+
+// Section identity — each sub-menu gets its own ink so the list reads like a
+// set of stamped ticket sections rather than one flat catalogue
+const SECTION_META = {
+  new:       { label: 'Ada yang Baru',  caption: 'Baru ditambahkan',      color: '#2F7566' },
+  best:      { label: 'Best Seller',    caption: 'Paling sering dipesan', color: GOLD },
+  coffee:    { label: 'Coffee',         caption: 'Racikan kopi kami',     color: '#4A3222' },
+  noncoffee: { label: 'Non Coffee',     caption: 'Susu, teh & segar-segar', color: '#3F6657' },
+  snack:     { label: 'Snack',          caption: 'Teman ngobrol',         color: '#B5651D' },
+  kenyang:   { label: 'Kenyang',        caption: 'Biar makin puas',       color: '#7A4B23' },
+  lainnya:   { label: 'Lainnya',        caption: 'Menu lainnya',          color: TEXT2 },
+}
+
+// Simple line-icon per section — kept monochrome (currentColor) so each one
+// just inherits the section's ink colour
+function SectionIcon({ id, size = 18 }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
+  switch (id) {
+    case 'new': return <svg {...p}><path d="M12 3l1.8 5.6L19.5 10l-5.7 1.4L12 17l-1.8-5.6L4.5 10l5.7-1.4L12 3z" /></svg>
+    case 'best': return <svg {...p}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.9L12 3.5z" /></svg>
+    case 'coffee': return <svg {...p}><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z" /><path d="M17 10.5h1.5a2.5 2.5 0 0 1 0 5H17" /><path d="M7 6c0-1 1-1 1-2s-1-1-1-2M11 6c0-1 1-1 1-2s-1-1-1-2" /></svg>
+    case 'noncoffee': return <svg {...p}><path d="M12 3c2 2.2 3.5 4.3 3.5 6.7A3.5 3.5 0 0 1 12 13.2 3.5 3.5 0 0 1 8.5 9.7C8.5 7.3 10 5.2 12 3z" /><path d="M6 21c1.8-1.3 4-2 6-2s4.2.7 6 2" /></svg>
+    case 'snack': return <svg {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="9" cy="10" r=".8" fill="currentColor" stroke="none" /><circle cx="14" cy="9.5" r=".8" fill="currentColor" stroke="none" /><circle cx="13" cy="14" r=".8" fill="currentColor" stroke="none" /></svg>
+    case 'kenyang': return <svg {...p}><path d="M4 11a8 8 0 0 0 16 0z" /><path d="M4 11c0-4 3-7 8-7" strokeDasharray="1 3.4" /><path d="M4 11h16" /></svg>
+    default: return <svg {...p}><path d="M20 12l-8 8-8-8 8-8h6a2 2 0 0 1 2 2v6z" /><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none" /></svg>
+  }
+}
+
+// Classify a product's own category name into one of our four "kitchen"
+// sections. Backend category names vary, so this matches loosely on keywords.
+// "Ada yang Baru" / "Best Seller" are separate flags (see below) — a product
+// can appear there *and* in its normal kitchen section at the same time.
+function classifyCategory(p) {
+  const raw = (p.category?.name || '').toLowerCase()
+  const has = (arr) => arr.some(k => raw.includes(k))
+  if (has(['non coffee', 'non-coffee', 'noncoffee', 'non kopi'])) return 'noncoffee'
+  if (has(['coffee', 'kopi', 'espresso', 'latte', 'americano'])) return 'coffee'
+  if (has(['snack', 'cemilan', 'gorengan', 'dessert', 'kue', 'roti', 'pastry', 'cookie'])) return 'snack'
+  if (has(['kenyang', 'nasi', 'rice', 'main course', 'mie', 'noodle', 'pasta', 'berat'])) return 'kenyang'
+  if (has(['tea', 'teh', 'juice', 'jus', 'squash', 'soda', 'milk', 'susu', 'chocolate', 'coklat', 'mocktail'])) return 'noncoffee'
+  return 'lainnya'
+}
+
 // ── QR Code display component ────────────────────────────────────────────────
 function QrisPanel({ orderId, total, onPaid }) {
   const [qris, setQris] = useState(null)
@@ -22,7 +75,6 @@ function QrisPanel({ orderId, total, onPaid }) {
   const [expired, setExpired] = useState(false)
   const [checking, setChecking] = useState(false)
   const [countdown, setCountdown] = useState('')
-  const [error, setError] = useState('')
 
   const loadQris = useCallback(async () => {
     setLoading(true)
@@ -49,7 +101,7 @@ function QrisPanel({ orderId, total, onPaid }) {
           expiredAt: pdata.expiredAt,
         })
       }
-    } catch (e) { setError('Gagal memuat QRIS: ' + e.message) }
+    } catch (e) { alert('Gagal memuat QRIS: ' + e.message) }
     finally { setLoading(false) }
   }, [orderId])
 
@@ -75,29 +127,21 @@ function QrisPanel({ orderId, total, onPaid }) {
         const r = await fetch(`/api/self-orders/${orderId}/check`)
         const data = await r.json()
         if (data.paid) { clearInterval(iv); onPaid() }
-      } catch (e) { console.error('Auto-check gagal:', e) }
+      } catch {}
     }, 5000)
     return () => clearInterval(iv)
   }, [orderId, onPaid])
 
   async function handleCheckManual() {
     setChecking(true)
-    setError('')
     try {
       const r = await fetch(`/api/self-orders/${orderId}/check`)
       const data = await r.json()
       if (data.paid) onPaid()
-      else setError('Pembayaran belum diterima. Coba beberapa saat lagi.')
-    } catch { setError('Gagal cek status pembayaran.') }
+      else alert('Pembayaran belum diterima. Coba beberapa saat lagi.')
+    } catch { alert('Gagal cek status') }
     finally { setChecking(false) }
   }
-
-  if (error && !loading) return (
-    <div style={{ textAlign: 'center', padding: '16px 0' }}>
-      <div style={{ fontSize: '13px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px' }}>{error}</div>
-      <button onClick={() => { setError(''); loadQris() }} style={{ padding: '9px 20px', borderRadius: '10px', border: 'none', background: A, color: '#fff', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>Coba Lagi</button>
-    </div>
-  )
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -136,7 +180,6 @@ function QrisPanel({ orderId, total, onPaid }) {
       <button onClick={handleCheckManual} disabled={checking} style={{ width: '100%', padding: '13px', borderRadius: '12px', border: `1.5px solid ${AB}`, background: AL, color: A, fontWeight: '700', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>
         {checking ? '⏳ Mengecek...' : '🔄 Cek Status Pembayaran'}
       </button>
-      {error && <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '7px 10px' }}>{error}</div>}
       <div style={{ fontSize: '11px', color: GRAY, marginTop: '8px' }}>Status dicek otomatis setiap 5 detik</div>
     </div>
   )
@@ -146,7 +189,6 @@ function QrisPanel({ orderId, total, onPaid }) {
 function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
   const [order, setOrder] = useState(null)
   const [tick, setTick] = useState(0)
-  const [showQris, setShowQris] = useState(false)
 
   const fetchOrder = useCallback(async () => {
     try { const r = await fetch(`/api/self-orders/${orderId}`); setOrder(await r.json()) } catch {}
@@ -273,11 +315,24 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
   )
 }
 
+// ── Item monogram (replaces product photo) ──────────────────────────────────
+function ItemMonogram({ name, color, size = 40 }) {
+  const initial = (name || '?').trim().charAt(0).toUpperCase()
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '12px', flexShrink: 0,
+      background: `${color}14`, border: `1.5px solid ${color}3D`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color, fontFamily: SERIF, fontWeight: 600, fontSize: size * 0.42,
+    }}>
+      {initial}
+    </div>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function SelfOrderPage() {
   const [products, setProducts] = useState([])
-  const [categories, setCategories] = useState([])
-  const [selectedCat, setSelectedCat] = useState(null)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState([])
@@ -288,10 +343,11 @@ export default function SelfOrderPage() {
   const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('QRIS')
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [splash, setSplash] = useState(true)
-  const [autoPayOrderId, setAutoPayOrderId] = useState(null)
+  const [activeNav, setActiveNav] = useState(null)
+  const headerRef = useRef(null)
+  const navRef = useRef(null)
 
   useEffect(() => {
     const load = async () => {
@@ -300,7 +356,6 @@ export default function SelfOrderPage() {
         const data = await r.json()
         const active = (Array.isArray(data) ? data : []).filter(p => p.isActive !== false)
         setProducts(active)
-        setCategories([...new Set(active.map(p => p.category?.name).filter(Boolean))].sort())
       } catch {}
       setLoading(false)
     }
@@ -325,15 +380,39 @@ export default function SelfOrderPage() {
   const qtyOf = (id) => cart.find(i => i.product.id === id)?.qty || 0
   const total = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
   const totalQty = cart.reduce((s, i) => s + i.qty, 0)
-  const filtered = products.filter(p =>
-    (p.name.toLowerCase().includes(search.toLowerCase()) || (p.code || '').toLowerCase().includes(search.toLowerCase())) &&
-    (!selectedCat || p.category?.name === selectedCat)
-  )
+
+  // Search matches against name/code regardless of section
+  const searched = useMemo(() => {
+    if (!search.trim()) return null
+    const q = search.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q))
+  }, [products, search])
+
+  // Build the 6 (or 7) sub-menus. "new" / "best" read explicit flags from the
+  // product record (p.isNew / p.isBestSeller) — a product can live in one of
+  // those *and* its kitchen section at the same time, which is normal for a
+  // menu that wants to spotlight things.
+  const sections = useMemo(() => {
+    const buckets = { new: [], best: [], coffee: [], noncoffee: [], snack: [], kenyang: [], lainnya: [] }
+    for (const p of products) {
+      if (p.isNew) buckets.new.push(p)
+      if (p.isBestSeller) buckets.best.push(p)
+      buckets[classifyCategory(p)].push(p)
+    }
+    return Object.entries(buckets)
+      .map(([key, items]) => ({ key, items, ...SECTION_META[key] }))
+      .filter(s => s.items.length > 0)
+  }, [products])
+
+  function scrollToSection(key) {
+    setActiveNav(key)
+    const el = document.getElementById(`sec-${key}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   async function handleSubmitOrder() {
     if (!cart.length) return
     setSubmitting(true)
-    setSubmitError('')
     try {
       const r = await fetch('/api/self-orders', {
         method: 'POST',
@@ -350,19 +429,60 @@ export default function SelfOrderPage() {
 
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)
-    } catch (e) { setSubmitError(e.message || 'Gagal mengirim order') }
+    } catch (e) { alert(e.message || 'Gagal mengirim order') }
     finally { setSubmitting(false) }
   }
 
   if (activeOrderId) return <OrderTracker orderId={activeOrderId} paymentMethod={paymentMethod} onBack={() => { setActiveOrderId(null); setTableNo(''); setCustomerName(''); setNote(''); setPaymentMethod('QRIS') }} />
 
   // shared input style
-  const inp = { width: '100%', padding: '11px 14px', borderRadius: '12px', border: `1.5px solid ${BORDER}`, background: '#FAFAFA', color: TEXT, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }
+  const inp = { width: '100%', padding: '11px 14px', borderRadius: '12px', border: `1.5px solid ${HAIRLINE}`, background: PAPER2, color: INK, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }
+
+  // ── one menu row (used inside every section) ──
+  function MenuRow({ p, accent }) {
+    const qty = qtyOf(p.id)
+    const oos = p.stock <= 0
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 4px',
+        borderBottom: `1px dashed ${HAIRLINE}`, opacity: oos ? 0.5 : 1,
+      }}>
+        <ItemMonogram name={p.name} color={accent} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '14px', fontWeight: '700', color: INK, fontFamily: SERIF, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{p.name}</span>
+            {p.isNew && <span style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.5px', color: SECTION_META.new.color, background: `${SECTION_META.new.color}17`, padding: '2px 7px', borderRadius: '20px', textTransform: 'uppercase' }}>Baru</span>}
+            {p.isBestSeller && <span style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.5px', color: SECTION_META.best.color, background: `${SECTION_META.best.color}17`, padding: '2px 7px', borderRadius: '20px', textTransform: 'uppercase' }}>Best</span>}
+          </div>
+          {oos ? (
+            <div style={{ fontSize: '11px', color: '#B45309', fontWeight: '700', marginTop: '2px' }}>Stok habis</div>
+          ) : (
+            <div style={{ fontSize: '11px', color: GRAY2, marginTop: '2px' }}>{p.category?.name || '—'}</div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+          <span style={{ fontFamily: MONO, fontSize: '13px', fontWeight: '600', color: A }}>Rp {fmt(p.price)}</span>
+          {oos ? null : qty === 0 ? (
+            <button onClick={() => addToCart(p)} style={{ padding: '5px 12px', borderRadius: '8px', border: `1.3px solid ${AB}`, background: AL, color: A, fontSize: '11px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Tambah
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', background: AL, borderRadius: '8px', border: `1.3px solid ${AB}`, overflow: 'hidden' }}>
+              <button onClick={() => removeFromCart(p.id)} style={{ width: '26px', height: '26px', border: 'none', background: 'transparent', color: A, fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+              <span style={{ minWidth: '18px', textAlign: 'center', fontWeight: '800', fontSize: '12px', color: TEXT }}>{qty}</span>
+              <button onClick={() => addToCart(p)} style={{ width: '26px', height: '26px', border: 'none', background: A, color: '#fff', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ minHeight: '100dvh', background: BG, fontFamily: "'Inter',system-ui,sans-serif", color: TEXT }}>
+    <div style={{ minHeight: '100dvh', background: PAPER, fontFamily: "'Inter',system-ui,sans-serif", color: INK }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap');
         @keyframes splashOut{0%,75%{opacity:1}100%{opacity:0;pointer-events:none}}
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
@@ -371,115 +491,107 @@ export default function SelfOrderPage() {
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         ::-webkit-scrollbar{width:0;height:0}
         input:focus,textarea:focus{outline:none;border-color:${A}!important;box-shadow:0 0 0 3px ${A}18}
+        .navchip{scroll-snap-align:start}
+        section[id^="sec-"]{scroll-margin-top:118px}
       `}</style>
 
       {/* Splash */}
       {splash && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: WHITE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'splashOut 1.8s ease forwards', pointerEvents: 'none' }}>
-          <div style={{ animation: 'float 2s ease-in-out infinite', fontSize: '60px', marginBottom: '16px' }}>☕</div>
-          <div style={{ fontSize: '10px', letterSpacing: '6px', color: A, fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>BUMI KOPI</div>
-          <div style={{ fontSize: '12px', color: GRAY, letterSpacing: '1.5px' }}>Self Order</div>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: PAPER, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'splashOut 1.8s ease forwards', pointerEvents: 'none' }}>
+          <div style={{ animation: 'float 2s ease-in-out infinite', fontSize: '52px', marginBottom: '14px' }}>☕</div>
+          <div style={{ fontSize: '20px', fontFamily: SERIF, fontWeight: 600, letterSpacing: '1px', color: INK, marginBottom: '4px' }}>Bumi Kopi</div>
+          <div style={{ fontSize: '11px', color: GOLD, letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 700 }}>Self Order</div>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${BORDER}`, padding: '13px 20px' }}>
-        <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div ref={headerRef} style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(246,240,230,0.92)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${HAIRLINE}`, padding: '14px 20px 12px' }}>
+        <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: '800', color: TEXT }}>☕ Bumi Kopi</div>
-            <div style={{ fontSize: '11px', color: GRAY, marginTop: '1px' }}>Pilih menu favoritmu</div>
+            <div style={{ fontSize: '19px', fontWeight: 600, fontFamily: SERIF, color: INK, lineHeight: 1.1 }}>☕ Bumi Kopi</div>
+            <div style={{ fontSize: '10.5px', color: GOLD, marginTop: '2px', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Pilih menu favoritmu</div>
           </div>
-          <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : BORDER}`, background: totalQty > 0 ? AL : WHITE, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .2s', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
+          <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : HAIRLINE}`, background: totalQty > 0 ? AL : PAPER2, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .2s', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             {totalQty > 0 && <>
               <span style={{ fontSize: '13px', fontWeight: '700' }}>{totalQty}</span>
               <div style={{ width: '1px', height: '13px', background: AB }} />
-              <span style={{ fontSize: '13px', fontWeight: '700' }}>Rp {fmt(total)}</span>
+              <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: MONO }}>Rp {fmt(total)}</span>
             </>}
           </button>
         </div>
-      </div>
-
-      <div style={{ maxWidth: '640px', margin: '0 auto', paddingBottom: '110px' }}>
 
         {/* Search */}
-        <div style={{ padding: '16px 20px 8px' }}>
-          <div style={{ position: 'relative' }}>
-            <svg style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: GRAY }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={{ ...inp, paddingLeft: '42px' }} />
+        <div style={{ maxWidth: '640px', margin: '0 auto', position: 'relative' }}>
+          <svg style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: GRAY }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={{ ...inp, paddingLeft: '42px' }} />
+        </div>
+
+        {/* Section quick-nav */}
+        {!searched && (
+          <div ref={navRef} style={{ maxWidth: '640px', margin: '10px auto 0', display: 'flex', gap: '8px', overflowX: 'auto', scrollSnapType: 'x proximity', paddingBottom: '2px' }}>
+            {sections.map(s => (
+              <button key={s.key} className="navchip" onClick={() => scrollToSection(s.key)} style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '20px',
+                border: `1.4px solid ${activeNav === s.key ? s.color : HAIRLINE}`,
+                background: activeNav === s.key ? `${s.color}12` : PAPER2,
+                color: activeNav === s.key ? s.color : TEXT2,
+                fontSize: '12px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all .2s',
+              }}>
+                <SectionIcon id={s.key} size={13} />
+                {s.label}
+              </button>
+            ))}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Categories */}
-        <div style={{ padding: '6px 20px 8px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
-          {[{ label: 'Semua', value: null }, ...categories.map(c => ({ label: c, value: c }))].map(({ label, value }) => (
-            <button key={label} onClick={() => setSelectedCat(value)} style={{ padding: '7px 18px', borderRadius: '20px', border: `1.5px solid ${selectedCat === value ? A : BORDER}`, background: selectedCat === value ? A : WHITE, color: selectedCat === value ? '#fff' : TEXT2, fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all .2s', boxShadow: selectedCat === value ? `0 2px 10px ${A}30` : 'none' }}>
-              {label}
-            </button>
-          ))}
-        </div>
+      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '4px 20px 110px' }}>
 
-        {/* Grid produk */}
-        <div style={{ padding: '8px 20px' }}>
-          {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ borderRadius: '18px', background: '#F3F4F6', height: '210px', animation: 'pulse 1.5s infinite' }} />
-              ))}
+        {loading ? (
+          <div style={{ paddingTop: '18px' }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ borderRadius: '12px', background: '#EFE7D8', height: '58px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        ) : searched ? (
+          // ── Flat search results ──
+          <div style={{ paddingTop: '18px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: GRAY2, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
+              {searched.length} hasil untuk "{search}"
             </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {filtered.map(p => {
-                const qty = qtyOf(p.id)
-                const oos = p.stock <= 0
-                return (
-                  <div key={p.id} style={{ background: WHITE, borderRadius: '18px', border: `1.5px solid ${qty > 0 ? A : BORDER}`, overflow: 'hidden', transition: 'all .2s', boxShadow: qty > 0 ? `0 4px 20px ${A}18` : '0 1px 4px rgba(0,0,0,0.06)', opacity: oos ? 0.5 : 1 }}>
-                    {/* Gambar */}
-                    <div style={{ position: 'relative', height: '130px', background: AL, overflow: 'hidden' }}>
-                      {p.imageUrl
-                        ? <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
-                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>☕</div>
-                      }
-                      {oos && (
-                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700', color: GRAY2, letterSpacing: '1.5px', textTransform: 'uppercase', border: `1px solid ${BORDER}`, padding: '4px 12px', borderRadius: '20px', background: WHITE }}>Habis</span>
-                        </div>
-                      )}
-                      {qty > 0 && (
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', background: A, color: '#fff', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', boxShadow: `0 2px 8px ${A}50` }}>
-                          {qty}
-                        </div>
-                      )}
-                    </div>
-                    {/* Info */}
-                    <div style={{ padding: '12px 12px 11px' }}>
-                      {p.category && <div style={{ fontSize: '10px', fontWeight: '600', color: A, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '3px', opacity: 0.75 }}>{p.category.name}</div>}
-                      <div style={{ fontSize: '13px', fontWeight: '700', color: TEXT, marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: A, marginBottom: '10px' }}>Rp {fmt(p.price)}</div>
-                      {oos ? null : qty === 0 ? (
-                        <button onClick={() => addToCart(p)} style={{ width: '100%', padding: '9px', borderRadius: '10px', border: `1.5px solid ${AB}`, background: AL, color: A, fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>
-                          + Tambah
-                        </button>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', background: AL, borderRadius: '10px', border: `1.5px solid ${AB}`, overflow: 'hidden' }}>
-                          <button onClick={() => removeFromCart(p.id)} style={{ width: '36px', height: '34px', border: 'none', background: 'transparent', color: A, fontSize: '18px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                          <span style={{ flex: 1, textAlign: 'center', fontWeight: '800', fontSize: '15px', color: TEXT }}>{qty}</span>
-                          <button onClick={() => addToCart(p)} style={{ width: '36px', height: '34px', border: 'none', background: A, color: '#fff', fontSize: '18px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-              {filtered.length === 0 && !loading && (
-                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', color: GRAY }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>☕</div>
-                  <div style={{ fontSize: '14px' }}>Menu tidak ditemukan</div>
+            {searched.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: GRAY }}>
+                <div style={{ fontSize: '36px', marginBottom: '10px' }}>☕</div>
+                <div style={{ fontSize: '14px' }}>Menu tidak ditemukan</div>
+              </div>
+            ) : searched.map(p => (
+              <MenuRow key={p.id} p={p} accent={SECTION_META[classifyCategory(p)].color} />
+            ))}
+          </div>
+        ) : (
+          // ── Sectioned menu ──
+          sections.map(s => (
+            <section key={s.key} id={`sec-${s.key}`} style={{ paddingTop: '22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '4px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0,
+                  border: `1.5px dashed ${s.color}80`, background: PAPER2,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color,
+                }}>
+                  <SectionIcon id={s.key} size={17} />
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+                <div>
+                  <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: INK }}>{s.label}</div>
+                  <div style={{ fontSize: '11px', color: GRAY2 }}>{s.caption} · {s.items.length} pilihan</div>
+                </div>
+              </div>
+              <div>
+                {s.items.map(p => <MenuRow key={`${s.key}-${p.id}`} p={p} accent={s.color} />)}
+              </div>
+            </section>
+          ))
+        )}
       </div>
 
       {/* FAB */}
@@ -487,7 +599,7 @@ export default function SelfOrderPage() {
         <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 200, width: 'calc(100% - 40px)', maxWidth: '600px', animation: 'fadeUp .3s ease' }}>
           <button onClick={() => setCartOpen(true)} style={{ width: '100%', padding: '17px 24px', borderRadius: '18px', border: 'none', background: A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: `0 8px 28px ${A}45` }}>
             <span>{totalQty} item dipilih</span>
-            <span>Rp {fmt(total)} →</span>
+            <span style={{ fontFamily: MONO }}>Rp {fmt(total)} →</span>
           </button>
         </div>
       )}
@@ -496,23 +608,21 @@ export default function SelfOrderPage() {
       {cartOpen && (
         <>
           <div onClick={() => setCartOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: WHITE, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '80dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '80dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
               <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: '#E5E7EB' }} />
             </div>
             <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: TEXT }}>Pesanan Saya</div>
+              <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: INK }}>Pesanan Saya</div>
               <button onClick={() => setCartOpen(false)} style={{ background: '#F3F4F6', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: GRAY2, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
-              {cart.map((item, i) => (
-                <div key={item.product.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: i < cart.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-                  <div style={{ width: '50px', height: '50px', borderRadius: '12px', background: AL, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {item.product.imageUrl ? <img src={item.product.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} /> : <span style={{ fontSize: '20px' }}>☕</span>}
-                  </div>
+              {cart.map((item) => (
+                <div key={item.product.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: `1px dashed ${HAIRLINE}` }}>
+                  <ItemMonogram name={item.product.name} color={SECTION_META[classifyCategory(item.product)].color} size={42} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.product.name}</div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: A, marginTop: '2px' }}>Rp {fmt(item.product.price)}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: INK, fontFamily: SERIF, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.product.name}</div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: A, marginTop: '2px', fontFamily: MONO }}>Rp {fmt(item.product.price)}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', background: AL, borderRadius: '10px', border: `1.5px solid ${AB}`, overflow: 'hidden' }}>
                     <button onClick={() => removeFromCart(item.product.id)} style={{ width: '32px', height: '32px', border: 'none', background: 'transparent', color: A, fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
@@ -522,10 +632,10 @@ export default function SelfOrderPage() {
                 </div>
               ))}
             </div>
-            <div style={{ padding: '16px 20px', borderTop: `1px solid ${BORDER}` }}>
+            <div style={{ padding: '16px 20px', borderTop: `1px solid ${HAIRLINE}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <span style={{ fontSize: '14px', color: GRAY2 }}>Total</span>
-                <span style={{ fontSize: '22px', fontWeight: '900', color: A }}>Rp {fmt(total)}</span>
+                <span style={{ fontSize: '22px', fontWeight: '900', color: A, fontFamily: MONO }}>Rp {fmt(total)}</span>
               </div>
               <button onClick={() => { setCartOpen(false); setCheckoutOpen(true) }} style={{ width: '100%', padding: '16px', borderRadius: '14px', border: 'none', background: A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 4px 16px ${A}40` }}>
                 Lanjutkan →
@@ -539,46 +649,46 @@ export default function SelfOrderPage() {
       {checkoutOpen && (
         <>
           <div onClick={() => setCheckoutOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: WHITE, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
               <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: '#E5E7EB' }} />
             </div>
             <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: TEXT }}>Konfirmasi Pesanan</div>
+              <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: INK }}>Konfirmasi Pesanan</div>
               <button onClick={() => setCheckoutOpen(false)} style={{ background: '#F3F4F6', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: GRAY2, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
               {/* Form */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Nomor Meja</label>
-                  <input value={tableNo} onChange={e => setTableNo(e.target.value)} placeholder="Cth: 5, A3..." style={inp} />
+                  <label htmlFor="tableNo" style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Nomor Meja</label>
+                  <input id="tableNo" value={tableNo} onChange={e => setTableNo(e.target.value)} placeholder="Cth: 5, A3..." style={inp} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Nama Kamu</label>
-                  <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Panggilan kamu" style={inp} />
+                  <label htmlFor="customerName" style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Nama Kamu</label>
+                  <input id="customerName" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Panggilan kamu" style={inp} />
                 </div>
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</label>
-                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Tanpa es, extra shot, less sugar..." rows={2} style={{ ...inp, resize: 'none' }} />
+                <label htmlFor="orderNote" style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '5px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Catatan</label>
+                <textarea id="orderNote" value={note} onChange={e => setNote(e.target.value)} placeholder="Tanpa es, extra shot, less sugar..." rows={2} style={{ ...inp, resize: 'none' }} />
               </div>
               {/* Ringkasan */}
-              <div style={{ background: '#FAFAFA', border: `1px solid ${BORDER}`, borderRadius: '14px', padding: '14px', marginBottom: '12px' }}>
+              <div style={{ background: PAPER, border: `1px solid ${HAIRLINE}`, borderRadius: '14px', padding: '14px', marginBottom: '12px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: GRAY, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>{totalQty} Item</div>
                 {cart.map((item, i) => (
-                  <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < cart.length - 1 ? `1px solid ${BORDER}` : 'none', fontSize: '13px' }}>
+                  <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < cart.length - 1 ? `1px solid ${HAIRLINE}` : 'none', fontSize: '13px' }}>
                     <span style={{ color: TEXT2 }}>{item.product.name} <span style={{ color: GRAY }}>×{item.qty}</span></span>
-                    <span style={{ fontWeight: '600', color: TEXT }}>Rp {fmt(item.product.price * item.qty)}</span>
+                    <span style={{ fontWeight: '600', color: TEXT, fontFamily: MONO }}>Rp {fmt(item.product.price * item.qty)}</span>
                   </div>
                 ))}
               </div>
               {/* Pilihan metode pembayaran */}
               <div style={{ marginBottom: '8px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Metode Pembayaran</label>
+                <label htmlFor="paymentMethod" style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Metode Pembayaran</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {[{ value: 'QRIS', emoji: '📱', label: 'QRIS' }, { value: 'CASH', emoji: '💵', label: 'Tunai di Kasir' }].map(m => (
-                    <button key={m.value} onClick={() => setPaymentMethod(m.value)} style={{ padding: '12px 6px', borderRadius: '12px', border: `1.5px solid ${paymentMethod === m.value ? A : BORDER}`, background: paymentMethod === m.value ? AL : WHITE, color: paymentMethod === m.value ? A : TEXT2, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', transition: 'all .15s', boxShadow: paymentMethod === m.value ? `0 2px 10px ${A}25` : 'none' }}>
+                    <button key={m.value} onClick={() => setPaymentMethod(m.value)} style={{ padding: '12px 6px', borderRadius: '12px', border: `1.5px solid ${paymentMethod === m.value ? A : HAIRLINE}`, background: paymentMethod === m.value ? AL : PAPER2, color: paymentMethod === m.value ? A : TEXT2, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', transition: 'all .15s', boxShadow: paymentMethod === m.value ? `0 2px 10px ${A}25` : 'none' }}>
                       <span style={{ fontSize: '20px' }}>{m.emoji}</span>
                       {m.label}
                     </button>
@@ -592,12 +702,11 @@ export default function SelfOrderPage() {
                 )}
               </div>
             </div>
-            <div style={{ padding: '16px 20px', borderTop: `1px solid ${BORDER}` }}>
+            <div style={{ padding: '16px 20px', borderTop: `1px solid ${HAIRLINE}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <span style={{ fontSize: '13px', color: GRAY2 }}>Total Pembayaran</span>
-                <span style={{ fontSize: '24px', fontWeight: '900', color: A }}>Rp {fmt(total)}</span>
+                <span style={{ fontSize: '24px', fontWeight: '900', color: A, fontFamily: MONO }}>Rp {fmt(total)}</span>
               </div>
-              {submitError && <div style={{ fontSize: '12px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '9px 12px', marginBottom: '10px' }}>{submitError}</div>}
               <button onClick={handleSubmitOrder} disabled={submitting} style={{ width: '100%', padding: '17px', borderRadius: '14px', border: 'none', background: submitting ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: submitting ? 'none' : `0 6px 20px ${A}40`, transition: 'all .2s' }}>
                 {submitting ? '⏳ Mengirim...' : '🛎️ Kirim Pesanan'}
               </button>

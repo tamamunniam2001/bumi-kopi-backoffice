@@ -28,18 +28,24 @@ model Category {
 }
 
 model Product {
-  id          String              @id @default(cuid())
-  code        String?             @unique
-  name        String
-  price       Int
-  stock       Int                 @default(0)
-  imageUrl    String?
-  isActive    Boolean             @default(true)
-  categoryId  String?
-  category    Category?           @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
-  ingredients ProductIngredient[]
-  createdAt   DateTime            @default(now())
+  id               String              @id @default(cuid())
+  code             String?             @unique
+  name             String
+  price            Int
+  stock            Int                 @default(0)
+  imageUrl         String?
+  isActive         Boolean             @default(true)
+  categoryId       String?
+  category         Category?           @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+  ingredients      ProductIngredient[]
+  createdAt        DateTime            @default(now())
+  isNew            Boolean             @default(false)
+  isBestSeller     Boolean             @default(false)
+  selfOrderSection String?             @default("")
+  selfOrderSort    Int                 @default(0)
+  showInSelfOrder  Boolean             @default(true)
+  description      String?             @default("")
 
   @@index([isActive])
   @@index([categoryId])
