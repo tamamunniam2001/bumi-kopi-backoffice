@@ -13,6 +13,7 @@ export async function GET() {
         stock: true,
         imageUrl: true,
         category: { select: { name: true } },
+        createdAt: true,
       },
       orderBy: { name: 'asc' },
     })
