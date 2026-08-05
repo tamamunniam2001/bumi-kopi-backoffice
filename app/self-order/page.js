@@ -22,6 +22,7 @@ function QrisPanel({ orderId, total, onPaid }) {
   const [expired, setExpired] = useState(false)
   const [checking, setChecking] = useState(false)
   const [countdown, setCountdown] = useState('')
+  const [error, setError] = useState('')
 
   const loadQris = useCallback(async () => {
     setLoading(true)
@@ -48,7 +49,7 @@ function QrisPanel({ orderId, total, onPaid }) {
           expiredAt: pdata.expiredAt,
         })
       }
-    } catch (e) { alert('Gagal memuat QRIS: ' + e.message) }
+    } catch (e) { setError('Gagal memuat QRIS: ' + e.message) }
     finally { setLoading(false) }
   }, [orderId])
 
@@ -74,21 +75,29 @@ function QrisPanel({ orderId, total, onPaid }) {
         const r = await fetch(`/api/self-orders/${orderId}/check`)
         const data = await r.json()
         if (data.paid) { clearInterval(iv); onPaid() }
-      } catch {}
+      } catch (e) { console.error('Auto-check gagal:', e) }
     }, 5000)
     return () => clearInterval(iv)
   }, [orderId, onPaid])
 
   async function handleCheckManual() {
     setChecking(true)
+    setError('')
     try {
       const r = await fetch(`/api/self-orders/${orderId}/check`)
       const data = await r.json()
       if (data.paid) onPaid()
-      else alert('Pembayaran belum diterima. Coba beberapa saat lagi.')
-    } catch { alert('Gagal cek status') }
+      else setError('Pembayaran belum diterima. Coba beberapa saat lagi.')
+    } catch { setError('Gagal cek status pembayaran.') }
     finally { setChecking(false) }
   }
+
+  if (error && !loading) return (
+    <div style={{ textAlign: 'center', padding: '16px 0' }}>
+      <div style={{ fontSize: '13px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px' }}>{error}</div>
+      <button onClick={() => { setError(''); loadQris() }} style={{ padding: '9px 20px', borderRadius: '10px', border: 'none', background: A, color: '#fff', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px' }}>Coba Lagi</button>
+    </div>
+  )
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -127,6 +136,7 @@ function QrisPanel({ orderId, total, onPaid }) {
       <button onClick={handleCheckManual} disabled={checking} style={{ width: '100%', padding: '13px', borderRadius: '12px', border: `1.5px solid ${AB}`, background: AL, color: A, fontWeight: '700', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>
         {checking ? '⏳ Mengecek...' : '🔄 Cek Status Pembayaran'}
       </button>
+      {error && <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '8px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '7px 10px' }}>{error}</div>}
       <div style={{ fontSize: '11px', color: GRAY, marginTop: '8px' }}>Status dicek otomatis setiap 5 detik</div>
     </div>
   )
@@ -278,6 +288,7 @@ export default function SelfOrderPage() {
   const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('QRIS')
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [splash, setSplash] = useState(true)
   const [autoPayOrderId, setAutoPayOrderId] = useState(null)
@@ -322,6 +333,7 @@ export default function SelfOrderPage() {
   async function handleSubmitOrder() {
     if (!cart.length) return
     setSubmitting(true)
+    setSubmitError('')
     try {
       const r = await fetch('/api/self-orders', {
         method: 'POST',
@@ -338,7 +350,7 @@ export default function SelfOrderPage() {
 
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)
-    } catch (e) { alert(e.message || 'Gagal mengirim order') }
+    } catch (e) { setSubmitError(e.message || 'Gagal mengirim order') }
     finally { setSubmitting(false) }
   }
 
@@ -585,6 +597,7 @@ export default function SelfOrderPage() {
                 <span style={{ fontSize: '13px', color: GRAY2 }}>Total Pembayaran</span>
                 <span style={{ fontSize: '24px', fontWeight: '900', color: A }}>Rp {fmt(total)}</span>
               </div>
+              {submitError && <div style={{ fontSize: '12px', color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '9px 12px', marginBottom: '10px' }}>{submitError}</div>}
               <button onClick={handleSubmitOrder} disabled={submitting} style={{ width: '100%', padding: '17px', borderRadius: '14px', border: 'none', background: submitting ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: submitting ? 'none' : `0 6px 20px ${A}40`, transition: 'all .2s' }}>
                 {submitting ? '⏳ Mengirim...' : '🛎️ Kirim Pesanan'}
               </button>
