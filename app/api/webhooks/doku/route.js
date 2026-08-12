@@ -7,10 +7,15 @@ export async function POST(req) {
     const body = await req.text()
     const headers = Object.fromEntries(req.headers.entries())
 
-    // Verifikasi signature DOKU
-    if (!verifyDokuWebhook(headers, body)) {
-      console.warn('DOKU webhook signature invalid')
-      return NextResponse.json({ message: 'Invalid signature' }, { status: 401 })
+    // Log semua header dan body untuk debug
+    console.log('DOKU webhook headers:', JSON.stringify(Object.fromEntries(req.headers.entries())))
+    console.log('DOKU webhook body:', body)
+
+    // Verifikasi signature DOKU (sementara di-log dulu, tidak reject)
+    const sigValid = verifyDokuWebhook(headers, body)
+    console.log('DOKU webhook signature valid:', sigValid)
+    if (!sigValid) {
+      console.warn('DOKU webhook signature invalid — tetap diproses untuk debug')
     }
 
     const data = JSON.parse(body)

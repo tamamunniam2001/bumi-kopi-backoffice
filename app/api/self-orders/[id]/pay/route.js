@@ -12,7 +12,7 @@ export async function POST(req, { params }) {
       return NextResponse.json({ qrisUrl: order.qrisUrl, qrisString: order.qrisString, expiredAt: order.qrisExpiredAt, invoiceNo: order.orderNo })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bumi-kopi-backend.vercel.app'
+    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://bumi-kopi-backoffice.vercel.app'
     const expiredAt = new Date(Date.now() + 10 * 60 * 1000) // 10 menit
 
     const body = {
