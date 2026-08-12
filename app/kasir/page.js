@@ -193,6 +193,21 @@ export default function KasirPage() {
               if (!newOnes.length) return prev
               startNotifLoop()
               setPaidOrderAlert(newOnes[0])
+              // Masukkan ke list card order hari ini
+              setOrders(prevOrders => {
+                const existingIds = new Set(prevOrders.map(o => o.id))
+                const toAdd = newOnes
+                  .filter(o => !existingIds.has(o.id))
+                  .map(o => ({
+                    ...o,
+                    invoiceNo: o.orderNo,
+                    // Jika ada dokuInvoiceNo berarti bayar via QRIS, selain itu CASH
+                    payMethod: o.dokuInvoiceNo ? 'QRIS' : 'CASH',
+                    servedAt: o.servedAt || null,
+                  }))
+                if (!toAdd.length) return prevOrders
+                return [...toAdd, ...prevOrders]
+              })
               return [...newOnes, ...prev]
             })
           }
