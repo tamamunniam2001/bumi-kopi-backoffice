@@ -747,7 +747,6 @@ export default function SelfOrderPage() {
               </div>
               <button onClick={() => { setHistoryOpen(false); setReceiptOrder(null) }} style={{ background: '#F3F4F6', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: GRAY2, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
-
             {receiptOrder ? (
               <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px' }}>
                 <button onClick={() => setReceiptOrder(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: A, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px', padding: 0 }}>← Kembali ke Riwayat</button>
@@ -830,6 +829,8 @@ export default function SelfOrderPage() {
         </>
       )}
 
+      {/* Checkout Sheet */}
+      {checkoutOpen && (
         <>
           <div onClick={() => setCheckoutOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)', animation: 'fadeIn .25s ease' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .45s cubic-bezier(0.22,1,0.36,1)' }}>
