@@ -328,12 +328,14 @@ export default function SelfOrderPage() {
   const navRef = useRef(null)
 
   // Customer state
-  const [customer, setCustomer] = useState(null) // null = belum login
+  const [customer, setCustomer] = useState(null)
   const [phoneInput, setPhoneInput] = useState('')
   const [nameInput, setNameInput] = useState('')
-  const [phoneStep, setPhoneStep] = useState('phone') // 'phone' | 'name'
+  const [phoneStep, setPhoneStep] = useState('phone')
   const [phoneLoading, setPhoneLoading] = useState(false)
   const [phoneError, setPhoneError] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [receiptOrder, setReceiptOrder] = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -347,8 +349,25 @@ export default function SelfOrderPage() {
     }
     load()
     const t = setTimeout(() => setSplash(false), 1800)
+    // Auto-login dari cache
+    const cached = localStorage.getItem('so_phone')
+    if (cached) {
+      setPhoneInput(cached)
+      fetch(`/api/customers/${cached.replace(/\D/g,'')}/orders`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) { setCustomer(data); if (data.name) setCustomerName(data.name) } })
+        .catch(() => {})
+    }
     return () => clearTimeout(t)
   }, [])
+
+  async function refreshCustomer() {
+    if (!customer?.phone) return
+    try {
+      const r = await fetch(`/api/customers/${customer.phone}/orders`)
+      if (r.ok) setCustomer(await r.json())
+    } catch {}
+  }
 
   async function handlePhoneSubmit(e) {
     e.preventDefault()
@@ -362,8 +381,8 @@ export default function SelfOrderPage() {
         const data = await r.json()
         setCustomer(data)
         if (data.name) setCustomerName(data.name)
+        localStorage.setItem('so_phone', digits)
       } else {
-        // Customer baru — minta nama
         setPhoneStep('name')
       }
     } catch { setPhoneError('Gagal terhubung, coba lagi') }
@@ -383,6 +402,7 @@ export default function SelfOrderPage() {
       if (!r.ok) throw new Error(data.message)
       setCustomer(data)
       setCustomerName(nameInput)
+      localStorage.setItem('so_phone', phoneInput.replace(/\D/g, ''))
     } catch (err) { setPhoneError(err.message || 'Gagal mendaftar') }
     finally { setPhoneLoading(false) }
   }
@@ -456,7 +476,10 @@ export default function SelfOrderPage() {
     finally { setSubmitting(false) }
   }
 
-  if (activeOrderId) return <OrderTracker orderId={activeOrderId} paymentMethod={paymentMethod} onBack={() => { setActiveOrderId(null); setTableNo(''); setCustomerName(''); setNote(''); setPaymentMethod('QRIS') }} />
+  if (activeOrderId) return <OrderTracker orderId={activeOrderId} paymentMethod={paymentMethod} onBack={() => {
+    setActiveOrderId(null); setTableNo(''); setCustomerName(customer?.name || ''); setNote(''); setPaymentMethod('QRIS')
+    refreshCustomer()
+  }} />
 
   // Phone gate — tampil jika belum ada customer
   if (!customer) return (
@@ -581,17 +604,20 @@ export default function SelfOrderPage() {
             <div style={{ fontSize: '19px', fontWeight: 600, fontFamily: SERIF, color: INK, lineHeight: 1.1 }}>Bumi Kopi</div>
             <div style={{ fontSize: '10.5px', color: GOLD, marginTop: '2px', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Pilih menu favoritmu</div>
           </div>
-          <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : HAIRLINE}`, background: totalQty > 0 ? AL : PAPER2, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .25s cubic-bezier(0.22,1,0.36,1)', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
-            {totalQty > 0 ? (
-              <>
-                <span style={{ fontSize: '13px', fontWeight: '700' }}>{totalQty} item</span>
-                <div style={{ width: '1px', height: '13px', background: AB }} />
-                <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: MONO }}>Rp {fmt(total)}</span>
-              </>
-            ) : (
-              <span style={{ fontSize: '13px', fontWeight: '600' }}>Keranjang</span>
-            )}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => setHistoryOpen(true)} style={{ padding: '8px 13px', borderRadius: '12px', border: `1.5px solid ${HAIRLINE}`, background: PAPER2, color: TEXT2, fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>📋 Riwayat</button>
+            <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : HAIRLINE}`, background: totalQty > 0 ? AL : PAPER2, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .25s cubic-bezier(0.22,1,0.36,1)', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
+              {totalQty > 0 ? (
+                <>
+                  <span style={{ fontSize: '13px', fontWeight: '700' }}>{totalQty} item</span>
+                  <div style={{ width: '1px', height: '13px', background: AB }} />
+                  <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: MONO }}>Rp {fmt(total)}</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', fontWeight: '600' }}>Keranjang</span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -706,8 +732,104 @@ export default function SelfOrderPage() {
         </>
       )}
 
-      {/* Checkout Sheet */}
-      {checkoutOpen && (
+      {/* History Sheet */}
+      {historyOpen && (
+        <>
+          <div onClick={() => { setHistoryOpen(false); setReceiptOrder(null) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)', animation: 'fadeIn .25s ease' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .45s cubic-bezier(0.22,1,0.36,1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
+              <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: '#E5E7EB' }} />
+            </div>
+            <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: INK }}>Riwayat Pesanan</div>
+                <div style={{ fontSize: '11px', color: GRAY2, marginTop: '2px' }}>{customer?.name || ''} · {customer?.phone}</div>
+              </div>
+              <button onClick={() => { setHistoryOpen(false); setReceiptOrder(null) }} style={{ background: '#F3F4F6', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: GRAY2, fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+            </div>
+
+            {receiptOrder ? (
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px' }}>
+                <button onClick={() => setReceiptOrder(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: A, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '16px', padding: 0 }}>← Kembali ke Riwayat</button>
+                <div style={{ background: WHITE, borderRadius: '18px', border: `1px solid ${HAIRLINE}`, overflow: 'hidden' }}>
+                  <div style={{ background: A, padding: '20px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', fontFamily: SERIF, letterSpacing: '1px' }}>BUMI KOPI</div>
+                    <div style={{ fontSize: '10px', color: '#fff', opacity: 0.8, marginTop: '2px', letterSpacing: '2px', textTransform: 'uppercase' }}>Struk Digital</div>
+                  </div>
+                  <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
+                      <span style={{ color: GRAY2 }}>No. Order</span>
+                      <span style={{ fontWeight: '700', color: INK, fontFamily: MONO }}>#{receiptOrder.orderNo}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
+                      <span style={{ color: GRAY2 }}>Tanggal</span>
+                      <span style={{ fontWeight: '600', color: INK }}>{new Date(receiptOrder.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    {receiptOrder.tableNo && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px' }}>
+                        <span style={{ color: GRAY2 }}>Meja</span>
+                        <span style={{ fontWeight: '600', color: INK }}>{receiptOrder.tableNo}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '12px' }}>
+                      <span style={{ color: GRAY2 }}>Nama</span>
+                      <span style={{ fontWeight: '600', color: INK }}>{receiptOrder.customerName || '-'}</span>
+                    </div>
+                    <div style={{ borderTop: `1px dashed ${HAIRLINE}`, marginBottom: '12px' }} />
+                    {receiptOrder.items.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                        <div>
+                          <div style={{ fontWeight: '600', color: INK }}>{item.name}</div>
+                          <div style={{ fontSize: '11px', color: GRAY2 }}>{item.qty} × Rp {fmt(item.price)}</div>
+                        </div>
+                        <span style={{ fontWeight: '700', color: INK, fontFamily: MONO }}>Rp {fmt(item.subtotal)}</span>
+                      </div>
+                    ))}
+                    <div style={{ borderTop: `1px dashed ${HAIRLINE}`, margin: '12px 0' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '700', color: INK }}>Total</span>
+                      <span style={{ fontSize: '20px', fontWeight: '900', color: A, fontFamily: MONO }}>Rp {fmt(receiptOrder.total)}</span>
+                    </div>
+                    <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '11px', color: GRAY2, lineHeight: 1.8 }}>
+                      <div>Terima kasih sudah berkunjung! ☕</div>
+                      <div style={{ color: GOLD, fontWeight: '700', marginTop: '2px' }}>Bumi Kopi</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px' }}>
+                {!customer?.selfOrders?.length ? (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: GRAY }}>
+                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>🧾</div>
+                    <div style={{ fontSize: '14px' }}>Belum ada riwayat pesanan</div>
+                  </div>
+                ) : customer.selfOrders.map((order) => (
+                  <div key={order.id} onClick={() => setReceiptOrder(order)}
+                    style={{ background: WHITE, borderRadius: '14px', border: `1px solid ${HAIRLINE}`, padding: '14px 16px', marginBottom: '10px', cursor: 'pointer', transition: 'box-shadow .15s' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 16px ${A}18`}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: INK, fontFamily: MONO }}>#{order.orderNo}</div>
+                        <div style={{ fontSize: '11px', color: GRAY2, marginTop: '2px' }}>{new Date(order.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '900', color: A, fontFamily: MONO }}>Rp {fmt(order.total)}</div>
+                        <div style={{ fontSize: '10px', color: '#059669', fontWeight: '700', marginTop: '2px' }}>✓ Lunas</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '12px', color: GRAY2 }}>{order.items.map(i => `${i.name} ×${i.qty}`).join(', ')}</div>
+                    <div style={{ marginTop: '8px', fontSize: '11px', color: A, fontWeight: '600' }}>Lihat struk →</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
         <>
           <div onClick={() => setCheckoutOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)', animation: 'fadeIn .25s ease' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .45s cubic-bezier(0.22,1,0.36,1)' }}>
