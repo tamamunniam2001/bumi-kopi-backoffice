@@ -37,32 +37,44 @@ export default function KasirPage() {
   const [orders, setOrders] = useState([])
   const [ordersExpanded, setOrdersExpanded] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [selfOrders, setSelfOrders] = useState([])
-  const [selfOrderAlert, setSelfOrderAlert] = useState(null)
   const [paidOrders, setPaidOrders] = useState([])
   const [paidOrderAlert, setPaidOrderAlert] = useState(null)
-  const [selfOrdersExpanded, setSelfOrdersExpanded] = useState(true)
-  const [approvingId, setApprovingId] = useState(null)
   const notifIntervalRef = useRef(null)
 
   const playNotif = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.frequency.setValueAtTime(880, ctx.currentTime)
-      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.1)
-      gain.gain.setValueAtTime(0.4, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4)
+      gain.connect(ctx.destination)
+
+      // Ringtone melodi — pola 8 nada (mirip classic phone ringtone)
+      const notes = [
+        [1318, 0.00], // E6
+        [1174, 0.12], // D6
+        [740,  0.24], // F#5
+        [830,  0.36], // Ab5
+        [1108, 0.48], // C#6
+        [987,  0.60], // B5
+        [622,  0.72], // Eb5
+        [698,  0.84], // F5
+      ]
+      notes.forEach(([freq, delay]) => {
+        const osc = ctx.createOscillator()
+        osc.connect(gain)
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay)
+        gain.gain.setValueAtTime(0.9, ctx.currentTime + delay)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.11)
+        osc.start(ctx.currentTime + delay)
+        osc.stop(ctx.currentTime + delay + 0.11)
+      })
     } catch {}
   }, [])
 
   const startNotifLoop = useCallback(() => {
     if (notifIntervalRef.current) clearInterval(notifIntervalRef.current)
     playNotif()
-    notifIntervalRef.current = setInterval(playNotif, 2500)
+    notifIntervalRef.current = setInterval(playNotif, 3000)
   }, [playNotif])
 
   const stopNotifLoop = useCallback(() => {
@@ -72,13 +84,10 @@ export default function KasirPage() {
     }
   }, [])
 
-  // Restart loop jika masih ada alert yang belum dikonfirmasi
-  const restartIfNeeded = useCallback((remainingSelfOrders, remainingPaidOrders) => {
-    if (remainingSelfOrders.length > 0 || remainingPaidOrders.length > 0) {
-      startNotifLoop()
-    } else {
-      stopNotifLoop()
-    }
+  // Restart loop jika masih ada paid alert yang belum dikonfirmasi
+  const restartIfNeeded = useCallback((remainingPaidOrders) => {
+    if (remainingPaidOrders.length > 0) startNotifLoop()
+    else stopNotifLoop()
   }, [startNotifLoop, stopNotifLoop])
 
   // Bersihkan saat unmount
@@ -158,16 +167,9 @@ export default function KasirPage() {
 
   const pathname = usePathname()
 
-  const loadSelfOrders = useCallback(async () => {
-    try {
-      const r = await api.get('/self-orders?status=PENDING')
-      setSelfOrders(r.data)
-    } catch {}
-  }, [])
-
   useEffect(() => {
-    Promise.all([load(), loadOrders(), loadSelfOrders()])
-  }, [load, loadOrders, loadSelfOrders, pathname])
+    Promise.all([load(), loadOrders()])
+  }, [load, loadOrders, pathname])
 
   useEffect(() => {
     const tOrders = setInterval(() => loadOrders(), 5000)
@@ -184,16 +186,6 @@ export default function KasirPage() {
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data)
-          if (data.type === 'NEW_ORDERS' && data.orders?.length) {
-            setSelfOrders(prev => {
-              const ids = new Set(prev.map(o => o.id))
-              const newOnes = data.orders.filter(o => !ids.has(o.id))
-              if (!newOnes.length) return prev
-              startNotifLoop()
-              setSelfOrderAlert(newOnes[0])
-              return [...newOnes, ...prev]
-            })
-          }
           if (data.type === 'PAID_ORDERS' && data.orders?.length) {
             setPaidOrders(prev => {
               const ids = new Set(prev.map(o => o.id))
@@ -212,24 +204,10 @@ export default function KasirPage() {
     return () => { es?.close(); clearTimeout(reconnectTimer) }
   }, [])
 
-  async function approveSelfOrder(id, status) {
-    setApprovingId(id)
-    try {
-      await api.patch(`/self-orders/${id}`, { status })
-      setSelfOrders(prev => {
-        const remaining = prev.filter(o => o.id !== id)
-        restartIfNeeded(remaining, paidOrders)
-        return remaining
-      })
-      if (selfOrderAlert?.id === id) setSelfOrderAlert(null)
-    } catch (e) { alert(e.response?.data?.message || 'Gagal') }
-    finally { setApprovingId(null) }
-  }
-
   function dismissPaidOrder(id) {
     setPaidOrders(prev => {
       const remaining = prev.filter(o => o.id !== id)
-      restartIfNeeded(selfOrders, remaining)
+      restartIfNeeded(remaining)
       return remaining
     })
     if (paidOrderAlert?.id === id) setPaidOrderAlert(null)
@@ -299,38 +277,9 @@ export default function KasirPage() {
 
   return (
     <div className="page">
-      {/* Alert popup self order baru */}
-      {selfOrderAlert && (
-        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999, width: '320px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '2px solid #C8935A', overflow: 'hidden' }}>
-          <div style={{ background: 'linear-gradient(135deg,#C8935A,#A0682F)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '800' }}>Self Order Baru!</div>
-                <div style={{ fontSize: '11px', opacity: 0.85 }}>#{selfOrderAlert.orderNo}</div>
-              </div>
-            </div>
-            <button onClick={() => setSelfOrderAlert(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
-          </div>
-          <div style={{ padding: '12px 16px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#1A0F00', marginBottom: '4px' }}>
-              {selfOrderAlert.customerName || 'Pelanggan'}{selfOrderAlert.tableNo ? ` · Meja ${selfOrderAlert.tableNo}` : ''}
-            </div>
-            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '10px' }}>
-              {selfOrderAlert.items?.length} item · Rp {fmt(selfOrderAlert.total)}
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => approveSelfOrder(selfOrderAlert.id, 'REJECTED')} disabled={approvingId === selfOrderAlert.id}
-                style={{ flex: 1, padding: '8px', borderRadius: '9px', border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626', fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>✗ Tolak</button>
-              <button onClick={() => approveSelfOrder(selfOrderAlert.id, 'APPROVED')} disabled={approvingId === selfOrderAlert.id}
-                style={{ flex: 2, padding: '8px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#C8935A,#A0682F)', color: '#fff', fontSize: '12px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>✓ Konfirmasi</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Alert popup order sudah dibayar */}
       {paidOrderAlert && (
-        <div style={{ position: 'fixed', top: selfOrderAlert ? '180px' : '16px', right: '16px', zIndex: 9999, width: '320px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '2px solid #059669', overflow: 'hidden', transition: 'top .3s ease' }}>
+        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999, width: '320px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '2px solid #059669', overflow: 'hidden' }}>
           <div style={{ background: 'linear-gradient(135deg,#059669,#047857)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ color: '#fff' }}>
               <div style={{ fontSize: '13px', fontWeight: '800' }}>Pembayaran Diterima!</div>
@@ -386,47 +335,6 @@ export default function KasirPage() {
 
         {/* Produk area — full width */}
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
-
-          {/* ── Self Order Panel ── */}
-          {selfOrders.length > 0 && (
-            <div style={{ background: '#FFFBF5', borderBottom: '2px solid #F3D5A8', flexShrink: 0 }}>
-              <div onClick={() => setSelfOrdersExpanded(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', cursor: 'pointer', userSelect: 'none' }}>
-                <span style={{ fontSize: '16px' }}>🛎️</span>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400E' }}>Self Order Masuk</span>
-                <span style={{ fontSize: '11px', fontWeight: '800', background: '#C8935A', color: '#fff', padding: '2px 8px', borderRadius: '20px' }}>{selfOrders.length} pending</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: 'auto', color: '#C8935A', transition: 'transform 0.2s', transform: selfOrdersExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
-              </div>
-              {selfOrdersExpanded && (
-                <div style={{ overflowX: 'auto', padding: '0 20px 12px', display: 'flex', gap: '10px' }}>
-                  {selfOrders.map(order => (
-                    <div key={order.id} style={{ flexShrink: 0, width: '200px', background: '#fff', borderRadius: '14px', border: '2px solid #F3D5A8', overflow: 'hidden', boxShadow: '0 2px 12px rgba(200,147,90,0.12)' }}>
-                      <div style={{ padding: '12px 12px 8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '10px', fontWeight: '700', color: '#C8935A', fontFamily: 'monospace' }}>#{order.orderNo}</span>
-                          {order.tableNo && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: '20px', fontWeight: '700' }}>Meja {order.tableNo}</span>}
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#1A0F00', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.customerName || '(Tanpa Nama)'}</div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>{order.items.length} item</div>
-                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px', maxHeight: '40px', overflow: 'hidden' }}>
-                          {order.items.slice(0, 2).map((i, idx) => <div key={idx} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.qty}× {i.name}</div>)}
-                          {order.items.length > 2 && <div style={{ color: '#C8935A', fontSize: '11px', fontWeight: '600' }}>+{order.items.length - 2} lainnya</div>}
-                        </div>
-                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#C8935A' }}>Rp {fmt(order.total)}</div>
-                        {order.note && <div style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '2px', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📝 {order.note}</div>}
-                      </div>
-                      <div style={{ display: 'flex', borderTop: '1px solid #F3EBE0' }}>
-                        <button onClick={() => approveSelfOrder(order.id, 'REJECTED')} disabled={approvingId === order.id}
-                          style={{ flex: 1, padding: '8px', border: 'none', background: '#FEF2F2', color: '#DC2626', fontSize: '11px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>✗ Tolak</button>
-                        <button onClick={() => approveSelfOrder(order.id, 'APPROVED')} disabled={approvingId === order.id}
-                          style={{ flex: 2, padding: '8px', border: 'none', borderLeft: '1px solid #F3EBE0', background: 'linear-gradient(135deg,#C8935A,#A0682F)', color: '#fff', fontSize: '11px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>✓ Konfirmasi</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* ── Order List ── */}
           <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

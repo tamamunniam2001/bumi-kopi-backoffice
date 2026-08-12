@@ -177,16 +177,6 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
     try { const r = await fetch(`/api/self-orders/${orderId}`); setOrder(await r.json()) } catch {}
   }, [orderId])
 
-  // Auto-generate QR saat status berubah ke APPROVED + QRIS
-  const prevStatusRef = useRef(null)
-  useEffect(() => {
-    if (!order) return
-    if (order.status === 'APPROVED' && prevStatusRef.current !== 'APPROVED' && paymentMethod === 'QRIS') {
-      fetch(`/api/self-orders/${orderId}/pay`, { method: 'POST' }).catch(() => {})
-    }
-    prevStatusRef.current = order.status
-  }, [order?.status, orderId, paymentMethod])
-
   useEffect(() => {
     fetchOrder()
     const iv = setInterval(() => { fetchOrder(); setTick(t => t + 1) }, 3000)
@@ -409,6 +399,11 @@ export default function SelfOrderPage() {
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.message)
+
+      // Generate QR langsung karena status sudah APPROVED
+      if (paymentMethod === 'QRIS') {
+        await fetch(`/api/self-orders/${data.id}/pay`, { method: 'POST' })
+      }
 
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)

@@ -20,22 +20,14 @@ export async function GET() {
   const interval = setInterval(async () => {
     if (!alive) { clearInterval(interval); return }
     try {
-      const [newPending, newPaid] = await Promise.all([
-        prisma.selfOrder.findMany({
-          where: { createdAt: { gt: lastCheck }, status: 'PENDING' },
-          include: { items: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        prisma.selfOrder.findMany({
-          where: { paidAt: { gt: lastCheck }, status: 'COMPLETED' },
-          include: { items: true },
-          orderBy: { paidAt: 'asc' },
-        }),
-      ])
+      const newPaid = await prisma.selfOrder.findMany({
+        where: { paidAt: { gt: lastCheck }, status: 'COMPLETED' },
+        include: { items: true },
+        orderBy: { paidAt: 'asc' },
+      })
       lastCheck = new Date()
-      if (newPending.length > 0) send({ type: 'NEW_ORDERS', orders: newPending })
       if (newPaid.length > 0) send({ type: 'PAID_ORDERS', orders: newPaid })
-      if (!newPending.length && !newPaid.length) send({ type: 'PING' })
+      else send({ type: 'PING' })
     } catch {
       send({ type: 'PING' })
     }
