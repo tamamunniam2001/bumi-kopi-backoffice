@@ -326,6 +326,17 @@ model Resi {
   @@index([createdAt])
 }
 
+model Customer {
+  id          String      @id @default(cuid())
+  phone       String      @unique
+  name        String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  selfOrders  SelfOrder[]
+
+  @@index([phone])
+}
+
 model SelfOrder {
   id             String          @id @default(cuid())
   orderNo        String          @unique
@@ -341,11 +352,14 @@ model SelfOrder {
   dokuInvoiceNo  String?         @default("")
   dokuPaymentUrl String?         @default("")
   paidAt         DateTime?
+  customerId     String?
+  customer       Customer?       @relation(fields: [customerId], references: [id])
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
   @@index([status])
   @@index([createdAt])
+  @@index([customerId])
 }
 
 model SelfOrderItem {

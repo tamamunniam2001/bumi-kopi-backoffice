@@ -158,9 +158,13 @@ export default function KasirPage() {
       const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999)
       const res = await api.get(`/transactions?slim=1&from=${today.toISOString()}&to=${endOfDay.toISOString()}&page=1`)
       const incoming = res.data.transactions || []
+      const incomingIds = new Set(incoming.map((o) => o.id))
       setOrders((prev) => {
         const prevMap = Object.fromEntries(prev.map((o) => [o.id, o]))
-        return incoming.map((o) => pendingServed.has(o.id) ? { ...o, servedAt: prevMap[o.id]?.servedAt } : o)
+        // Pertahankan self-order (yang tidak ada di transactions)
+        const selfOrders = prev.filter((o) => !incomingIds.has(o.id) && o.orderNo)
+        const merged = incoming.map((o) => pendingServed.has(o.id) ? { ...o, servedAt: prevMap[o.id]?.servedAt } : o)
+        return [...selfOrders, ...merged]
       })
     } catch { }
   }, [pendingServed])

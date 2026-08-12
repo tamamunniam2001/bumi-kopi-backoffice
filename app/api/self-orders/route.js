@@ -21,7 +21,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const body = await req.json()
-    const { tableNo, customerName, note, items } = body
+    const { tableNo, customerName, note, items, customerId } = body
     if (!items?.length) return NextResponse.json({ message: 'Items kosong' }, { status: 400 })
 
     const total = items.reduce((s, i) => s + i.price * i.qty, 0)
@@ -35,6 +35,7 @@ export async function POST(req) {
         note: note || '',
         total,
         status: 'APPROVED',
+        customerId: customerId || null,
         items: {
           create: items.map((i) => ({
             productId: i.productId || null,

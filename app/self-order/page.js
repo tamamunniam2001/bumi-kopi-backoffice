@@ -327,6 +327,14 @@ export default function SelfOrderPage() {
   const headerRef = useRef(null)
   const navRef = useRef(null)
 
+  // Customer state
+  const [customer, setCustomer] = useState(null) // null = belum login
+  const [phoneInput, setPhoneInput] = useState('')
+  const [nameInput, setNameInput] = useState('')
+  const [phoneStep, setPhoneStep] = useState('phone') // 'phone' | 'name'
+  const [phoneLoading, setPhoneLoading] = useState(false)
+  const [phoneError, setPhoneError] = useState('')
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -341,6 +349,43 @@ export default function SelfOrderPage() {
     const t = setTimeout(() => setSplash(false), 1800)
     return () => clearTimeout(t)
   }, [])
+
+  async function handlePhoneSubmit(e) {
+    e.preventDefault()
+    const digits = phoneInput.replace(/\D/g, '')
+    if (digits.length < 9) { setPhoneError('Nomor telepon tidak valid'); return }
+    setPhoneError('')
+    setPhoneLoading(true)
+    try {
+      const r = await fetch(`/api/customers/${digits}/orders`)
+      if (r.ok) {
+        const data = await r.json()
+        setCustomer(data)
+        if (data.name) setCustomerName(data.name)
+      } else {
+        // Customer baru — minta nama
+        setPhoneStep('name')
+      }
+    } catch { setPhoneError('Gagal terhubung, coba lagi') }
+    finally { setPhoneLoading(false) }
+  }
+
+  async function handleNameSubmit(e) {
+    e.preventDefault()
+    setPhoneLoading(true)
+    try {
+      const r = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneInput, name: nameInput }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.message)
+      setCustomer(data)
+      setCustomerName(nameInput)
+    } catch (err) { setPhoneError(err.message || 'Gagal mendaftar') }
+    finally { setPhoneLoading(false) }
+  }
 
   const addToCart = useCallback((product) => {
     if (product.stock <= 0) return
@@ -395,7 +440,7 @@ export default function SelfOrderPage() {
       const r = await fetch('/api/self-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableNo, customerName, note, paymentMethod, items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty, imageUrl: i.product.imageUrl || null })) }),
+        body: JSON.stringify({ tableNo, customerName, note, paymentMethod, customerId: customer?.id || null, items: cart.map(i => ({ productId: i.product.id, name: i.product.name, price: i.product.price, qty: i.qty, imageUrl: i.product.imageUrl || null })) }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.message)
@@ -412,6 +457,55 @@ export default function SelfOrderPage() {
   }
 
   if (activeOrderId) return <OrderTracker orderId={activeOrderId} paymentMethod={paymentMethod} onBack={() => { setActiveOrderId(null); setTableNo(''); setCustomerName(''); setNote(''); setPaymentMethod('QRIS') }} />
+
+  // Phone gate — tampil jika belum ada customer
+  if (!customer) return (
+    <div style={{ minHeight: '100dvh', background: PAPER, fontFamily: "'Inter',system-ui,sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700;800;900&display=swap');*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}input:focus{outline:none;border-color:${A}!important;box-shadow:0 0 0 3px ${A}18}`}</style>
+      <div style={{ width: '100%', maxWidth: '380px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ fontSize: '24px', fontFamily: SERIF, fontWeight: 600, color: INK }}>Bumi Kopi</div>
+          <div style={{ fontSize: '11px', color: GOLD, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, marginTop: '4px' }}>Self Order</div>
+        </div>
+
+        {phoneStep === 'phone' ? (
+          <form onSubmit={handlePhoneSubmit}>
+            <div style={{ marginBottom: '8px', fontSize: '15px', fontWeight: '700', color: INK }}>Masukkan nomor telepon kamu</div>
+            <div style={{ fontSize: '12px', color: GRAY2, marginBottom: '20px' }}>Untuk menyimpan riwayat pesananmu</div>
+            <input
+              type="tel" value={phoneInput} onChange={e => { setPhoneInput(e.target.value); setPhoneError('') }}
+              placeholder="08xxxxxxxxxx" autoFocus
+              style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: `1.5px solid ${phoneError ? '#EF4444' : HAIRLINE}`, background: PAPER2, color: INK, fontSize: '16px', fontFamily: 'inherit', marginBottom: '8px' }}
+            />
+            {phoneError && <div style={{ fontSize: '12px', color: '#EF4444', marginBottom: '8px' }}>{phoneError}</div>}
+            <button type="submit" disabled={phoneLoading || !phoneInput.trim()}
+              style={{ width: '100%', padding: '15px', borderRadius: '14px', border: 'none', background: phoneLoading || !phoneInput.trim() ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: phoneLoading || !phoneInput.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {phoneLoading ? 'Memproses...' : 'Lanjutkan →'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleNameSubmit}>
+            <div style={{ marginBottom: '8px', fontSize: '15px', fontWeight: '700', color: INK }}>Halo, pelanggan baru! 👋</div>
+            <div style={{ fontSize: '12px', color: GRAY2, marginBottom: '20px' }}>Siapa nama panggilanmu?</div>
+            <input
+              type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setPhoneError('') }}
+              placeholder="Nama panggilanmu" autoFocus
+              style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: `1.5px solid ${phoneError ? '#EF4444' : HAIRLINE}`, background: PAPER2, color: INK, fontSize: '16px', fontFamily: 'inherit', marginBottom: '8px' }}
+            />
+            {phoneError && <div style={{ fontSize: '12px', color: '#EF4444', marginBottom: '8px' }}>{phoneError}</div>}
+            <button type="submit" disabled={phoneLoading || !nameInput.trim()}
+              style={{ width: '100%', padding: '15px', borderRadius: '14px', border: 'none', background: phoneLoading || !nameInput.trim() ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: phoneLoading || !nameInput.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {phoneLoading ? 'Mendaftar...' : 'Mulai Order →'}
+            </button>
+            <button type="button" onClick={() => { setPhoneStep('phone'); setPhoneError('') }}
+              style={{ width: '100%', marginTop: '10px', padding: '12px', borderRadius: '14px', border: `1.5px solid ${HAIRLINE}`, background: 'transparent', color: GRAY2, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
+              ← Ganti nomor
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
 
   // shared input style
   const inp = { width: '100%', padding: '11px 14px', borderRadius: '12px', border: `1.5px solid ${HAIRLINE}`, background: PAPER2, color: INK, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }
