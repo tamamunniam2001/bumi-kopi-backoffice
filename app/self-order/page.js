@@ -38,21 +38,6 @@ const SECTION_META = {
   lainnya:   { label: 'Lainnya',        caption: 'Menu lainnya',          color: TEXT2 },
 }
 
-// Simple line-icon per section — kept monochrome (currentColor) so each one
-// just inherits the section's ink colour
-function SectionIcon({ id, size = 18 }) {
-  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  switch (id) {
-    case 'new': return <svg {...p}><path d="M12 3l1.8 5.6L19.5 10l-5.7 1.4L12 17l-1.8-5.6L4.5 10l5.7-1.4L12 3z" /></svg>
-    case 'best': return <svg {...p}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.9L12 3.5z" /></svg>
-    case 'coffee': return <svg {...p}><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z" /><path d="M17 10.5h1.5a2.5 2.5 0 0 1 0 5H17" /><path d="M7 6c0-1 1-1 1-2s-1-1-1-2M11 6c0-1 1-1 1-2s-1-1-1-2" /></svg>
-    case 'noncoffee': return <svg {...p}><path d="M12 3c2 2.2 3.5 4.3 3.5 6.7A3.5 3.5 0 0 1 12 13.2 3.5 3.5 0 0 1 8.5 9.7C8.5 7.3 10 5.2 12 3z" /><path d="M6 21c1.8-1.3 4-2 6-2s4.2.7 6 2" /></svg>
-    case 'snack': return <svg {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="9" cy="10" r=".8" fill="currentColor" stroke="none" /><circle cx="14" cy="9.5" r=".8" fill="currentColor" stroke="none" /><circle cx="13" cy="14" r=".8" fill="currentColor" stroke="none" /></svg>
-    case 'kenyang': return <svg {...p}><path d="M4 11a8 8 0 0 0 16 0z" /><path d="M4 11c0-4 3-7 8-7" strokeDasharray="1 3.4" /><path d="M4 11h16" /></svg>
-    default: return <svg {...p}><path d="M20 12l-8 8-8-8 8-8h6a2 2 0 0 1 2 2v6z" /><circle cx="14" cy="8" r="1" fill="currentColor" stroke="none" /></svg>
-  }
-}
-
 // Classify a product's own category name into one of our four "kitchen"
 // sections. Backend category names vary, so this matches loosely on keywords.
 // "Ada yang Baru" / "Best Seller" are separate flags (see below) — a product
@@ -145,14 +130,12 @@ function QrisPanel({ orderId, total, onPaid }) {
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '40px 0' }}>
-      <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
       <div style={{ fontSize: '14px', color: GRAY2 }}>Memuat QRIS...</div>
     </div>
   )
 
   if (expired) return (
     <div style={{ textAlign: 'center', padding: '24px 0' }}>
-      <div style={{ fontSize: '32px', marginBottom: '12px' }}>⌛</div>
       <div style={{ fontSize: '15px', fontWeight: '700', color: '#DC2626', marginBottom: '8px' }}>QRIS Kadaluarsa</div>
       <button onClick={() => { setExpired(false); setQris(null); loadQris() }} style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: A, color: '#fff', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px' }}>Generate Ulang</button>
     </div>
@@ -175,10 +158,10 @@ function QrisPanel({ orderId, total, onPaid }) {
 
       <div style={{ fontSize: '13px', color: GRAY2, marginBottom: '4px' }}>Scan QR dengan aplikasi apapun</div>
       <div style={{ fontSize: '22px', fontWeight: '900', color: A, marginBottom: '4px' }}>Rp {fmt(total)}</div>
-      {countdown && <div style={{ fontSize: '12px', color: '#D97706', fontWeight: '600', marginBottom: '14px' }}>⏱ Berlaku {countdown}</div>}
+      {countdown && <div style={{ fontSize: '12px', color: '#D97706', fontWeight: '600', marginBottom: '14px' }}>Berlaku {countdown}</div>}
 
       <button onClick={handleCheckManual} disabled={checking} style={{ width: '100%', padding: '13px', borderRadius: '12px', border: `1.5px solid ${AB}`, background: AL, color: A, fontWeight: '700', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit' }}>
-        {checking ? '⏳ Mengecek...' : '🔄 Cek Status Pembayaran'}
+        {checking ? 'Mengecek...' : 'Cek Status Pembayaran'}
       </button>
       <div style={{ fontSize: '11px', color: GRAY, marginTop: '8px' }}>Status dicek otomatis setiap 5 detik</div>
     </div>
@@ -194,6 +177,16 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
     try { const r = await fetch(`/api/self-orders/${orderId}`); setOrder(await r.json()) } catch {}
   }, [orderId])
 
+  // Auto-generate QR saat status berubah ke APPROVED + QRIS
+  const prevStatusRef = useRef(null)
+  useEffect(() => {
+    if (!order) return
+    if (order.status === 'APPROVED' && prevStatusRef.current !== 'APPROVED' && paymentMethod === 'QRIS') {
+      fetch(`/api/self-orders/${orderId}/pay`, { method: 'POST' }).catch(() => {})
+    }
+    prevStatusRef.current = order.status
+  }, [order?.status, orderId, paymentMethod])
+
   useEffect(() => {
     fetchOrder()
     const iv = setInterval(() => { fetchOrder(); setTick(t => t + 1) }, 3000)
@@ -202,10 +195,10 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
 
   const dots = '.'.repeat((tick % 3) + 1)
   const cfg = {
-    PENDING:   { emoji: '⏳', title: 'Menyiapkan Pesanan...', sub: `Sedang memproses${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
-    APPROVED:  { emoji: paymentMethod === 'QRIS' ? '💳' : '💵', title: paymentMethod === 'QRIS' ? 'Scan & Bayar' : 'Bayar ke Kasir', sub: paymentMethod === 'QRIS' ? 'Scan QR code di bawah untuk menyelesaikan pembayaran' : 'Silakan bayar tunai ke kasir kami', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
-    REJECTED:  { emoji: '❌', title: 'Pesanan Gagal', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 1 },
-    COMPLETED: { emoji: '🎉', title: 'Pembayaran Berhasil!', sub: 'Terima kasih! Pesananmu sedang diproses.', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
+    PENDING:   { label: '···', title: 'Menunggu Konfirmasi', sub: `Pesananmu sedang ditinjau kasir${dots}`, accent: '#D97706', bg: '#FFFBEB', border: '#FDE68A', step: 0 },
+    APPROVED:  { label: paymentMethod === 'QRIS' ? 'QR' : 'Rp', title: paymentMethod === 'QRIS' ? 'Scan & Bayar' : 'Bayar ke Kasir', sub: paymentMethod === 'QRIS' ? 'Scan QR code di bawah untuk menyelesaikan pembayaran' : 'Silakan bayar tunai ke kasir kami', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 1 },
+    REJECTED:  { label: '×', title: 'Pesanan Ditolak', sub: 'Maaf, pesanan tidak bisa diproses. Silahkan order ulang.', accent: '#DC2626', bg: '#FEF2F2', border: '#FECACA', step: 1 },
+    COMPLETED: { label: '✓', title: 'Pembayaran Berhasil!', sub: 'Terima kasih! Pesananmu sedang diproses.', accent: '#059669', bg: '#ECFDF5', border: '#6EE7B7', step: 2 },
   }
   const c = cfg[order?.status || 'PENDING']
 
@@ -213,26 +206,25 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
     <div style={{ minHeight: '100dvh', background: BG, fontFamily: "'Inter',system-ui,sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes ping{0%{transform:scale(1);opacity:.5}80%,100%{transform:scale(1.5);opacity:0}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes ping{0%{transform:scale(1);opacity:.4}100%{transform:scale(1.8);opacity:0}}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
       `}</style>
 
       {/* Header */}
       <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', fontWeight: '800', color: TEXT }}>☕ Bumi Kopi</div>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: TEXT }}>Bumi Kopi</div>
           <div style={{ fontSize: '11px', color: GRAY, marginTop: '1px' }}>Status Pesanan</div>
         </div>
       </div>
 
-      <div style={{ maxWidth: '420px', margin: '0 auto', padding: '24px 20px', animation: 'fadeUp .4s ease' }}>
+      <div style={{ maxWidth: '420px', margin: '0 auto', padding: '24px 20px', animation: 'fadeUp .5s cubic-bezier(0.22,1,0.36,1)' }}>
         {/* Status card */}
         <div style={{ background: WHITE, borderRadius: '24px', border: `1.5px solid ${c.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.06)', padding: '28px 24px', textAlign: 'center', marginBottom: '14px' }}>
           <div style={{ position: 'relative', width: '68px', height: '68px', margin: '0 auto 18px' }}>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: c.border, animation: 'ping 2s ease-in-out infinite' }} />
-            <div style={{ position: 'relative', width: '68px', height: '68px', borderRadius: '50%', background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px' }}>{c.emoji}</div>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: c.border, animation: 'ping 2.4s cubic-bezier(0,0,.2,1) infinite' }} />
+            <div style={{ position: 'relative', width: '68px', height: '68px', borderRadius: '50%', background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '700', color: c.accent, fontFamily: SERIF }}>{c.label}</div>
           </div>
           <div style={{ fontSize: '19px', fontWeight: '800', color: TEXT, marginBottom: '6px' }}>{c.title}</div>
           <div style={{ fontSize: '13px', color: GRAY2, lineHeight: 1.7 }}>{c.sub}</div>
@@ -244,19 +236,15 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
           <div style={{ background: WHITE, borderRadius: '20px', border: `1.5px solid ${AB}`, boxShadow: '0 2px 12px rgba(0,0,0,0.05)', padding: '20px', marginBottom: '14px' }}>
             {paymentMethod === 'QRIS' && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: AL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '800', color: TEXT }}>Bayar dengan QRIS</div>
-                    <div style={{ fontSize: '11px', color: GRAY }}>Scan & bayar dalam 10 menit</div>
-                  </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: TEXT }}>Bayar dengan QRIS</div>
+                  <div style={{ fontSize: '11px', color: GRAY }}>Scan & bayar dalam 10 menit</div>
                 </div>
                 <QrisPanel orderId={orderId} total={order.total} onPaid={fetchOrder} />
               </>
             )}
             {paymentMethod === 'CASH' && (
               <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                <div style={{ fontSize: '40px', marginBottom: '12px' }}>💵</div>
                 <div style={{ fontSize: '15px', fontWeight: '800', color: TEXT, marginBottom: '6px' }}>Bayar Tunai ke Kasir</div>
                 <div style={{ fontSize: '22px', fontWeight: '900', color: A, marginBottom: '8px' }}>Rp {fmt(order.total)}</div>
                 <div style={{ fontSize: '12px', color: GRAY2, lineHeight: 1.7 }}>Tunjukkan nomor pesanan <strong style={{ color: A }}>#{order.orderNo}</strong> ke kasir dan lakukan pembayaran tunai.</div>
@@ -294,7 +282,7 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
               <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: done ? A : '#F3F4F6', border: `1.5px solid ${done ? A : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .3s' }}>
-                    {done ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {done ? <span style={{ fontSize: '11px', color: '#fff', fontWeight: '700' }}>✓</span>
                     : <span style={{ fontSize: '11px', color: GRAY, fontWeight: '700' }}>{i + 1}</span>}
                   </div>
                   <span style={{ fontSize: '10px', color: done ? A : GRAY, fontWeight: done ? '700' : '400' }}>{label}</span>
@@ -307,7 +295,7 @@ function OrderTracker({ orderId, paymentMethod = 'QRIS', onBack }) {
 
         {(order?.status === 'REJECTED' || order?.status === 'COMPLETED') && (
           <button onClick={onBack} style={{ width: '100%', padding: '16px', borderRadius: '14px', border: 'none', background: A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 20px ${A}40` }}>
-            {order.status === 'REJECTED' ? '↩ Order Ulang' : '☕ Order Lagi'}
+            {order.status === 'REJECTED' ? 'Order Ulang' : 'Order Lagi'}
           </button>
         )}
       </div>
@@ -422,11 +410,6 @@ export default function SelfOrderPage() {
       const data = await r.json()
       if (!r.ok) throw new Error(data.message)
 
-      // Generate QR hanya jika QRIS
-      if (paymentMethod === 'QRIS') {
-        await fetch(`/api/self-orders/${data.id}/pay`, { method: 'POST' })
-      }
-
       setActiveOrderId(data.id)
       setCart([]); setCheckoutOpen(false); setCartOpen(false)
     } catch (e) { alert(e.message || 'Gagal mengirim order') }
@@ -483,11 +466,11 @@ export default function SelfOrderPage() {
     <div style={{ minHeight: '100dvh', background: PAPER, fontFamily: "'Inter',system-ui,sans-serif", color: INK }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap');
-        @keyframes splashOut{0%,75%{opacity:1}100%{opacity:0;pointer-events:none}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        @keyframes splashOut{0%{opacity:1;transform:scale(1)}85%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.04);pointer-events:none}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
+        @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         ::-webkit-scrollbar{width:0;height:0}
         input:focus,textarea:focus{outline:none;border-color:${A}!important;box-shadow:0 0 0 3px ${A}18}
@@ -497,8 +480,7 @@ export default function SelfOrderPage() {
 
       {/* Splash */}
       {splash && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: PAPER, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'splashOut 1.8s ease forwards', pointerEvents: 'none' }}>
-          <div style={{ animation: 'float 2s ease-in-out infinite', fontSize: '52px', marginBottom: '14px' }}>☕</div>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: PAPER, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'splashOut 2s cubic-bezier(0.4,0,0.2,1) forwards', pointerEvents: 'none' }}>
           <div style={{ fontSize: '20px', fontFamily: SERIF, fontWeight: 600, letterSpacing: '1px', color: INK, marginBottom: '4px' }}>Bumi Kopi</div>
           <div style={{ fontSize: '11px', color: GOLD, letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 700 }}>Self Order</div>
         </div>
@@ -508,23 +490,25 @@ export default function SelfOrderPage() {
       <div ref={headerRef} style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(246,240,230,0.92)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${HAIRLINE}`, padding: '14px 20px 12px' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
-            <div style={{ fontSize: '19px', fontWeight: 600, fontFamily: SERIF, color: INK, lineHeight: 1.1 }}>☕ Bumi Kopi</div>
+            <div style={{ fontSize: '19px', fontWeight: 600, fontFamily: SERIF, color: INK, lineHeight: 1.1 }}>Bumi Kopi</div>
             <div style={{ fontSize: '10.5px', color: GOLD, marginTop: '2px', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>Pilih menu favoritmu</div>
           </div>
-          <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : HAIRLINE}`, background: totalQty > 0 ? AL : PAPER2, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .2s', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            {totalQty > 0 && <>
-              <span style={{ fontSize: '13px', fontWeight: '700' }}>{totalQty}</span>
-              <div style={{ width: '1px', height: '13px', background: AB }} />
-              <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: MONO }}>Rp {fmt(total)}</span>
-            </>}
+          <button onClick={() => setCartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: totalQty > 0 ? '9px 16px' : '9px 13px', borderRadius: '14px', border: `1.5px solid ${totalQty > 0 ? AB : HAIRLINE}`, background: totalQty > 0 ? AL : PAPER2, cursor: 'pointer', color: totalQty > 0 ? A : GRAY2, transition: 'all .25s cubic-bezier(0.22,1,0.36,1)', fontFamily: 'inherit', boxShadow: totalQty > 0 ? `0 2px 12px ${A}20` : 'none' }}>
+            {totalQty > 0 ? (
+              <>
+                <span style={{ fontSize: '13px', fontWeight: '700' }}>{totalQty} item</span>
+                <div style={{ width: '1px', height: '13px', background: AB }} />
+                <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: MONO }}>Rp {fmt(total)}</span>
+              </>
+            ) : (
+              <span style={{ fontSize: '13px', fontWeight: '600' }}>Keranjang</span>
+            )}
           </button>
         </div>
 
         {/* Search */}
-        <div style={{ maxWidth: '640px', margin: '0 auto', position: 'relative' }}>
-          <svg style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: GRAY }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={{ ...inp, paddingLeft: '42px' }} />
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari menu..." style={inp} />
         </div>
 
         {/* Section quick-nav */}
@@ -538,7 +522,6 @@ export default function SelfOrderPage() {
                 color: activeNav === s.key ? s.color : TEXT2,
                 fontSize: '12px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', transition: 'all .2s',
               }}>
-                <SectionIcon id={s.key} size={13} />
                 {s.label}
               </button>
             ))}
@@ -551,7 +534,7 @@ export default function SelfOrderPage() {
         {loading ? (
           <div style={{ paddingTop: '18px' }}>
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ borderRadius: '12px', background: '#EFE7D8', height: '58px', marginBottom: '10px', animation: 'pulse 1.5s infinite' }} />
+              <div key={i} style={{ borderRadius: '12px', height: '58px', marginBottom: '10px', background: 'linear-gradient(90deg,#EFE7D8 25%,#F8F2E8 50%,#EFE7D8 75%)', backgroundSize: '800px 100%', animation: `shimmer 1.6s ease-in-out infinite`, animationDelay: `${i * 0.08}s` }} />
             ))}
           </div>
         ) : searched ? (
@@ -562,7 +545,6 @@ export default function SelfOrderPage() {
             </div>
             {searched.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 0', color: GRAY }}>
-                <div style={{ fontSize: '36px', marginBottom: '10px' }}>☕</div>
                 <div style={{ fontSize: '14px' }}>Menu tidak ditemukan</div>
               </div>
             ) : searched.map(p => (
@@ -573,18 +555,9 @@ export default function SelfOrderPage() {
           // ── Sectioned menu ──
           sections.map(s => (
             <section key={s.key} id={`sec-${s.key}`} style={{ paddingTop: '22px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '4px' }}>
-                <div style={{
-                  width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0,
-                  border: `1.5px dashed ${s.color}80`, background: PAPER2,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color,
-                }}>
-                  <SectionIcon id={s.key} size={17} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: INK }}>{s.label}</div>
-                  <div style={{ fontSize: '11px', color: GRAY2 }}>{s.caption} · {s.items.length} pilihan</div>
-                </div>
+              <div style={{ marginBottom: '4px', paddingBottom: '8px', borderBottom: `1.5px solid ${s.color}40` }}>
+                <div style={{ fontSize: '17px', fontWeight: 600, fontFamily: SERIF, color: s.color }}>{s.label}</div>
+                <div style={{ fontSize: '11px', color: GRAY2 }}>{s.caption} · {s.items.length} pilihan</div>
               </div>
               <div>
                 {s.items.map(p => <MenuRow key={`${s.key}-${p.id}`} p={p} accent={s.color} />)}
@@ -596,7 +569,7 @@ export default function SelfOrderPage() {
 
       {/* FAB */}
       {totalQty > 0 && !cartOpen && (
-        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 200, width: 'calc(100% - 40px)', maxWidth: '600px', animation: 'fadeUp .3s ease' }}>
+        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 200, width: 'calc(100% - 40px)', maxWidth: '600px', animation: 'fadeUp .4s cubic-bezier(0.22,1,0.36,1)' }}>
           <button onClick={() => setCartOpen(true)} style={{ width: '100%', padding: '17px 24px', borderRadius: '18px', border: 'none', background: A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: `0 8px 28px ${A}45` }}>
             <span>{totalQty} item dipilih</span>
             <span style={{ fontFamily: MONO }}>Rp {fmt(total)} →</span>
@@ -607,8 +580,8 @@ export default function SelfOrderPage() {
       {/* Cart Sheet */}
       {cartOpen && (
         <>
-          <div onClick={() => setCartOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '80dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
+          <div onClick={() => setCartOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)', animation: 'fadeIn .25s ease' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '80dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .45s cubic-bezier(0.22,1,0.36,1)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
               <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: '#E5E7EB' }} />
             </div>
@@ -648,8 +621,8 @@ export default function SelfOrderPage() {
       {/* Checkout Sheet */}
       {checkoutOpen && (
         <>
-          <div onClick={() => setCheckoutOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .3s cubic-bezier(.4,0,.2,1)' }}>
+          <div onClick={() => setCheckoutOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 300, backdropFilter: 'blur(4px)', animation: 'fadeIn .25s ease' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 400, width: '100%', maxWidth: '640px', background: PAPER2, borderRadius: '24px 24px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', animation: 'slideUp .45s cubic-bezier(0.22,1,0.36,1)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
               <div style={{ width: '36px', height: '3px', borderRadius: '2px', background: '#E5E7EB' }} />
             </div>
@@ -687,9 +660,8 @@ export default function SelfOrderPage() {
               <div style={{ marginBottom: '8px' }}>
                 <label htmlFor="paymentMethod" style={{ fontSize: '11px', fontWeight: '600', color: GRAY2, display: 'block', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Metode Pembayaran</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {[{ value: 'QRIS', emoji: '📱', label: 'QRIS' }, { value: 'CASH', emoji: '💵', label: 'Tunai di Kasir' }].map(m => (
-                    <button key={m.value} onClick={() => setPaymentMethod(m.value)} style={{ padding: '12px 6px', borderRadius: '12px', border: `1.5px solid ${paymentMethod === m.value ? A : HAIRLINE}`, background: paymentMethod === m.value ? AL : PAPER2, color: paymentMethod === m.value ? A : TEXT2, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', transition: 'all .15s', boxShadow: paymentMethod === m.value ? `0 2px 10px ${A}25` : 'none' }}>
-                      <span style={{ fontSize: '20px' }}>{m.emoji}</span>
+                  {[{ value: 'QRIS', label: 'QRIS' }, { value: 'CASH', label: 'Tunai di Kasir' }].map(m => (
+                    <button key={m.value} onClick={() => setPaymentMethod(m.value)} style={{ padding: '12px 6px', borderRadius: '12px', border: `1.5px solid ${paymentMethod === m.value ? A : HAIRLINE}`, background: paymentMethod === m.value ? AL : PAPER2, color: paymentMethod === m.value ? A : TEXT2, fontWeight: '700', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', boxShadow: paymentMethod === m.value ? `0 2px 10px ${A}25` : 'none' }}>
                       {m.label}
                     </button>
                   ))}
@@ -708,7 +680,7 @@ export default function SelfOrderPage() {
                 <span style={{ fontSize: '24px', fontWeight: '900', color: A, fontFamily: MONO }}>Rp {fmt(total)}</span>
               </div>
               <button onClick={handleSubmitOrder} disabled={submitting} style={{ width: '100%', padding: '17px', borderRadius: '14px', border: 'none', background: submitting ? '#D1D5DB' : A, color: '#fff', fontSize: '15px', fontWeight: '800', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: submitting ? 'none' : `0 6px 20px ${A}40`, transition: 'all .2s' }}>
-                {submitting ? '⏳ Mengirim...' : '🛎️ Kirim Pesanan'}
+                {submitting ? 'Mengirim...' : 'Kirim Pesanan'}
               </button>
             </div>
           </div>

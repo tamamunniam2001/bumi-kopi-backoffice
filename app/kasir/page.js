@@ -39,6 +39,8 @@ export default function KasirPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [selfOrders, setSelfOrders] = useState([])
   const [selfOrderAlert, setSelfOrderAlert] = useState(null)
+  const [paidOrders, setPaidOrders] = useState([])
+  const [paidOrderAlert, setPaidOrderAlert] = useState(null)
   const [selfOrdersExpanded, setSelfOrdersExpanded] = useState(true)
   const [approvingId, setApprovingId] = useState(null)
   const notifIntervalRef = useRef(null)
@@ -58,11 +60,8 @@ export default function KasirPage() {
   }, [])
 
   const startNotifLoop = useCallback(() => {
-    // Hentikan loop lama jika ada
     if (notifIntervalRef.current) clearInterval(notifIntervalRef.current)
-    // Bunyi langsung sekali
     playNotif()
-    // Lanjut bunyi setiap 2.5 detik
     notifIntervalRef.current = setInterval(playNotif, 2500)
   }, [playNotif])
 
@@ -72,6 +71,15 @@ export default function KasirPage() {
       notifIntervalRef.current = null
     }
   }, [])
+
+  // Restart loop jika masih ada alert yang belum dikonfirmasi
+  const restartIfNeeded = useCallback((remainingSelfOrders, remainingPaidOrders) => {
+    if (remainingSelfOrders.length > 0 || remainingPaidOrders.length > 0) {
+      startNotifLoop()
+    } else {
+      stopNotifLoop()
+    }
+  }, [startNotifLoop, stopNotifLoop])
 
   // Bersihkan saat unmount
   useEffect(() => () => stopNotifLoop(), [stopNotifLoop])
@@ -181,8 +189,18 @@ export default function KasirPage() {
               const ids = new Set(prev.map(o => o.id))
               const newOnes = data.orders.filter(o => !ids.has(o.id))
               if (!newOnes.length) return prev
-              try { startNotifLoop() } catch {}
+              startNotifLoop()
               setSelfOrderAlert(newOnes[0])
+              return [...newOnes, ...prev]
+            })
+          }
+          if (data.type === 'PAID_ORDERS' && data.orders?.length) {
+            setPaidOrders(prev => {
+              const ids = new Set(prev.map(o => o.id))
+              const newOnes = data.orders.filter(o => !ids.has(o.id))
+              if (!newOnes.length) return prev
+              startNotifLoop()
+              setPaidOrderAlert(newOnes[0])
               return [...newOnes, ...prev]
             })
           }
@@ -195,18 +213,26 @@ export default function KasirPage() {
   }, [])
 
   async function approveSelfOrder(id, status) {
-    stopNotifLoop()
     setApprovingId(id)
     try {
       await api.patch(`/self-orders/${id}`, { status })
       setSelfOrders(prev => {
         const remaining = prev.filter(o => o.id !== id)
-        if (remaining.length > 0) startNotifLoop()
+        restartIfNeeded(remaining, paidOrders)
         return remaining
       })
       if (selfOrderAlert?.id === id) setSelfOrderAlert(null)
     } catch (e) { alert(e.response?.data?.message || 'Gagal') }
     finally { setApprovingId(null) }
+  }
+
+  function dismissPaidOrder(id) {
+    setPaidOrders(prev => {
+      const remaining = prev.filter(o => o.id !== id)
+      restartIfNeeded(selfOrders, remaining)
+      return remaining
+    })
+    if (paidOrderAlert?.id === id) setPaidOrderAlert(null)
   }
 
   function toggleServed(orderId, currentServedAt) {
@@ -278,13 +304,12 @@ export default function KasirPage() {
         <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999, width: '320px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '2px solid #C8935A', overflow: 'hidden' }}>
           <div style={{ background: 'linear-gradient(135deg,#C8935A,#A0682F)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
-              <span style={{ fontSize: '20px' }}>🛎️</span>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: '800' }}>Self Order Baru!</div>
                 <div style={{ fontSize: '11px', opacity: 0.85 }}>#{selfOrderAlert.orderNo}</div>
               </div>
             </div>
-            <button onClick={() => { stopNotifLoop(); setSelfOrderAlert(null) }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
+            <button onClick={() => setSelfOrderAlert(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
           </div>
           <div style={{ padding: '12px 16px' }}>
             <div style={{ fontSize: '13px', fontWeight: '700', color: '#1A0F00', marginBottom: '4px' }}>
@@ -299,6 +324,29 @@ export default function KasirPage() {
               <button onClick={() => approveSelfOrder(selfOrderAlert.id, 'APPROVED')} disabled={approvingId === selfOrderAlert.id}
                 style={{ flex: 2, padding: '8px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#C8935A,#A0682F)', color: '#fff', fontSize: '12px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>✓ Konfirmasi</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert popup order sudah dibayar */}
+      {paidOrderAlert && (
+        <div style={{ position: 'fixed', top: selfOrderAlert ? '180px' : '16px', right: '16px', zIndex: 9999, width: '320px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '2px solid #059669', overflow: 'hidden', transition: 'top .3s ease' }}>
+          <div style={{ background: 'linear-gradient(135deg,#059669,#047857)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ color: '#fff' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800' }}>Pembayaran Diterima!</div>
+              <div style={{ fontSize: '11px', opacity: 0.85 }}>#{paidOrderAlert.orderNo}</div>
+            </div>
+            <button onClick={() => dismissPaidOrder(paidOrderAlert.id)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '4px 8px', fontSize: '16px' }}>×</button>
+          </div>
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#1A0F00', marginBottom: '4px' }}>
+              {paidOrderAlert.customerName || 'Pelanggan'}{paidOrderAlert.tableNo ? ` · Meja ${paidOrderAlert.tableNo}` : ''}
+            </div>
+            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '10px' }}>
+              {paidOrderAlert.items?.length} item · Rp {fmt(paidOrderAlert.total)}
+            </div>
+            <button onClick={() => dismissPaidOrder(paidOrderAlert.id)}
+              style={{ width: '100%', padding: '8px', borderRadius: '9px', border: 'none', background: 'linear-gradient(135deg,#059669,#047857)', color: '#fff', fontSize: '12px', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit' }}>✓ Siap Diproses</button>
           </div>
         </div>
       )}

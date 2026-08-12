@@ -34,7 +34,8 @@ export async function POST(req) {
         customerName: customerName || '',
         note: note || '',
         total,
-        status: 'APPROVED',
+        status: 'PENDING',
+        paymentMethod: body.paymentMethod || 'QRIS',
         items: {
           create: items.map((i) => ({
             productId: i.productId || null,
