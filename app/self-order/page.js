@@ -471,8 +471,7 @@ export default function SelfOrderPage() {
         {phoneStep === 'phone' ? (
           <form onSubmit={handlePhoneSubmit}>
             <div style={{ marginBottom: '8px', fontSize: '15px', fontWeight: '700', color: INK }}>Masukkan nomor telepon kamu</div>
-            <div style={{ fontSize: '12px', color: GRAY2, marginBottom: '20px' }}>Untuk menyimpan riwayat pesananmu</div>
-            <input
+             <input
               type="tel" value={phoneInput} onChange={e => { setPhoneInput(e.target.value); setPhoneError('') }}
               placeholder="08xxxxxxxxxx" autoFocus
               style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: `1.5px solid ${phoneError ? '#EF4444' : HAIRLINE}`, background: PAPER2, color: INK, fontSize: '16px', fontFamily: 'inherit', marginBottom: '8px' }}
