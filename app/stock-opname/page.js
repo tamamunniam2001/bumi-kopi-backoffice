@@ -52,6 +52,38 @@ export default function StockOpnamePage() {
 
   const [syncing, setSyncing] = useState(false)
 
+  function downloadOpnameListCSV() {
+    const rows = [['Tanggal', 'Oleh', 'Total Item', 'Selisih', 'Status', 'Total Nilai', 'Catatan']]
+    opnames.forEach(o => rows.push([
+      fmtDate(o.date), o.user?.name || '', o.totalItems, o.itemsSelisih,
+      o.status, o.totalNilai || 0, o.note || ''
+    ]))
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = `stock_opname_${new Date().toISOString().slice(0,10)}.csv`; a.click()
+  }
+
+  function downloadOpnameDetailCSV() {
+    const rows = [['Nama Barang', 'Kategori', 'Stok Sebelumnya', 'Satuan', 'Qty Aktual', 'Harga Satuan', 'Nilai Stok', 'Catatan']]
+    detail.items.forEach(item => {
+      const satuan = (item.satuanOpname && item.konversi) ? item.satuanOpname : (item.inventoryItem?.satuan || item.satuan || '')
+      const qtyTampil = (item.satuanOpname && item.konversi) ? item.qtyActual / item.konversi : item.qtyActual
+      const qtySebelumnya = (item.satuanOpname && item.konversi && item.qtySebelumnya != null) ? item.qtySebelumnya / item.konversi : (item.qtySebelumnya ?? '')
+      const harga = item.hargaTerakhir || 0
+      const nilai = item.qtyActual * harga
+      rows.push([
+        item.inventoryItem?.name || item.itemName || '',
+        item.inventoryItem?.category || item.expenseItem?.category || '',
+        qtySebelumnya, satuan, qtyTampil, harga, nilai, item.note || ''
+      ])
+    })
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = `opname_${new Date(detail.date).toISOString().slice(0,10)}.csv`; a.click()
+  }
+
   async function handleSendWA() {
     const targets = []
     if (waTargets.admin && process.env.NEXT_PUBLIC_WA_ADMIN_NUMBER) targets.push(process.env.NEXT_PUBLIC_WA_ADMIN_NUMBER)
@@ -286,6 +318,10 @@ export default function StockOpnamePage() {
                   </button>
                 </>
               )}
+              <button className="btn btn-ghost" onClick={downloadOpnameDetailCSV} disabled={!detail}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+              </button>
               {detail && !isDraft && (
                 <button className="btn btn-ghost" onClick={handleReopen} disabled={reopening}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -597,6 +633,10 @@ export default function StockOpnamePage() {
             <div className="topbar-title">Stock Opname</div>
             <div className="topbar-sub">{total} opname tercatat</div>
           </div>
+          <button className="btn btn-ghost" onClick={downloadOpnameListCSV} disabled={opnames.length === 0}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Buat Opname
