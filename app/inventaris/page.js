@@ -102,6 +102,22 @@ export default function InventarisPage() {
     } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus') }
   }
 
+  function downloadCSV() {
+    const header = 'Nama,Qty,Satuan,Kategori,Catatan'
+    const rows = filtered.map(i => [
+      `"${(i.name || '').replace(/"/g, '""')}"`,
+      i.qty,
+      `"${(i.satuan || '').replace(/"/g, '""')}"`,
+      `"${(i.category || '').replace(/"/g, '""')}"`,
+      `"${(i.note || '').replace(/"/g, '""')}"`,
+    ].join(','))
+    const blob = new Blob([`\uFEFF${header}\n${rows.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `inventaris-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+  }
+
   function downloadTemplate() {
     const blob = new Blob(['\uFEFFNama,Qty,Satuan,Kategori,URL Foto,Catatan\nMeja Kayu,4,pcs,Furnitur,,\nKursi Besi,12,pcs,Furnitur,,\n'], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'template-inventaris.csv'; a.click()
@@ -151,6 +167,10 @@ export default function InventarisPage() {
                 Hapus {selected.size}
               </button>
             )}
+            <button className="btn btn-ghost" onClick={downloadCSV} disabled={filtered.length === 0}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
             <button className="btn btn-ghost" onClick={downloadTemplate}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Template
