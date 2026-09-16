@@ -304,10 +304,10 @@ model StockOpnameItem {
 
 model ReceiptSettings {
   id          String   @id @default("singleton")
-  storeName   String   @default("HUMBL")
+  storeName   String   @default("BUMI KOPI")
   tagline     String   @default("Struk Pembayaran")
   footer      String   @default("Terima kasih sudah berkunjung!")
-  footer2     String   @default("Humbl")
+  footer2     String   @default("Bumi Kopi")
   footer3     String   @default("")
   footer4     String   @default("")
   footer5     String   @default("")
